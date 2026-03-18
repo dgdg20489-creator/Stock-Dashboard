@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "토스 증권 대시보드"
+version = "1.0.0"
+id = "artifacts/toss-stocks"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 26236
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/toss-stocks run dev"
+
+[services.env]
+PORT = "26236"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/toss-stocks", "run", "build"]
+publicDir = "artifacts/toss-stocks/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

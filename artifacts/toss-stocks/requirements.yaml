@@ -1,0 +1,9 @@
+packages:
+  "recharts": "Used for the interactive stock price history line/area charts"
+  "framer-motion": "Used for premium page transitions and bottom-sheet modal animations"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility to resolve conflicting Tailwind CSS classes"
+
+notes:
+  - "Assuming React Query hooks are fully functional from @workspace/api-client-react"
+  - "Pretendard font is imported via CDN in index.css"

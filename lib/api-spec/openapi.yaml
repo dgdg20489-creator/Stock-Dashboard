@@ -1,15 +1,16 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Toss Securities Stock Dashboard API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: stocks
+    description: Stock operations
 paths:
   /healthz:
     get:
@@ -24,6 +25,83 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /stocks:
+    get:
+      operationId: getStocks
+      tags: [stocks]
+      summary: Get all stocks
+      description: Returns a list of stock information with current prices
+      responses:
+        "200":
+          description: List of stocks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Stock"
+  /stocks/{ticker}:
+    get:
+      operationId: getStockByTicker
+      tags: [stocks]
+      summary: Get stock by ticker
+      description: Returns detailed information for a specific stock
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Stock details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockDetail"
+        "404":
+          description: Stock not found
+  /stocks/{ticker}/history:
+    get:
+      operationId: getStockHistory
+      tags: [stocks]
+      summary: Get stock price history
+      description: Returns historical price data for a stock
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [1d, 1w, 1m, 3m, 1y]
+            default: 1m
+      responses:
+        "200":
+          description: Stock price history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PricePoint"
+  /market/summary:
+    get:
+      operationId: getMarketSummary
+      tags: [stocks]
+      summary: Get market summary
+      description: Returns summary of major market indices
+      responses:
+        "200":
+          description: Market summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketSummary"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +111,137 @@ components:
           type: string
       required:
         - status
-
+    Stock:
+      type: object
+      properties:
+        ticker:
+          type: string
+        name:
+          type: string
+        currentPrice:
+          type: number
+        change:
+          type: number
+        changePercent:
+          type: number
+        volume:
+          type: number
+        marketCap:
+          type: number
+        sector:
+          type: string
+      required:
+        - ticker
+        - name
+        - currentPrice
+        - change
+        - changePercent
+        - volume
+        - marketCap
+        - sector
+    StockDetail:
+      type: object
+      properties:
+        ticker:
+          type: string
+        name:
+          type: string
+        currentPrice:
+          type: number
+        change:
+          type: number
+        changePercent:
+          type: number
+        volume:
+          type: number
+        marketCap:
+          type: number
+        sector:
+          type: string
+        high52w:
+          type: number
+        low52w:
+          type: number
+        per:
+          type: number
+        pbr:
+          type: number
+        eps:
+          type: number
+        dividendYield:
+          type: number
+      required:
+        - ticker
+        - name
+        - currentPrice
+        - change
+        - changePercent
+        - volume
+        - marketCap
+        - sector
+        - high52w
+        - low52w
+        - per
+        - pbr
+        - eps
+        - dividendYield
+    PricePoint:
+      type: object
+      properties:
+        date:
+          type: string
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        volume:
+          type: number
+      required:
+        - date
+        - open
+        - high
+        - low
+        - close
+        - volume
+    MarketSummary:
+      type: object
+      properties:
+        kospi:
+          $ref: "#/components/schemas/IndexData"
+        kosdaq:
+          $ref: "#/components/schemas/IndexData"
+        usdKrw:
+          $ref: "#/components/schemas/IndexData"
+        sp500:
+          $ref: "#/components/schemas/IndexData"
+        nasdaq:
+          $ref: "#/components/schemas/IndexData"
+        updatedAt:
+          type: string
+      required:
+        - kospi
+        - kosdaq
+        - usdKrw
+        - sp500
+        - nasdaq
+        - updatedAt
+    IndexData:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: number
+        change:
+          type: number
+        changePercent:
+          type: number
+      required:
+        - name
+        - value
+        - change
+        - changePercent

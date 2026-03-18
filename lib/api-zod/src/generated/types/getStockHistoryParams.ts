@@ -5,7 +5,8 @@
  * Toss Securities Stock Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { GetStockHistoryPeriod } from "./getStockHistoryPeriod";
 
-export interface HealthStatus {
-  status: string;
-}
+export type GetStockHistoryParams = {
+  period?: GetStockHistoryPeriod;
+};
