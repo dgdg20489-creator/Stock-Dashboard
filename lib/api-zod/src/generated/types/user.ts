@@ -5,6 +5,7 @@
  * Toss Securities Stock Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { UserEquippedItems } from "./userEquippedItems";
 
 export interface User {
   id: number;
@@ -16,5 +17,7 @@ export interface User {
   totalAssets: number;
   totalReturn: number;
   totalReturnPercent: number;
+  accessories: string[];
+  equippedItems: UserEquippedItems;
   createdAt: string;
 }

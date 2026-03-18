@@ -97,6 +97,8 @@ export interface CreateUserRequest {
   difficulty: CreateUserRequestDifficulty;
 }
 
+export type UserEquippedItems = { [key: string]: string };
+
 export interface User {
   id: number;
   username: string;
@@ -107,6 +109,8 @@ export interface User {
   totalAssets: number;
   totalReturn: number;
   totalReturnPercent: number;
+  accessories: string[];
+  equippedItems: UserEquippedItems;
   createdAt: string;
 }
 
@@ -128,6 +132,8 @@ export interface Portfolio {
   totalReturn: number;
   totalReturnPercent: number;
   holdings: Holding[];
+  promoted?: boolean;
+  newDifficulty?: string;
 }
 
 export type TradeType = (typeof TradeType)[keyof typeof TradeType];
@@ -188,6 +194,62 @@ export interface RankingEntry {
   totalReturnPercent: number;
 }
 
+export type ShopItemSlot = (typeof ShopItemSlot)[keyof typeof ShopItemSlot];
+
+export const ShopItemSlot = {
+  head: "head",
+  face: "face",
+  neck: "neck",
+  hands: "hands",
+  top: "top",
+  bottom: "bottom",
+} as const;
+
+export type ShopItemDifficulty =
+  (typeof ShopItemDifficulty)[keyof typeof ShopItemDifficulty];
+
+export const ShopItemDifficulty = {
+  beginner: "beginner",
+  intermediate: "intermediate",
+  expert: "expert",
+} as const;
+
+export interface ShopItem {
+  id: string;
+  name: string;
+  emoji: string;
+  slot: ShopItemSlot;
+  difficulty: ShopItemDifficulty;
+  price: number;
+  description: string;
+  owned: boolean;
+  unlocked: boolean;
+}
+
+export interface BuyItemRequest {
+  userId: number;
+  itemId: string;
+}
+
+export interface BuyItemResponse {
+  success: boolean;
+  message: string;
+  newCashBalance: number;
+  accessories: string[];
+}
+
+export interface EquipItemsRequest {
+  slot: string;
+  itemId?: string | null;
+}
+
+export type EquipItemsResponseEquippedItems = { [key: string]: string };
+
+export interface EquipItemsResponse {
+  success: boolean;
+  equippedItems: EquipItemsResponseEquippedItems;
+}
+
 export type GetStockHistoryParams = {
   period?: GetStockHistoryPeriod;
 };
@@ -216,3 +278,7 @@ export const GetRankingsDifficulty = {
   expert: "expert",
   all: "all",
 } as const;
+
+export type GetShopItemsParams = {
+  userId: number;
+};

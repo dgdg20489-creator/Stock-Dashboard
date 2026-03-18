@@ -17,6 +17,8 @@ tags:
     description: Trade operations
   - name: rankings
     description: Ranking operations
+  - name: shop
+    description: Shop and avatar operations
 paths:
   /healthz:
     get:
@@ -199,6 +201,30 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Trade"
+  /users/{userId}/equip:
+    put:
+      operationId: equipItems
+      tags: [users]
+      summary: Equip or unequip an accessory
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EquipItemsRequest"
+      responses:
+        "200":
+          description: Equipped items updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EquipItemsResponse"
   /trades:
     post:
       operationId: executeTrade
@@ -245,6 +271,50 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/RankingEntry"
+  /shop:
+    get:
+      operationId: getShopItems
+      tags: [shop]
+      summary: Get all shop items with ownership status
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Shop items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShopItem"
+  /shop/buy:
+    post:
+      operationId: buyItem
+      tags: [shop]
+      summary: Purchase a shop item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuyItemRequest"
+      responses:
+        "200":
+          description: Item purchased
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuyItemResponse"
+        "400":
+          description: Purchase failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeError"
 components:
   schemas:
     HealthStatus:
@@ -455,6 +525,14 @@ components:
           type: number
         totalReturnPercent:
           type: number
+        accessories:
+          type: array
+          items:
+            type: string
+        equippedItems:
+          type: object
+          additionalProperties:
+            type: string
         createdAt:
           type: string
       required:
@@ -467,6 +545,8 @@ components:
         - totalAssets
         - totalReturn
         - totalReturnPercent
+        - accessories
+        - equippedItems
         - createdAt
     Portfolio:
       type: object
@@ -485,6 +565,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Holding"
+        promoted:
+          type: boolean
+        newDifficulty:
+          type: string
       required:
         - userId
         - cashBalance
@@ -626,3 +710,86 @@ components:
         - totalAssets
         - totalReturn
         - totalReturnPercent
+    ShopItem:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        emoji:
+          type: string
+        slot:
+          type: string
+          enum: [head, face, neck, hands, top, bottom]
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, expert]
+        price:
+          type: integer
+        description:
+          type: string
+        owned:
+          type: boolean
+        unlocked:
+          type: boolean
+      required:
+        - id
+        - name
+        - emoji
+        - slot
+        - difficulty
+        - price
+        - description
+        - owned
+        - unlocked
+    BuyItemRequest:
+      type: object
+      properties:
+        userId:
+          type: integer
+        itemId:
+          type: string
+      required:
+        - userId
+        - itemId
+    BuyItemResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        newCashBalance:
+          type: number
+        accessories:
+          type: array
+          items:
+            type: string
+      required:
+        - success
+        - message
+        - newCashBalance
+        - accessories
+    EquipItemsRequest:
+      type: object
+      properties:
+        slot:
+          type: string
+        itemId:
+          type: string
+          nullable: true
+      required:
+        - slot
+    EquipItemsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        equippedItems:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - success
+        - equippedItems

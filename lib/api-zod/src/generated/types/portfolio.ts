@@ -14,4 +14,6 @@ export interface Portfolio {
   totalReturn: number;
   totalReturnPercent: number;
   holdings: Holding[];
+  promoted?: boolean;
+  newDifficulty?: string;
 }

@@ -161,6 +161,8 @@ export const GetUserResponse = zod.object({
   totalAssets: zod.number(),
   totalReturn: zod.number(),
   totalReturnPercent: zod.number(),
+  accessories: zod.array(zod.string()),
+  equippedItems: zod.record(zod.string(), zod.string()),
   createdAt: zod.string(),
 });
 
@@ -189,6 +191,8 @@ export const GetUserPortfolioResponse = zod.object({
       profitLossPercent: zod.number(),
     }),
   ),
+  promoted: zod.boolean().optional(),
+  newDifficulty: zod.string().optional(),
 });
 
 /**
@@ -210,6 +214,23 @@ export const GetUserTradesResponseItem = zod.object({
   createdAt: zod.string(),
 });
 export const GetUserTradesResponse = zod.array(GetUserTradesResponseItem);
+
+/**
+ * @summary Equip or unequip an accessory
+ */
+export const EquipItemsParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const EquipItemsBody = zod.object({
+  slot: zod.string(),
+  itemId: zod.string().nullish(),
+});
+
+export const EquipItemsResponse = zod.object({
+  success: zod.boolean(),
+  equippedItems: zod.record(zod.string(), zod.string()),
+});
 
 /**
  * @summary Execute a buy or sell trade
@@ -261,3 +282,38 @@ export const GetRankingsResponseItem = zod.object({
   totalReturnPercent: zod.number(),
 });
 export const GetRankingsResponse = zod.array(GetRankingsResponseItem);
+
+/**
+ * @summary Get all shop items with ownership status
+ */
+export const GetShopItemsQueryParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const GetShopItemsResponseItem = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  emoji: zod.string(),
+  slot: zod.enum(["head", "face", "neck", "hands", "top", "bottom"]),
+  difficulty: zod.enum(["beginner", "intermediate", "expert"]),
+  price: zod.number(),
+  description: zod.string(),
+  owned: zod.boolean(),
+  unlocked: zod.boolean(),
+});
+export const GetShopItemsResponse = zod.array(GetShopItemsResponseItem);
+
+/**
+ * @summary Purchase a shop item
+ */
+export const BuyItemBody = zod.object({
+  userId: zod.number(),
+  itemId: zod.string(),
+});
+
+export const BuyItemResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
+  newCashBalance: zod.number(),
+  accessories: zod.array(zod.string()),
+});

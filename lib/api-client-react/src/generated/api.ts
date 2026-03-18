@@ -17,9 +17,14 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  BuyItemRequest,
+  BuyItemResponse,
   CreateUserRequest,
+  EquipItemsRequest,
+  EquipItemsResponse,
   ExecuteTradeRequest,
   GetRankingsParams,
+  GetShopItemsParams,
   GetStockHistoryParams,
   HealthStatus,
   MarketSummary,
@@ -27,6 +32,7 @@ import type {
   Portfolio,
   PricePoint,
   RankingEntry,
+  ShopItem,
   Stock,
   StockDetail,
   Trade,
@@ -885,6 +891,93 @@ export function useGetUserTrades<
 }
 
 /**
+ * @summary Equip or unequip an accessory
+ */
+export const getEquipItemsUrl = (userId: number) => {
+  return `/api/users/${userId}/equip`;
+};
+
+export const equipItems = async (
+  userId: number,
+  equipItemsRequest: EquipItemsRequest,
+  options?: RequestInit,
+): Promise<EquipItemsResponse> => {
+  return customFetch<EquipItemsResponse>(getEquipItemsUrl(userId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(equipItemsRequest),
+  });
+};
+
+export const getEquipItemsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof equipItems>>,
+    TError,
+    { userId: number; data: BodyType<EquipItemsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof equipItems>>,
+  TError,
+  { userId: number; data: BodyType<EquipItemsRequest> },
+  TContext
+> => {
+  const mutationKey = ["equipItems"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof equipItems>>,
+    { userId: number; data: BodyType<EquipItemsRequest> }
+  > = (props) => {
+    const { userId, data } = props ?? {};
+
+    return equipItems(userId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EquipItemsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof equipItems>>
+>;
+export type EquipItemsMutationBody = BodyType<EquipItemsRequest>;
+export type EquipItemsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Equip or unequip an accessory
+ */
+export const useEquipItems = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof equipItems>>,
+    TError,
+    { userId: number; data: BodyType<EquipItemsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof equipItems>>,
+  TError,
+  { userId: number; data: BodyType<EquipItemsRequest> },
+  TContext
+> => {
+  return useMutation(getEquipItemsMutationOptions(options));
+};
+
+/**
  * @summary Execute a buy or sell trade
  */
 export const getExecuteTradeUrl = () => {
@@ -1063,3 +1156,183 @@ export function useGetRankings<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get all shop items with ownership status
+ */
+export const getGetShopItemsUrl = (params: GetShopItemsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/shop?${stringifiedParams}`
+    : `/api/shop`;
+};
+
+export const getShopItems = async (
+  params: GetShopItemsParams,
+  options?: RequestInit,
+): Promise<ShopItem[]> => {
+  return customFetch<ShopItem[]>(getGetShopItemsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetShopItemsQueryKey = (params?: GetShopItemsParams) => {
+  return [`/api/shop`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetShopItemsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getShopItems>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetShopItemsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getShopItems>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetShopItemsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getShopItems>>> = ({
+    signal,
+  }) => getShopItems(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getShopItems>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetShopItemsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getShopItems>>
+>;
+export type GetShopItemsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all shop items with ownership status
+ */
+
+export function useGetShopItems<
+  TData = Awaited<ReturnType<typeof getShopItems>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetShopItemsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getShopItems>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetShopItemsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Purchase a shop item
+ */
+export const getBuyItemUrl = () => {
+  return `/api/shop/buy`;
+};
+
+export const buyItem = async (
+  buyItemRequest: BuyItemRequest,
+  options?: RequestInit,
+): Promise<BuyItemResponse> => {
+  return customFetch<BuyItemResponse>(getBuyItemUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(buyItemRequest),
+  });
+};
+
+export const getBuyItemMutationOptions = <
+  TError = ErrorType<TradeError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof buyItem>>,
+    TError,
+    { data: BodyType<BuyItemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof buyItem>>,
+  TError,
+  { data: BodyType<BuyItemRequest> },
+  TContext
+> => {
+  const mutationKey = ["buyItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof buyItem>>,
+    { data: BodyType<BuyItemRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return buyItem(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BuyItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof buyItem>>
+>;
+export type BuyItemMutationBody = BodyType<BuyItemRequest>;
+export type BuyItemMutationError = ErrorType<TradeError>;
+
+/**
+ * @summary Purchase a shop item
+ */
+export const useBuyItem = <
+  TError = ErrorType<TradeError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof buyItem>>,
+    TError,
+    { data: BodyType<BuyItemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof buyItem>>,
+  TError,
+  { data: BodyType<BuyItemRequest> },
+  TContext
+> => {
+  return useMutation(getBuyItemMutationOptions(options));
+};

@@ -9,12 +9,16 @@ export const usersTable = pgTable("users", {
   difficulty: text("difficulty").notNull(),
   seedMoney: numeric("seed_money", { precision: 18, scale: 2 }).notNull(),
   cashBalance: numeric("cash_balance", { precision: 18, scale: 2 }).notNull(),
+  accessories: text("accessories").notNull().default("[]"),
+  equippedItems: text("equipped_items").notNull().default("{}"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({
   id: true,
   createdAt: true,
+  accessories: true,
+  equippedItems: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;

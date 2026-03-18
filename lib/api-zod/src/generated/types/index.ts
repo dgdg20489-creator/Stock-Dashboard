@@ -6,13 +6,19 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./buyItemRequest";
+export * from "./buyItemResponse";
 export * from "./createUserRequest";
 export * from "./createUserRequestAvatar";
 export * from "./createUserRequestDifficulty";
+export * from "./equipItemsRequest";
+export * from "./equipItemsResponse";
+export * from "./equipItemsResponseEquippedItems";
 export * from "./executeTradeRequest";
 export * from "./executeTradeRequestType";
 export * from "./getRankingsDifficulty";
 export * from "./getRankingsParams";
+export * from "./getShopItemsParams";
 export * from "./getStockHistoryParams";
 export * from "./getStockHistoryPeriod";
 export * from "./healthStatus";
@@ -23,6 +29,9 @@ export * from "./newsItem";
 export * from "./portfolio";
 export * from "./pricePoint";
 export * from "./rankingEntry";
+export * from "./shopItem";
+export * from "./shopItemDifficulty";
+export * from "./shopItemSlot";
 export * from "./stock";
 export * from "./stockDetail";
 export * from "./trade";
@@ -30,3 +39,4 @@ export * from "./tradeError";
 export * from "./tradeResult";
 export * from "./tradeType";
 export * from "./user";
+export * from "./userEquippedItems";
