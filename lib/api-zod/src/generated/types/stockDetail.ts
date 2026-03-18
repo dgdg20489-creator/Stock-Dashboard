@@ -21,4 +21,7 @@ export interface StockDetail {
   pbr: number;
   eps: number;
   dividendYield: number;
+  openPrice: number;
+  highPrice: number;
+  lowPrice: number;
 }

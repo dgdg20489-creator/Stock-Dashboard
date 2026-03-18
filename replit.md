@@ -16,12 +16,46 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Project: 토스증권 모의투자 대시보드
+
+Korean stock mock-trading dashboard in Toss Securities style.
+
+**Features:**
+- Difficulty selection (초보/중수/고수) with 1000만/500만/100만 KRW seed money
+- Real-time simulated stock prices (10 Korean stocks + 5 US/indices)
+- Buy/sell trading with balance checks
+- Portfolio tracking with P&L
+- Ranked leaderboard (all / by difficulty)
+- Sidebar: avatar, portfolio summary, trade history
+- Pretendard font, white card design on #F2F4F6 background
+- Korean color convention: red=up (상승), blue=down (하락)
+
+**Artifacts:**
+- `artifacts/toss-stocks` — React + Vite frontend (`@workspace/toss-stocks`) at `/`
+- `artifacts/api-server` — Express 5 API server (`@workspace/api-server`) at port 8080
+
+**API Routes (all under `/api`):**
+- `GET /stocks` — stock list
+- `GET /stocks/:ticker` — stock detail
+- `GET /stocks/:ticker/history?period=1d|1w|1m|3m|1y` — price history
+- `GET /stocks/:ticker/news` — related news
+- `GET /market/summary` — KOSPI/KOSDAQ/USD-KRW/S&P500/NASDAQ
+- `POST /users` — create user
+- `GET /users/:id` — get user
+- `GET /users/:id/portfolio` — portfolio with holdings
+- `GET /users/:id/trades` — trade history
+- `POST /trades` — execute buy/sell
+- `GET /rankings?difficulty=all|beginner|intermediate|expert` — leaderboard
+
+**DB Tables:** `users`, `holdings`, `trades`
+
 ## Structure
 
 ```text
 artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+├── artifacts/
+│   ├── api-server/         # Express API server
+│   └── toss-stocks/        # React + Vite frontend
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks

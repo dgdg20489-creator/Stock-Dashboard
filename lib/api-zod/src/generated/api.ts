@@ -8,7 +8,6 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -16,7 +15,6 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Returns a list of stock information with current prices
  * @summary Get all stocks
  */
 export const GetStocksResponseItem = zod.object({
@@ -32,7 +30,6 @@ export const GetStocksResponseItem = zod.object({
 export const GetStocksResponse = zod.array(GetStocksResponseItem);
 
 /**
- * Returns detailed information for a specific stock
  * @summary Get stock by ticker
  */
 export const GetStockByTickerParams = zod.object({
@@ -54,10 +51,12 @@ export const GetStockByTickerResponse = zod.object({
   pbr: zod.number(),
   eps: zod.number(),
   dividendYield: zod.number(),
+  openPrice: zod.number(),
+  highPrice: zod.number(),
+  lowPrice: zod.number(),
 });
 
 /**
- * Returns historical price data for a stock
  * @summary Get stock price history
  */
 export const GetStockHistoryParams = zod.object({
@@ -83,7 +82,23 @@ export const GetStockHistoryResponseItem = zod.object({
 export const GetStockHistoryResponse = zod.array(GetStockHistoryResponseItem);
 
 /**
- * Returns summary of major market indices
+ * @summary Get stock related news
+ */
+export const GetStockNewsParams = zod.object({
+  ticker: zod.coerce.string(),
+});
+
+export const GetStockNewsResponseItem = zod.object({
+  id: zod.string(),
+  title: zod.string(),
+  summary: zod.string(),
+  source: zod.string(),
+  publishedAt: zod.string(),
+  url: zod.string(),
+});
+export const GetStockNewsResponse = zod.array(GetStockNewsResponseItem);
+
+/**
  * @summary Get market summary
  */
 export const GetMarketSummaryResponse = zod.object({
@@ -119,3 +134,130 @@ export const GetMarketSummaryResponse = zod.object({
   }),
   updatedAt: zod.string(),
 });
+
+/**
+ * @summary Create a new user
+ */
+export const CreateUserBody = zod.object({
+  username: zod.string(),
+  avatar: zod.enum(["male", "female"]),
+  difficulty: zod.enum(["beginner", "intermediate", "expert"]),
+});
+
+/**
+ * @summary Get user by ID
+ */
+export const GetUserParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const GetUserResponse = zod.object({
+  id: zod.number(),
+  username: zod.string(),
+  avatar: zod.string(),
+  difficulty: zod.string(),
+  seedMoney: zod.number(),
+  cashBalance: zod.number(),
+  totalAssets: zod.number(),
+  totalReturn: zod.number(),
+  totalReturnPercent: zod.number(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Get user portfolio
+ */
+export const GetUserPortfolioParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const GetUserPortfolioResponse = zod.object({
+  userId: zod.number(),
+  cashBalance: zod.number(),
+  totalAssets: zod.number(),
+  totalReturn: zod.number(),
+  totalReturnPercent: zod.number(),
+  holdings: zod.array(
+    zod.object({
+      ticker: zod.string(),
+      name: zod.string(),
+      shares: zod.number(),
+      avgPrice: zod.number(),
+      currentPrice: zod.number(),
+      evaluationAmount: zod.number(),
+      profitLoss: zod.number(),
+      profitLossPercent: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get user trade history
+ */
+export const GetUserTradesParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const GetUserTradesResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  ticker: zod.string(),
+  stockName: zod.string(),
+  type: zod.enum(["buy", "sell"]),
+  shares: zod.number(),
+  price: zod.number(),
+  totalAmount: zod.number(),
+  createdAt: zod.string(),
+});
+export const GetUserTradesResponse = zod.array(GetUserTradesResponseItem);
+
+/**
+ * @summary Execute a buy or sell trade
+ */
+export const ExecuteTradeBody = zod.object({
+  userId: zod.number(),
+  ticker: zod.string(),
+  type: zod.enum(["buy", "sell"]),
+  shares: zod.number(),
+});
+
+export const ExecuteTradeResponse = zod.object({
+  success: zod.boolean(),
+  trade: zod.object({
+    id: zod.number(),
+    userId: zod.number(),
+    ticker: zod.string(),
+    stockName: zod.string(),
+    type: zod.enum(["buy", "sell"]),
+    shares: zod.number(),
+    price: zod.number(),
+    totalAmount: zod.number(),
+    createdAt: zod.string(),
+  }),
+  newCashBalance: zod.number(),
+  message: zod.string(),
+});
+
+/**
+ * @summary Get rankings by difficulty
+ */
+export const getRankingsQueryDifficultyDefault = `all`;
+
+export const GetRankingsQueryParams = zod.object({
+  difficulty: zod
+    .enum(["beginner", "intermediate", "expert", "all"])
+    .default(getRankingsQueryDifficultyDefault),
+});
+
+export const GetRankingsResponseItem = zod.object({
+  rank: zod.number(),
+  userId: zod.number(),
+  username: zod.string(),
+  avatar: zod.string(),
+  difficulty: zod.string(),
+  seedMoney: zod.number(),
+  totalAssets: zod.number(),
+  totalReturn: zod.number(),
+  totalReturnPercent: zod.number(),
+});
+export const GetRankingsResponse = zod.array(GetRankingsResponseItem);

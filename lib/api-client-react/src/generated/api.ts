@@ -5,25 +5,38 @@
  * Toss Securities Stock Dashboard API
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
 import type {
+  CreateUserRequest,
+  ExecuteTradeRequest,
+  GetRankingsParams,
   GetStockHistoryParams,
   HealthStatus,
   MarketSummary,
+  NewsItem,
+  Portfolio,
   PricePoint,
+  RankingEntry,
   Stock,
   StockDetail,
+  Trade,
+  TradeError,
+  TradeResult,
+  User,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -32,7 +45,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -108,7 +120,6 @@ export function useHealthCheck<
 }
 
 /**
- * Returns a list of stock information with current prices
  * @summary Get all stocks
  */
 export const getGetStocksUrl = () => {
@@ -174,7 +185,6 @@ export function useGetStocks<
 }
 
 /**
- * Returns detailed information for a specific stock
  * @summary Get stock by ticker
  */
 export const getGetStockByTickerUrl = (ticker: string) => {
@@ -263,7 +273,6 @@ export function useGetStockByTicker<
 }
 
 /**
- * Returns historical price data for a stock
  * @summary Get stock price history
  */
 export const getGetStockHistoryUrl = (
@@ -376,7 +385,93 @@ export function useGetStockHistory<
 }
 
 /**
- * Returns summary of major market indices
+ * @summary Get stock related news
+ */
+export const getGetStockNewsUrl = (ticker: string) => {
+  return `/api/stocks/${ticker}/news`;
+};
+
+export const getStockNews = async (
+  ticker: string,
+  options?: RequestInit,
+): Promise<NewsItem[]> => {
+  return customFetch<NewsItem[]>(getGetStockNewsUrl(ticker), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStockNewsQueryKey = (ticker: string) => {
+  return [`/api/stocks/${ticker}/news`] as const;
+};
+
+export const getGetStockNewsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStockNews>>,
+  TError = ErrorType<unknown>,
+>(
+  ticker: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStockNews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetStockNewsQueryKey(ticker);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getStockNews>>> = ({
+    signal,
+  }) => getStockNews(ticker, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!ticker,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStockNews>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStockNewsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStockNews>>
+>;
+export type GetStockNewsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get stock related news
+ */
+
+export function useGetStockNews<
+  TData = Awaited<ReturnType<typeof getStockNews>>,
+  TError = ErrorType<unknown>,
+>(
+  ticker: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStockNews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStockNewsQueryOptions(ticker, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get market summary
  */
 export const getGetMarketSummaryUrl = () => {
@@ -443,6 +538,524 @@ export function useGetMarketSummary<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMarketSummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new user
+ */
+export const getCreateUserUrl = () => {
+  return `/api/users`;
+};
+
+export const createUser = async (
+  createUserRequest: CreateUserRequest,
+  options?: RequestInit,
+): Promise<User> => {
+  return customFetch<User>(getCreateUserUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createUserRequest),
+  });
+};
+
+export const getCreateUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createUser>>,
+    TError,
+    { data: BodyType<CreateUserRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createUser>>,
+  TError,
+  { data: BodyType<CreateUserRequest> },
+  TContext
+> => {
+  const mutationKey = ["createUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createUser>>,
+    { data: BodyType<CreateUserRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createUser(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createUser>>
+>;
+export type CreateUserMutationBody = BodyType<CreateUserRequest>;
+export type CreateUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new user
+ */
+export const useCreateUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createUser>>,
+    TError,
+    { data: BodyType<CreateUserRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createUser>>,
+  TError,
+  { data: BodyType<CreateUserRequest> },
+  TContext
+> => {
+  return useMutation(getCreateUserMutationOptions(options));
+};
+
+/**
+ * @summary Get user by ID
+ */
+export const getGetUserUrl = (userId: number) => {
+  return `/api/users/${userId}`;
+};
+
+export const getUser = async (
+  userId: number,
+  options?: RequestInit,
+): Promise<User> => {
+  return customFetch<User>(getGetUserUrl(userId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetUserQueryKey = (userId: number) => {
+  return [`/api/users/${userId}`] as const;
+};
+
+export const getGetUserQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUser>>,
+  TError = ErrorType<void>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getUser>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetUserQueryKey(userId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getUser>>> = ({
+    signal,
+  }) => getUser(userId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!userId,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getUser>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetUserQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUser>>
+>;
+export type GetUserQueryError = ErrorType<void>;
+
+/**
+ * @summary Get user by ID
+ */
+
+export function useGetUser<
+  TData = Awaited<ReturnType<typeof getUser>>,
+  TError = ErrorType<void>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getUser>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUserQueryOptions(userId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get user portfolio
+ */
+export const getGetUserPortfolioUrl = (userId: number) => {
+  return `/api/users/${userId}/portfolio`;
+};
+
+export const getUserPortfolio = async (
+  userId: number,
+  options?: RequestInit,
+): Promise<Portfolio> => {
+  return customFetch<Portfolio>(getGetUserPortfolioUrl(userId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetUserPortfolioQueryKey = (userId: number) => {
+  return [`/api/users/${userId}/portfolio`] as const;
+};
+
+export const getGetUserPortfolioQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUserPortfolio>>,
+  TError = ErrorType<unknown>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserPortfolio>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetUserPortfolioQueryKey(userId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getUserPortfolio>>
+  > = ({ signal }) => getUserPortfolio(userId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!userId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUserPortfolio>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUserPortfolioQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUserPortfolio>>
+>;
+export type GetUserPortfolioQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get user portfolio
+ */
+
+export function useGetUserPortfolio<
+  TData = Awaited<ReturnType<typeof getUserPortfolio>>,
+  TError = ErrorType<unknown>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserPortfolio>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUserPortfolioQueryOptions(userId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get user trade history
+ */
+export const getGetUserTradesUrl = (userId: number) => {
+  return `/api/users/${userId}/trades`;
+};
+
+export const getUserTrades = async (
+  userId: number,
+  options?: RequestInit,
+): Promise<Trade[]> => {
+  return customFetch<Trade[]>(getGetUserTradesUrl(userId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetUserTradesQueryKey = (userId: number) => {
+  return [`/api/users/${userId}/trades`] as const;
+};
+
+export const getGetUserTradesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUserTrades>>,
+  TError = ErrorType<unknown>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserTrades>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetUserTradesQueryKey(userId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserTrades>>> = ({
+    signal,
+  }) => getUserTrades(userId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!userId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUserTrades>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUserTradesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUserTrades>>
+>;
+export type GetUserTradesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get user trade history
+ */
+
+export function useGetUserTrades<
+  TData = Awaited<ReturnType<typeof getUserTrades>>,
+  TError = ErrorType<unknown>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserTrades>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUserTradesQueryOptions(userId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Execute a buy or sell trade
+ */
+export const getExecuteTradeUrl = () => {
+  return `/api/trades`;
+};
+
+export const executeTrade = async (
+  executeTradeRequest: ExecuteTradeRequest,
+  options?: RequestInit,
+): Promise<TradeResult> => {
+  return customFetch<TradeResult>(getExecuteTradeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(executeTradeRequest),
+  });
+};
+
+export const getExecuteTradeMutationOptions = <
+  TError = ErrorType<TradeError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof executeTrade>>,
+    TError,
+    { data: BodyType<ExecuteTradeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof executeTrade>>,
+  TError,
+  { data: BodyType<ExecuteTradeRequest> },
+  TContext
+> => {
+  const mutationKey = ["executeTrade"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof executeTrade>>,
+    { data: BodyType<ExecuteTradeRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return executeTrade(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExecuteTradeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof executeTrade>>
+>;
+export type ExecuteTradeMutationBody = BodyType<ExecuteTradeRequest>;
+export type ExecuteTradeMutationError = ErrorType<TradeError>;
+
+/**
+ * @summary Execute a buy or sell trade
+ */
+export const useExecuteTrade = <
+  TError = ErrorType<TradeError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof executeTrade>>,
+    TError,
+    { data: BodyType<ExecuteTradeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof executeTrade>>,
+  TError,
+  { data: BodyType<ExecuteTradeRequest> },
+  TContext
+> => {
+  return useMutation(getExecuteTradeMutationOptions(options));
+};
+
+/**
+ * @summary Get rankings by difficulty
+ */
+export const getGetRankingsUrl = (params?: GetRankingsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/rankings?${stringifiedParams}`
+    : `/api/rankings`;
+};
+
+export const getRankings = async (
+  params?: GetRankingsParams,
+  options?: RequestInit,
+): Promise<RankingEntry[]> => {
+  return customFetch<RankingEntry[]>(getGetRankingsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRankingsQueryKey = (params?: GetRankingsParams) => {
+  return [`/api/rankings`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetRankingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRankings>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetRankingsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRankings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRankingsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getRankings>>> = ({
+    signal,
+  }) => getRankings(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRankings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRankingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRankings>>
+>;
+export type GetRankingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get rankings by difficulty
+ */
+
+export function useGetRankings<
+  TData = Awaited<ReturnType<typeof getRankings>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetRankingsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRankings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRankingsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

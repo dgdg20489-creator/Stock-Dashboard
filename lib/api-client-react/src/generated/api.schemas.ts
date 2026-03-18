@@ -35,6 +35,9 @@ export interface StockDetail {
   pbr: number;
   eps: number;
   dividendYield: number;
+  openPrice: number;
+  highPrice: number;
+  lowPrice: number;
 }
 
 export interface PricePoint {
@@ -44,6 +47,15 @@ export interface PricePoint {
   low: number;
   close: number;
   volume: number;
+}
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  publishedAt: string;
+  url: string;
 }
 
 export interface IndexData {
@@ -62,6 +74,120 @@ export interface MarketSummary {
   updatedAt: string;
 }
 
+export type CreateUserRequestAvatar =
+  (typeof CreateUserRequestAvatar)[keyof typeof CreateUserRequestAvatar];
+
+export const CreateUserRequestAvatar = {
+  male: "male",
+  female: "female",
+} as const;
+
+export type CreateUserRequestDifficulty =
+  (typeof CreateUserRequestDifficulty)[keyof typeof CreateUserRequestDifficulty];
+
+export const CreateUserRequestDifficulty = {
+  beginner: "beginner",
+  intermediate: "intermediate",
+  expert: "expert",
+} as const;
+
+export interface CreateUserRequest {
+  username: string;
+  avatar: CreateUserRequestAvatar;
+  difficulty: CreateUserRequestDifficulty;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  avatar: string;
+  difficulty: string;
+  seedMoney: number;
+  cashBalance: number;
+  totalAssets: number;
+  totalReturn: number;
+  totalReturnPercent: number;
+  createdAt: string;
+}
+
+export interface Holding {
+  ticker: string;
+  name: string;
+  shares: number;
+  avgPrice: number;
+  currentPrice: number;
+  evaluationAmount: number;
+  profitLoss: number;
+  profitLossPercent: number;
+}
+
+export interface Portfolio {
+  userId: number;
+  cashBalance: number;
+  totalAssets: number;
+  totalReturn: number;
+  totalReturnPercent: number;
+  holdings: Holding[];
+}
+
+export type TradeType = (typeof TradeType)[keyof typeof TradeType];
+
+export const TradeType = {
+  buy: "buy",
+  sell: "sell",
+} as const;
+
+export interface Trade {
+  id: number;
+  userId: number;
+  ticker: string;
+  stockName: string;
+  type: TradeType;
+  shares: number;
+  price: number;
+  totalAmount: number;
+  createdAt: string;
+}
+
+export type ExecuteTradeRequestType =
+  (typeof ExecuteTradeRequestType)[keyof typeof ExecuteTradeRequestType];
+
+export const ExecuteTradeRequestType = {
+  buy: "buy",
+  sell: "sell",
+} as const;
+
+export interface ExecuteTradeRequest {
+  userId: number;
+  ticker: string;
+  type: ExecuteTradeRequestType;
+  shares: number;
+}
+
+export interface TradeResult {
+  success: boolean;
+  trade: Trade;
+  newCashBalance: number;
+  message: string;
+}
+
+export interface TradeError {
+  success: boolean;
+  message: string;
+}
+
+export interface RankingEntry {
+  rank: number;
+  userId: number;
+  username: string;
+  avatar: string;
+  difficulty: string;
+  seedMoney: number;
+  totalAssets: number;
+  totalReturn: number;
+  totalReturnPercent: number;
+}
+
 export type GetStockHistoryParams = {
   period?: GetStockHistoryPeriod;
 };
@@ -75,4 +201,18 @@ export const GetStockHistoryPeriod = {
   "1m": "1m",
   "3m": "3m",
   "1y": "1y",
+} as const;
+
+export type GetRankingsParams = {
+  difficulty?: GetRankingsDifficulty;
+};
+
+export type GetRankingsDifficulty =
+  (typeof GetRankingsDifficulty)[keyof typeof GetRankingsDifficulty];
+
+export const GetRankingsDifficulty = {
+  beginner: "beginner",
+  intermediate: "intermediate",
+  expert: "expert",
+  all: "all",
 } as const;

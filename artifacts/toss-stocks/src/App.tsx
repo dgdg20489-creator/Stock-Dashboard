@@ -2,8 +2,14 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Home from "@/pages/Home";
-import NotFound from "@/pages/not-found";
+
+import { useAuth } from "./hooks/use-auth";
+import { Layout } from "./components/Layout";
+import DifficultyScreen from "./pages/DifficultyScreen";
+import Home from "./pages/Home";
+import StockDetail from "./pages/StockDetail";
+import Rankings from "./pages/Rankings";
+import NotFound from "./pages/not-found";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -15,11 +21,23 @@ const queryClient = new QueryClient({
 });
 
 function Router() {
+  const { userId, login } = useAuth();
+
+  if (!userId) {
+    return <DifficultyScreen onComplete={login} />;
+  }
+
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route component={NotFound} />
-    </Switch>
+    <Layout userId={userId}>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/stock/:ticker">
+          {() => <StockDetail userId={userId} />}
+        </Route>
+        <Route path="/rankings" component={Rankings} />
+        <Route component={NotFound} />
+      </Switch>
+    </Layout>
   );
 }
 

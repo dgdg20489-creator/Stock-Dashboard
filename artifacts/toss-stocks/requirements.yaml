@@ -1,9 +1,15 @@
 packages:
-  "recharts": "Used for the interactive stock price history line/area charts"
-  "framer-motion": "Used for premium page transitions and bottom-sheet modal animations"
+  "framer-motion": "For smooth page transitions and card hover effects"
+  "recharts": "For rendering stock price history charts"
   "clsx": "Utility for constructing className strings conditionally"
-  "tailwind-merge": "Utility to resolve conflicting Tailwind CSS classes"
+  "tailwind-merge": "Utility to merge tailwind classes without style conflicts"
+  "date-fns": "For formatting trade history and news dates"
+
+images:
+  - path: "artifacts/toss-stocks/public/images/hero-bg.png"
+    description: "Abstract soft gradient mesh in light gray and subtle blue tones, clean minimal background for fintech app"
+    aspect_ratio: "16:9"
 
 notes:
-  - "Assuming React Query hooks are fully functional from @workspace/api-client-react"
-  - "Pretendard font is imported via CDN in index.css"
+  - "Uses localStorage 'toss_userId' to manage simple user session."
+  - "Follows Korean stock market color conventions: Red for positive (up), Blue for negative (down)."

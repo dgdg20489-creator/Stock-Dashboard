@@ -66,7 +66,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* LIGHT MODE — Toss Securities Style */
+/* LIGHT MODE — Toss Securities 스타일 */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -74,61 +74,61 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* Page background: very light gray like Toss */
-  --background: 220 20% 97%;
+  /* #F2F4F6 페이지 배경 */
+  --background: 220 14% 96%;
 
-  /* Main text: near-black */
+  /* 기본 텍스트: 거의 검정 */
   --foreground: 220 20% 10%;
 
-  /* Border: subtle light gray */
-  --border: 220 15% 90%;
+  /* 경계선: 연한 회색 */
+  --border: 220 15% 88%;
 
-  /* Cards: pure white */
+  /* 카드: 순수 흰색 #FFFFFF */
   --card: 0 0% 100%;
   --card-foreground: 220 20% 10%;
-  --card-border: 220 15% 92%;
+  --card-border: 220 15% 90%;
 
-  /* Sidebar */
+  /* 사이드바 */
   --sidebar: 0 0% 100%;
   --sidebar-foreground: 220 20% 10%;
-  --sidebar-border: 220 15% 90%;
-  --sidebar-primary: 216 98% 57%;
+  --sidebar-border: 220 15% 88%;
+  --sidebar-primary: 354 80% 52%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 220 15% 96%;
+  --sidebar-accent: 220 14% 96%;
   --sidebar-accent-foreground: 220 20% 10%;
-  --sidebar-ring: 216 98% 57%;
+  --sidebar-ring: 354 80% 52%;
 
-  /* Popover */
+  /* 팝오버 */
   --popover: 0 0% 100%;
   --popover-foreground: 220 20% 10%;
-  --popover-border: 220 15% 90%;
+  --popover-border: 220 15% 88%;
 
-  /* Primary: Toss Blue #3182F6 */
-  --primary: 216 91% 57%;
+  /* Primary: 상승 빨간색 #E22B2B (한국 주식 컨벤션) */
+  --primary: 354 80% 52%;
   --primary-foreground: 0 0% 100%;
 
   /* Secondary */
-  --secondary: 220 15% 94%;
-  --secondary-foreground: 220 20% 20%;
+  --secondary: 220 14% 92%;
+  --secondary-foreground: 220 20% 25%;
 
   /* Muted */
-  --muted: 220 15% 94%;
-  --muted-foreground: 220 12% 55%;
+  --muted: 220 14% 93%;
+  --muted-foreground: 220 12% 52%;
 
   /* Accent */
-  --accent: 220 15% 94%;
+  --accent: 220 14% 93%;
   --accent-foreground: 220 20% 10%;
 
-  /* Destructive: Toss Red #F04452 */
-  --destructive: 354 86% 60%;
+  /* Destructive: 하락 파란색 #1763CF (한국 주식 컨벤션) */
+  --destructive: 216 75% 45%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 220 15% 88%;
-  --ring: 216 91% 57%;
+  --input: 220 15% 86%;
+  --ring: 354 80% 52%;
 
-  /* Chart colors */
-  --chart-1: 216 91% 57%;
-  --chart-2: 354 86% 60%;
+  /* 차트 색상 */
+  --chart-1: 354 80% 52%;
+  --chart-2: 216 75% 45%;
   --chart-3: 142 71% 45%;
   --chart-4: 38 92% 50%;
   --chart-5: 262 80% 60%;
@@ -137,16 +137,17 @@
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'SF Mono', Menlo, monospace;
 
-  --radius: 1rem; /* 16px — Toss-style larger rounded corners */
+  /* 큰 border-radius — 토스 스타일 */
+  --radius: 1rem;
 
   --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0, 0.04);
   --shadow-xs: 0px 1px 3px 0px rgba(0,0,0, 0.06);
   --shadow-sm: 0px 2px 4px 0px rgba(0,0,0, 0.06), 0px 1px 2px -1px rgba(0,0,0, 0.04);
-  --shadow: 0px 4px 6px 0px rgba(0,0,0, 0.06), 0px 2px 4px -1px rgba(0,0,0, 0.04);
-  --shadow-md: 0px 6px 10px 0px rgba(0,0,0, 0.08), 0px 3px 6px -1px rgba(0,0,0, 0.04);
-  --shadow-lg: 0px 10px 20px 0px rgba(0,0,0, 0.10), 0px 4px 8px -2px rgba(0,0,0, 0.05);
-  --shadow-xl: 0px 16px 32px 0px rgba(0,0,0, 0.12), 0px 8px 16px -4px rgba(0,0,0, 0.06);
-  --shadow-2xl: 0px 24px 48px 0px rgba(0,0,0, 0.16);
+  --shadow: 0px 4px 6px 0px rgba(0,0,0, 0.07), 0px 2px 4px -1px rgba(0,0,0, 0.04);
+  --shadow-md: 0px 6px 12px 0px rgba(0,0,0, 0.08), 0px 3px 6px -1px rgba(0,0,0, 0.04);
+  --shadow-lg: 0px 12px 24px 0px rgba(0,0,0, 0.10), 0px 4px 8px -2px rgba(0,0,0, 0.05);
+  --shadow-xl: 0px 20px 40px 0px rgba(0,0,0, 0.12), 0px 8px 16px -4px rgba(0,0,0, 0.06);
+  --shadow-2xl: 0px 30px 60px 0px rgba(0,0,0, 0.16);
 
   --tracking-normal: -0.01em;
   --spacing: 0.25rem;
@@ -177,44 +178,34 @@
   --background: 220 20% 9%;
   --foreground: 220 15% 95%;
   --border: 220 15% 20%;
-
   --card: 220 18% 12%;
   --card-foreground: 220 15% 95%;
   --card-border: 220 15% 20%;
-
   --sidebar: 220 18% 10%;
   --sidebar-foreground: 220 15% 95%;
   --sidebar-border: 220 15% 20%;
-  --sidebar-primary: 216 91% 57%;
+  --sidebar-primary: 354 80% 52%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 220 15% 18%;
   --sidebar-accent-foreground: 220 15% 95%;
-  --sidebar-ring: 216 91% 57%;
-
+  --sidebar-ring: 354 80% 52%;
   --popover: 220 18% 12%;
   --popover-foreground: 220 15% 95%;
   --popover-border: 220 15% 20%;
-
-  --primary: 216 91% 57%;
+  --primary: 354 80% 55%;
   --primary-foreground: 0 0% 100%;
-
   --secondary: 220 15% 20%;
   --secondary-foreground: 220 15% 90%;
-
   --muted: 220 15% 18%;
   --muted-foreground: 220 12% 60%;
-
   --accent: 220 15% 18%;
   --accent-foreground: 220 15% 95%;
-
-  --destructive: 354 86% 60%;
+  --destructive: 216 75% 55%;
   --destructive-foreground: 0 0% 100%;
-
   --input: 220 15% 24%;
-  --ring: 216 91% 57%;
-
-  --chart-1: 216 91% 57%;
-  --chart-2: 354 86% 60%;
+  --ring: 354 80% 55%;
+  --chart-1: 354 80% 55%;
+  --chart-2: 216 75% 55%;
   --chart-3: 142 71% 45%;
   --chart-4: 38 92% 50%;
   --chart-5: 262 80% 60%;
@@ -233,7 +224,6 @@
   * {
     @apply border-border;
   }
-
   body {
     @apply font-sans antialiased bg-background text-foreground;
     letter-spacing: var(--tracking-normal);
@@ -243,16 +233,24 @@
 }
 
 @layer utilities {
+  /* 한국 주식 색상 컨벤션: 상승=빨강, 하락=파랑 */
+  .text-up    { color: hsl(var(--primary)); }
+  .text-down  { color: hsl(var(--destructive)); }
+  .bg-up      { background-color: hsl(var(--primary)); }
+  .bg-down    { background-color: hsl(var(--destructive)); }
+  .bg-up-light   { background-color: hsl(var(--primary) / 0.10); }
+  .bg-down-light { background-color: hsl(var(--destructive) / 0.10); }
+  .shadow-up     { --tw-shadow-color: hsl(var(--primary) / 0.25); }
+  .shadow-down   { --tw-shadow-color: hsl(var(--destructive) / 0.20); }
+
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
   }
-
   [contenteditable][data-placeholder]:empty::before {
     content: attr(data-placeholder);
     color: hsl(var(--muted-foreground));
     pointer-events: none;
   }
-
   .no-default-hover-elevate {}
   .no-default-active-elevate {}
 
@@ -273,23 +271,15 @@
     border-radius: inherit;
     z-index: -1;
   }
-
-  .toggle-elevate.toggle-elevated::before {
-    background-color: var(--elevate-2);
-  }
-
-  .border.toggle-elevate::before {
-    inset: -1px;
-  }
+  .toggle-elevate.toggle-elevated::before { background-color: var(--elevate-2); }
+  .border.toggle-elevate::before { inset: -1px; }
 
   .hover-elevate:not(.no-default-hover-elevate),
   .active-elevate:not(.no-default-active-elevate),
   .hover-elevate-2:not(.no-default-hover-elevate),
   .active-elevate-2:not(.no-default-active-elevate) {
-    position: relative;
-    z-index: 0;
+    position: relative; z-index: 0;
   }
-
   .hover-elevate:not(.no-default-hover-elevate)::after,
   .active-elevate:not(.no-default-active-elevate)::after,
   .hover-elevate-2:not(.no-default-hover-elevate)::after,
@@ -301,22 +291,10 @@
     border-radius: inherit;
     z-index: 999;
   }
-
   .hover-elevate:hover:not(.no-default-hover-elevate)::after,
-  .active-elevate:active:not(.no-default-active-elevate)::after {
-    background-color: var(--elevate-1);
-  }
-
+  .active-elevate:active:not(.no-default-active-elevate)::after { background-color: var(--elevate-1); }
   .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
-  .active-elevate-2:active:not(.no-default-active-elevate)::after {
-    background-color: var(--elevate-2);
-  }
-
+  .active-elevate-2:active:not(.no-default-active-elevate)::after { background-color: var(--elevate-2); }
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
-  .border.active-elevate:not(.no-active-interaction-elevate)::after,
-  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
-  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
-  .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
-    inset: -1px;
-  }
+  .border.active-elevate:not(.no-active-interaction-elevate)::after { inset: -1px; }
 }

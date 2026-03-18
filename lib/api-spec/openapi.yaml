@@ -11,13 +11,18 @@ tags:
     description: Health operations
   - name: stocks
     description: Stock operations
+  - name: users
+    description: User operations
+  - name: trades
+    description: Trade operations
+  - name: rankings
+    description: Ranking operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -30,7 +35,6 @@ paths:
       operationId: getStocks
       tags: [stocks]
       summary: Get all stocks
-      description: Returns a list of stock information with current prices
       responses:
         "200":
           description: List of stocks
@@ -45,7 +49,6 @@ paths:
       operationId: getStockByTicker
       tags: [stocks]
       summary: Get stock by ticker
-      description: Returns detailed information for a specific stock
       parameters:
         - name: ticker
           in: path
@@ -66,7 +69,6 @@ paths:
       operationId: getStockHistory
       tags: [stocks]
       summary: Get stock price history
-      description: Returns historical price data for a stock
       parameters:
         - name: ticker
           in: path
@@ -89,12 +91,31 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PricePoint"
+  /stocks/{ticker}/news:
+    get:
+      operationId: getStockNews
+      tags: [stocks]
+      summary: Get stock related news
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: News articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NewsItem"
   /market/summary:
     get:
       operationId: getMarketSummary
       tags: [stocks]
       summary: Get market summary
-      description: Returns summary of major market indices
       responses:
         "200":
           description: Market summary
@@ -102,6 +123,128 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MarketSummary"
+  /users:
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /users/{userId}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by ID
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+  /users/{userId}/portfolio:
+    get:
+      operationId: getUserPortfolio
+      tags: [users]
+      summary: Get user portfolio
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Portfolio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+  /users/{userId}/trades:
+    get:
+      operationId: getUserTrades
+      tags: [users]
+      summary: Get user trade history
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Trade history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trade"
+  /trades:
+    post:
+      operationId: executeTrade
+      tags: [trades]
+      summary: Execute a buy or sell trade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExecuteTradeRequest"
+      responses:
+        "200":
+          description: Trade executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeResult"
+        "400":
+          description: Trade failed (insufficient funds/shares)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeError"
+  /rankings:
+    get:
+      operationId: getRankings
+      tags: [rankings]
+      summary: Get rankings by difficulty
+      parameters:
+        - name: difficulty
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [beginner, intermediate, expert, all]
+            default: all
+      responses:
+        "200":
+          description: Rankings list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RankingEntry"
 components:
   schemas:
     HealthStatus:
@@ -170,6 +313,12 @@ components:
           type: number
         dividendYield:
           type: number
+        openPrice:
+          type: number
+        highPrice:
+          type: number
+        lowPrice:
+          type: number
       required:
         - ticker
         - name
@@ -185,6 +334,9 @@ components:
         - pbr
         - eps
         - dividendYield
+        - openPrice
+        - highPrice
+        - lowPrice
     PricePoint:
       type: object
       properties:
@@ -207,6 +359,28 @@ components:
         - low
         - close
         - volume
+    NewsItem:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        source:
+          type: string
+        publishedAt:
+          type: string
+        url:
+          type: string
+      required:
+        - id
+        - title
+        - summary
+        - source
+        - publishedAt
+        - url
     MarketSummary:
       type: object
       properties:
@@ -245,3 +419,210 @@ components:
         - value
         - change
         - changePercent
+    CreateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        avatar:
+          type: string
+          enum: [male, female]
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, expert]
+      required:
+        - username
+        - avatar
+        - difficulty
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        avatar:
+          type: string
+        difficulty:
+          type: string
+        seedMoney:
+          type: number
+        cashBalance:
+          type: number
+        totalAssets:
+          type: number
+        totalReturn:
+          type: number
+        totalReturnPercent:
+          type: number
+        createdAt:
+          type: string
+      required:
+        - id
+        - username
+        - avatar
+        - difficulty
+        - seedMoney
+        - cashBalance
+        - totalAssets
+        - totalReturn
+        - totalReturnPercent
+        - createdAt
+    Portfolio:
+      type: object
+      properties:
+        userId:
+          type: integer
+        cashBalance:
+          type: number
+        totalAssets:
+          type: number
+        totalReturn:
+          type: number
+        totalReturnPercent:
+          type: number
+        holdings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Holding"
+      required:
+        - userId
+        - cashBalance
+        - totalAssets
+        - totalReturn
+        - totalReturnPercent
+        - holdings
+    Holding:
+      type: object
+      properties:
+        ticker:
+          type: string
+        name:
+          type: string
+        shares:
+          type: number
+        avgPrice:
+          type: number
+        currentPrice:
+          type: number
+        evaluationAmount:
+          type: number
+        profitLoss:
+          type: number
+        profitLossPercent:
+          type: number
+      required:
+        - ticker
+        - name
+        - shares
+        - avgPrice
+        - currentPrice
+        - evaluationAmount
+        - profitLoss
+        - profitLossPercent
+    Trade:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        ticker:
+          type: string
+        stockName:
+          type: string
+        type:
+          type: string
+          enum: [buy, sell]
+        shares:
+          type: number
+        price:
+          type: number
+        totalAmount:
+          type: number
+        createdAt:
+          type: string
+      required:
+        - id
+        - userId
+        - ticker
+        - stockName
+        - type
+        - shares
+        - price
+        - totalAmount
+        - createdAt
+    ExecuteTradeRequest:
+      type: object
+      properties:
+        userId:
+          type: integer
+        ticker:
+          type: string
+        type:
+          type: string
+          enum: [buy, sell]
+        shares:
+          type: number
+      required:
+        - userId
+        - ticker
+        - type
+        - shares
+    TradeResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        trade:
+          $ref: "#/components/schemas/Trade"
+        newCashBalance:
+          type: number
+        message:
+          type: string
+      required:
+        - success
+        - trade
+        - newCashBalance
+        - message
+    TradeError:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+    RankingEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        userId:
+          type: integer
+        username:
+          type: string
+        avatar:
+          type: string
+        difficulty:
+          type: string
+        seedMoney:
+          type: number
+        totalAssets:
+          type: number
+        totalReturn:
+          type: number
+        totalReturnPercent:
+          type: number
+      required:
+        - rank
+        - userId
+        - username
+        - avatar
+        - difficulty
+        - seedMoney
+        - totalAssets
+        - totalReturn
+        - totalReturnPercent

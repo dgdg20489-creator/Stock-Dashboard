@@ -31,3 +31,9 @@ export function formatLargeNumber(num: number): string {
   }
   return new Intl.NumberFormat("ko-KR").format(num);
 }
+
+export function getColorClass(value: number, type: 'text' | 'bg' | 'bg-light' = 'text'): string {
+  if (value > 0) return `${type}-up`;
+  if (value < 0) return `${type}-down`;
+  return type === 'text' ? 'text-muted-foreground' : 'bg-muted';
+}
