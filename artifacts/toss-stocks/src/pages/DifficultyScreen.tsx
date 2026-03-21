@@ -47,10 +47,10 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
         className="w-full max-w-2xl"
       >
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-primary rounded-3xl mx-auto flex items-center justify-center text-white font-bold text-3xl shadow-lg mb-6">
-            t
+          <div className="w-16 h-16 bg-primary rounded-3xl mx-auto flex items-center justify-center text-white font-extrabold text-2xl shadow-lg mb-6">
+            원
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-3 tracking-tight">토스증권 모의투자</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-3 tracking-tight">원광증권 모의투자</h1>
           <p className="text-muted-foreground font-medium text-lg">프로필과 난이도를 설정하고 투자를 시작해보세요</p>
         </div>
 

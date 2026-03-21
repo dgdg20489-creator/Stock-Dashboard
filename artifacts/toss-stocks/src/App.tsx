@@ -9,13 +9,15 @@ import DifficultyScreen from "./pages/DifficultyScreen";
 import Home from "./pages/Home";
 import StockDetail from "./pages/StockDetail";
 import Rankings from "./pages/Rankings";
+import MyInfo from "./pages/MyInfo";
+import Tips from "./pages/Tips";
 import NotFound from "./pages/not-found";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 5,
     },
   },
 });
@@ -35,6 +37,10 @@ function Router() {
           {() => <StockDetail userId={userId} />}
         </Route>
         <Route path="/rankings" component={Rankings} />
+        <Route path="/tips" component={Tips} />
+        <Route path="/my-info">
+          {() => <MyInfo userId={userId} />}
+        </Route>
         <Route component={NotFound} />
       </Switch>
     </Layout>

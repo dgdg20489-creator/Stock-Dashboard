@@ -6,6 +6,7 @@ import {
   GetUserResponse,
   GetUserPortfolioResponse,
   GetUserTradesResponse,
+  EquipItemsResponse,
 } from "@workspace/api-zod";
 import { getStockPrice } from "./stocksData.js";
 
@@ -16,6 +17,31 @@ const SEED_MONEY: Record<string, number> = {
   intermediate: 5_000_000,
   expert: 1_000_000,
 };
+
+function parseAccessories(raw: string): string[] {
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
+function parseEquipped(raw: string): Record<string, string> {
+  try { return JSON.parse(raw); } catch { return {}; }
+}
+
+function buildUserResponse(user: typeof usersTable.$inferSelect, totalAssets: number, totalReturn: number, totalReturnPercent: number) {
+  return {
+    id: user.id,
+    username: user.username,
+    avatar: user.avatar,
+    difficulty: user.difficulty,
+    seedMoney: Number(user.seedMoney),
+    cashBalance: Number(user.cashBalance),
+    totalAssets,
+    totalReturn,
+    totalReturnPercent: Math.round(totalReturnPercent * 100) / 100,
+    accessories: parseAccessories(user.accessories),
+    equippedItems: parseEquipped(user.equippedItems),
+    createdAt: user.createdAt.toISOString(),
+  };
+}
 
 router.post("/users", async (req, res) => {
   try {
@@ -33,23 +59,13 @@ router.post("/users", async (req, res) => {
         difficulty,
         seedMoney: String(seed),
         cashBalance: String(seed),
+        accessories: "[]",
+        equippedItems: "{}",
       })
       .returning();
 
-    const seedNum = Number(user.seedMoney);
     const cashNum = Number(user.cashBalance);
-    const result = GetUserResponse.parse({
-      id: user.id,
-      username: user.username,
-      avatar: user.avatar,
-      difficulty: user.difficulty,
-      seedMoney: seedNum,
-      cashBalance: cashNum,
-      totalAssets: cashNum,
-      totalReturn: 0,
-      totalReturnPercent: 0,
-      createdAt: user.createdAt.toISOString(),
-    });
+    const result = GetUserResponse.parse(buildUserResponse(user, cashNum, 0, 0));
     res.status(201).json(result);
   } catch (e) {
     console.error(e);
@@ -87,18 +103,7 @@ router.get("/users/:userId", async (req, res) => {
     const totalReturn = totalAssets - seedMoney;
     const totalReturnPercent = (totalReturn / seedMoney) * 100;
 
-    const result = GetUserResponse.parse({
-      id: user.id,
-      username: user.username,
-      avatar: user.avatar,
-      difficulty: user.difficulty,
-      seedMoney,
-      cashBalance,
-      totalAssets,
-      totalReturn,
-      totalReturnPercent: Math.round(totalReturnPercent * 100) / 100,
-      createdAt: user.createdAt.toISOString(),
-    });
+    const result = GetUserResponse.parse(buildUserResponse(user, totalAssets, totalReturn, totalReturnPercent));
     res.json(result);
   } catch (e) {
     console.error(e);
@@ -151,6 +156,19 @@ router.get("/users/:userId/portfolio", async (req, res) => {
     const totalReturn = totalAssets - seedMoney;
     const totalReturnPercent = (totalReturn / seedMoney) * 100;
 
+    // 자동 승격 체크
+    let promoted = false;
+    let newDifficulty: string | undefined;
+    if (user.difficulty === "beginner" && totalReturnPercent >= 20) {
+      await db.update(usersTable).set({ difficulty: "intermediate" }).where(eq(usersTable.id, userId));
+      promoted = true;
+      newDifficulty = "intermediate";
+    } else if (user.difficulty === "intermediate" && totalReturnPercent >= 50) {
+      await db.update(usersTable).set({ difficulty: "expert" }).where(eq(usersTable.id, userId));
+      promoted = true;
+      newDifficulty = "expert";
+    }
+
     const result = GetUserPortfolioResponse.parse({
       userId,
       cashBalance,
@@ -158,6 +176,7 @@ router.get("/users/:userId/portfolio", async (req, res) => {
       totalReturn,
       totalReturnPercent: Math.round(totalReturnPercent * 100) / 100,
       holdings: holdingItems,
+      ...(promoted && { promoted, newDifficulty }),
     });
     res.json(result);
   } catch (e) {
@@ -174,7 +193,7 @@ router.get("/users/:userId/trades", async (req, res) => {
       .from(tradesTable)
       .where(eq(tradesTable.userId, userId))
       .orderBy(desc(tradesTable.createdAt))
-      .limit(50);
+      .limit(100);
 
     const result = GetUserTradesResponse.parse(
       trades.map((t) => ({
@@ -189,6 +208,36 @@ router.get("/users/:userId/trades", async (req, res) => {
         createdAt: t.createdAt.toISOString(),
       }))
     );
+    res.json(result);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.put("/users/:userId/equip", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const { slot, itemId } = req.body as { slot: string; itemId?: string | null };
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    const equipped = parseEquipped(user.equippedItems);
+    if (itemId) {
+      equipped[slot] = itemId;
+    } else {
+      delete equipped[slot];
+    }
+
+    await db.update(usersTable)
+      .set({ equippedItems: JSON.stringify(equipped) })
+      .where(eq(usersTable.id, userId));
+
+    const result = EquipItemsResponse.parse({ success: true, equippedItems: equipped });
     res.json(result);
   } catch (e) {
     console.error(e);
