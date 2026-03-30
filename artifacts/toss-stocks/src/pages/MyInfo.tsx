@@ -4,7 +4,8 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
-import { Wallet, PieChart, ClipboardList, ChevronRight } from "lucide-react";
+import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt } from "lucide-react";
+import { useMissions } from "@/hooks/use-missions";
 
 interface MyInfoProps {
   userId: number;
@@ -24,6 +25,7 @@ export default function MyInfo({ userId }: MyInfoProps) {
   const { data: user, isLoading: userLoading } = useGetUser(userId);
   const { data: portfolio, isLoading: portLoading } = useGetUserPortfolio(userId);
   const { data: trades, isLoading: tradesLoading } = useGetUserTrades(userId);
+  const { missions, coins } = useMissions();
 
   if (userLoading || portLoading) {
     return (
@@ -50,6 +52,8 @@ export default function MyInfo({ userId }: MyInfoProps) {
     ? Math.min(100, Math.max(0, (portfolio.totalReturnPercent / nextThreshold) * 100))
     : 100;
 
+  const missionsCompleted = [missions.attendance, missions.quiz, missions.trade].filter(Boolean).length;
+
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-500">
       <div className="px-1">
@@ -69,7 +73,7 @@ export default function MyInfo({ userId }: MyInfoProps) {
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-2xl font-extrabold text-foreground">{user.username}</h2>
-            <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-bold bg-primary/10 text-primary mt-1">
+            <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-bold bg-red-50 text-red-600 mt-1">
               {difficultyLabel}
             </span>
 
@@ -81,17 +85,53 @@ export default function MyInfo({ userId }: MyInfoProps) {
                 </div>
                 <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-primary rounded-full transition-all duration-700"
+                    className="h-full bg-gradient-to-r from-red-500 to-red-400 rounded-full transition-all duration-700"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
               </div>
             )}
             {!nextThreshold && (
-              <p className="text-xs font-semibold text-primary mt-2">최고 등급 달성! 🎉</p>
+              <p className="text-xs font-semibold text-red-500 mt-2">최고 등급 달성! 🎉</p>
             )}
           </div>
         </div>
+      </motion.div>
+
+      {/* 일일 미션 & 옷장 바로가기 */}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="grid grid-cols-2 gap-4"
+      >
+        <Link href="/missions">
+          <div className="bg-gradient-to-br from-red-600 to-red-500 rounded-3xl p-5 text-white cursor-pointer hover:shadow-lg hover:shadow-red-500/20 hover:-translate-y-0.5 transition-all group">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap className="w-5 h-5 text-red-100" />
+              <span className="font-bold text-sm text-red-100">일일 미션</span>
+            </div>
+            <p className="text-3xl font-extrabold">{missions.points}<span className="text-lg text-red-200">P</span></p>
+            <div className="mt-2 h-1.5 bg-red-400/40 rounded-full overflow-hidden">
+              <div className="h-full bg-white rounded-full transition-all" style={{ width: `${Math.min(100, missions.points)}%` }} />
+            </div>
+            <p className="text-xs text-red-200 font-semibold mt-2">
+              {missionsCompleted}/3 미션 완료
+            </p>
+          </div>
+        </Link>
+
+        <Link href="/wardrobe">
+          <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-3xl p-5 text-white cursor-pointer hover:shadow-lg hover:shadow-blue-500/20 hover:-translate-y-0.5 transition-all group">
+            <div className="flex items-center gap-2 mb-3">
+              <Shirt className="w-5 h-5 text-blue-100" />
+              <span className="font-bold text-sm text-blue-100">아바타 옷장</span>
+            </div>
+            <p className="text-3xl font-extrabold">🪙 {coins}</p>
+            <p className="text-xs text-blue-200 font-semibold mt-3">보유 아바타 코인</p>
+            <p className="text-xs text-blue-200 font-medium mt-0.5">아이템 잠금 해제 가능</p>
+          </div>
+        </Link>
       </motion.div>
 
       {/* 자산 현황 */}
@@ -107,7 +147,7 @@ export default function MyInfo({ userId }: MyInfoProps) {
         </div>
 
         {/* 총 자산 강조 */}
-        <div className="bg-primary/5 rounded-2xl p-5 mb-4">
+        <div className="bg-gradient-to-r from-red-50 to-blue-50 rounded-2xl p-5 mb-4 border border-border/30">
           <p className="text-sm font-semibold text-muted-foreground mb-1">전체 평가 금액</p>
           <p className="text-3xl font-extrabold text-foreground">{formatCurrency(portfolio.totalAssets)}</p>
           <div className={cn("flex items-center gap-1.5 mt-1.5 font-bold", getColorClass(portfolio.totalReturn))}>
@@ -235,7 +275,7 @@ export default function MyInfo({ userId }: MyInfoProps) {
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className={cn("font-extrabold text-sm", trade.type === "buy" ? "text-foreground" : "text-foreground")}>
+                  <p className="font-extrabold text-sm text-foreground">
                     {trade.type === "buy" ? "-" : "+"}{formatCurrency(trade.totalAmount)}
                   </p>
                   <p className="text-xs text-muted-foreground font-medium">

@@ -66,69 +66,69 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* LIGHT MODE — Toss Securities 스타일 */
+/* ─── 원광증권 테마: 빨강 / 파랑 / 흰색 ─── */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
   --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(0,0,0, .02);
+  --elevate-2: rgba(0,0,0, .06);
 
-  /* #F2F4F6 페이지 배경 */
-  --background: 220 14% 96%;
+  /* 배경: 순수 흰색 */
+  --background: 0 0% 100%;
 
   /* 기본 텍스트: 거의 검정 */
   --foreground: 220 20% 10%;
 
   /* 경계선: 연한 회색 */
-  --border: 220 15% 88%;
+  --border: 214 20% 88%;
 
-  /* 카드: 순수 흰색 #FFFFFF */
+  /* 카드: 흰색 */
   --card: 0 0% 100%;
   --card-foreground: 220 20% 10%;
-  --card-border: 220 15% 90%;
+  --card-border: 214 20% 90%;
 
   /* 사이드바 */
   --sidebar: 0 0% 100%;
   --sidebar-foreground: 220 20% 10%;
-  --sidebar-border: 220 15% 88%;
-  --sidebar-primary: 354 80% 52%;
+  --sidebar-border: 214 20% 88%;
+  --sidebar-primary: 354 85% 50%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 220 14% 96%;
+  --sidebar-accent: 210 40% 96%;
   --sidebar-accent-foreground: 220 20% 10%;
-  --sidebar-ring: 354 80% 52%;
+  --sidebar-ring: 354 85% 50%;
 
   /* 팝오버 */
   --popover: 0 0% 100%;
   --popover-foreground: 220 20% 10%;
-  --popover-border: 220 15% 88%;
+  --popover-border: 214 20% 88%;
 
-  /* Primary: 상승 빨간색 #E22B2B (한국 주식 컨벤션) */
-  --primary: 354 80% 52%;
+  /* Primary: 빨강 (상승, 브랜드 포인트) */
+  --primary: 354 85% 50%;
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary */
-  --secondary: 220 14% 92%;
-  --secondary-foreground: 220 20% 25%;
+  /* Secondary: 파랑 (보조 강조색) */
+  --secondary: 217 91% 60%;
+  --secondary-foreground: 0 0% 100%;
 
-  /* Muted */
-  --muted: 220 14% 93%;
-  --muted-foreground: 220 12% 52%;
+  /* Muted: 아주 연한 파랑-흰색 */
+  --muted: 210 40% 96%;
+  --muted-foreground: 220 12% 50%;
 
   /* Accent */
-  --accent: 220 14% 93%;
+  --accent: 210 40% 94%;
   --accent-foreground: 220 20% 10%;
 
-  /* Destructive: 하락 파란색 #1763CF (한국 주식 컨벤션) */
-  --destructive: 216 75% 45%;
+  /* Destructive: 파랑 (하락 — 한국 주식 컨벤션) */
+  --destructive: 217 91% 50%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 220 15% 86%;
-  --ring: 354 80% 52%;
+  --input: 214 20% 90%;
+  --ring: 354 85% 50%;
 
   /* 차트 색상 */
-  --chart-1: 354 80% 52%;
-  --chart-2: 216 75% 45%;
+  --chart-1: 354 85% 50%;
+  --chart-2: 217 91% 50%;
   --chart-3: 142 71% 45%;
   --chart-4: 38 92% 50%;
   --chart-5: 262 80% 60%;
@@ -137,17 +137,16 @@
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'SF Mono', Menlo, monospace;
 
-  /* 큰 border-radius — 토스 스타일 */
   --radius: 1rem;
 
   --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0, 0.04);
-  --shadow-xs: 0px 1px 3px 0px rgba(0,0,0, 0.06);
-  --shadow-sm: 0px 2px 4px 0px rgba(0,0,0, 0.06), 0px 1px 2px -1px rgba(0,0,0, 0.04);
-  --shadow: 0px 4px 6px 0px rgba(0,0,0, 0.07), 0px 2px 4px -1px rgba(0,0,0, 0.04);
-  --shadow-md: 0px 6px 12px 0px rgba(0,0,0, 0.08), 0px 3px 6px -1px rgba(0,0,0, 0.04);
-  --shadow-lg: 0px 12px 24px 0px rgba(0,0,0, 0.10), 0px 4px 8px -2px rgba(0,0,0, 0.05);
-  --shadow-xl: 0px 20px 40px 0px rgba(0,0,0, 0.12), 0px 8px 16px -4px rgba(0,0,0, 0.06);
-  --shadow-2xl: 0px 30px 60px 0px rgba(0,0,0, 0.16);
+  --shadow-xs: 0px 1px 3px 0px rgba(0,0,0, 0.05);
+  --shadow-sm: 0px 2px 6px 0px rgba(0,0,0, 0.06), 0px 1px 2px -1px rgba(0,0,0, 0.04);
+  --shadow: 0px 4px 8px 0px rgba(0,0,0, 0.07), 0px 2px 4px -1px rgba(0,0,0, 0.04);
+  --shadow-md: 0px 6px 14px 0px rgba(0,0,0, 0.09), 0px 3px 6px -1px rgba(0,0,0, 0.05);
+  --shadow-lg: 0px 12px 28px 0px rgba(0,0,0, 0.11), 0px 4px 8px -2px rgba(0,0,0, 0.06);
+  --shadow-xl: 0px 20px 40px 0px rgba(0,0,0, 0.13), 0px 8px 16px -4px rgba(0,0,0, 0.07);
+  --shadow-2xl: 0px 30px 60px 0px rgba(0,0,0, 0.17);
 
   --tracking-normal: -0.01em;
   --spacing: 0.25rem;
@@ -184,28 +183,28 @@
   --sidebar: 220 18% 10%;
   --sidebar-foreground: 220 15% 95%;
   --sidebar-border: 220 15% 20%;
-  --sidebar-primary: 354 80% 52%;
+  --sidebar-primary: 354 85% 55%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 220 15% 18%;
   --sidebar-accent-foreground: 220 15% 95%;
-  --sidebar-ring: 354 80% 52%;
+  --sidebar-ring: 354 85% 55%;
   --popover: 220 18% 12%;
   --popover-foreground: 220 15% 95%;
   --popover-border: 220 15% 20%;
-  --primary: 354 80% 55%;
+  --primary: 354 85% 58%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 220 15% 20%;
-  --secondary-foreground: 220 15% 90%;
+  --secondary: 217 91% 60%;
+  --secondary-foreground: 0 0% 100%;
   --muted: 220 15% 18%;
   --muted-foreground: 220 12% 60%;
   --accent: 220 15% 18%;
   --accent-foreground: 220 15% 95%;
-  --destructive: 216 75% 55%;
+  --destructive: 217 91% 60%;
   --destructive-foreground: 0 0% 100%;
   --input: 220 15% 24%;
-  --ring: 354 80% 55%;
-  --chart-1: 354 80% 55%;
-  --chart-2: 216 75% 55%;
+  --ring: 354 85% 58%;
+  --chart-1: 354 85% 58%;
+  --chart-2: 217 91% 60%;
   --chart-3: 142 71% 45%;
   --chart-4: 38 92% 50%;
   --chart-5: 262 80% 60%;

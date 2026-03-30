@@ -7,11 +7,13 @@ import {
   useExecuteTrade,
   ExecuteTradeRequestType
 } from "@workspace/api-client-react";
-import { formatCurrency, formatPercent, formatLargeNumber, getColorClass } from "@/lib/utils";
+import { formatCurrency, formatPercent, formatLargeNumber, getColorClass, cn } from "@/lib/utils";
 import { StockChart } from "@/components/StockChart";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Star } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
+import { useWatchlist } from "@/hooks/use-watchlist";
+import { useMissions } from "@/hooks/use-missions";
 
 interface StockDetailProps {
   userId: number;
@@ -27,6 +29,10 @@ export default function StockDetail({ userId }: StockDetailProps) {
   const { data: news } = useGetStockNews(ticker, { query: { enabled: !!ticker }});
   const { data: portfolio } = useGetUserPortfolio(userId);
 
+  const { isWatched, toggleWatch } = useWatchlist();
+  const { completeTrade } = useMissions();
+  const watched = ticker ? isWatched(ticker) : false;
+
   const [sharesStr, setSharesStr] = useState("");
   const shares = parseInt(sharesStr) || 0;
 
@@ -34,7 +40,8 @@ export default function StockDetail({ userId }: StockDetailProps) {
     mutation: {
       onSuccess: () => {
         setSharesStr("");
-        alert("주문이 체결되었습니다.");
+        completeTrade();
+        alert("주문이 체결되었습니다. (+30P 미션 달성!)");
         queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       },
       onError: (err: any) => {
@@ -67,9 +74,23 @@ export default function StockDetail({ userId }: StockDetailProps) {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 pb-10 animate-in slide-in-from-bottom-4 duration-500">
-      <button onClick={() => setLocation("/")} className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-semibold transition-colors">
-        <ArrowLeft className="w-5 h-5" /> 뒤로가기
-      </button>
+      <div className="flex items-center justify-between">
+        <button onClick={() => setLocation("/")} className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-semibold transition-colors">
+          <ArrowLeft className="w-5 h-5" /> 뒤로가기
+        </button>
+        <button
+          onClick={() => toggleWatch(ticker)}
+          className={cn(
+            "flex items-center gap-1.5 px-4 py-2 rounded-2xl font-bold text-sm border-2 transition-all hover:scale-105 active:scale-95",
+            watched
+              ? "bg-yellow-50 border-yellow-300 text-yellow-600"
+              : "bg-card border-border text-muted-foreground hover:border-yellow-300 hover:text-yellow-500"
+          )}
+        >
+          <Star className={cn("w-4 h-4", watched && "fill-yellow-400 text-yellow-400")} />
+          {watched ? "관심 등록됨" : "관심 등록"}
+        </button>
+      </div>
 
       <div className="bg-card rounded-3xl p-6 sm:p-8 shadow-sm border border-border/50">
         <div className="flex items-center gap-4 mb-4">
@@ -111,7 +132,12 @@ export default function StockDetail({ userId }: StockDetailProps) {
 
       {/* Trade Section */}
       <div className="bg-card rounded-3xl p-6 sm:p-8 shadow-sm border border-border/50">
-        <h3 className="text-xl font-bold mb-6 text-foreground">주문하기</h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold text-foreground">주문하기</h3>
+          <span className="text-xs font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-full border border-red-100">
+            거래 완료 시 +30P 미션
+          </span>
+        </div>
         
         <div className="flex justify-between text-sm font-medium text-muted-foreground mb-2 px-1">
           <span>주문가능 현금: <span className="text-foreground">{formatCurrency(portfolio?.cashBalance || 0)}</span></span>

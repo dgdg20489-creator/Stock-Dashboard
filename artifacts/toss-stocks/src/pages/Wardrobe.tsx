@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Avatar3D } from "@/components/Avatar3D";
 import { useEquipped } from "@/hooks/use-equipped";
+import { useMissions } from "@/hooks/use-missions";
 import { WARDROBE_ITEMS, CATEGORIES, DIFFICULTY_CONFIG, type ItemCategory, type Difficulty } from "@/data/wardrobe-items";
 import { cn } from "@/lib/utils";
-import { Lock, Check, Shirt } from "lucide-react";
+import { Lock, Check, ShoppingBag } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const DIFFICULTY_ORDER: Difficulty[] = ["beginner", "intermediate", "expert"];
 
@@ -15,28 +17,53 @@ interface WardrobeProps {
 
 export default function Wardrobe({ userId: _userId, userDifficulty, avatar = "male" }: WardrobeProps) {
   const { equipped, equip } = useEquipped();
+  const { coins, spendCoins, isItemUnlocked } = useMissions();
   const [activeCategory, setActiveCategory] = useState<ItemCategory>("hat");
+  const [buyConfirm, setBuyConfirm] = useState<string | null>(null);
+  const [recentUnlock, setRecentUnlock] = useState<string | null>(null);
 
   const userLevel = DIFFICULTY_ORDER.indexOf(userDifficulty);
-
-  const isUnlocked = (diff: Difficulty) => DIFFICULTY_ORDER.indexOf(diff) <= userLevel;
+  const isDifficultyUnlocked = (diff: Difficulty) => DIFFICULTY_ORDER.indexOf(diff) <= userLevel;
 
   const categoryItems = WARDROBE_ITEMS.filter((i) => i.category === activeCategory);
 
+  const handleItemClick = (itemId: string, coinCost: number, diffUnlocked: boolean) => {
+    if (!diffUnlocked) return;
+    if (isItemUnlocked(itemId, coinCost)) {
+      equip(activeCategory, itemId);
+    } else {
+      setBuyConfirm(buyConfirm === itemId ? null : itemId);
+    }
+  };
+
+  const handleBuy = (itemId: string, coinCost: number) => {
+    const success = spendCoins(itemId, coinCost);
+    if (success) {
+      equip(activeCategory, itemId);
+      setRecentUnlock(itemId);
+      setTimeout(() => setRecentUnlock(null), 2000);
+    } else {
+      alert("코인이 부족합니다. 일일 미션을 완료해 코인을 획득하세요!");
+    }
+    setBuyConfirm(null);
+  };
+
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in duration-500">
-      <div className="mb-6 px-1">
-        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">아바타 옷장</h1>
-        <p className="text-muted-foreground font-medium mt-1">
-          현재 등급: {" "}
-          <span
-            className="font-bold"
-            style={{ color: DIFFICULTY_CONFIG[userDifficulty].color }}
-          >
-            {DIFFICULTY_CONFIG[userDifficulty].label}
-          </span>
-          {" "}— 마우스로 아바타를 360도 회전해 보세요!
-        </p>
+      <div className="mb-6 px-1 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">아바타 옷장</h1>
+          <p className="text-muted-foreground font-medium mt-1">
+            마우스로 아바타를 360도 회전해 보세요!
+          </p>
+        </div>
+        <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 px-4 py-2.5 rounded-2xl">
+          <span className="text-xl">🪙</span>
+          <div>
+            <p className="text-xs text-muted-foreground font-semibold">보유 코인</p>
+            <p className="text-xl font-extrabold text-amber-600">{coins}</p>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
@@ -72,6 +99,30 @@ export default function Wardrobe({ userId: _userId, userDifficulty, avatar = "ma
               );
             })}
           </div>
+
+          {/* 등급 안내 */}
+          <div className="mt-3 p-4 bg-card rounded-2xl border border-border/50">
+            <p className="text-xs font-bold text-muted-foreground mb-2">현재 등급 현황</p>
+            <div className="flex gap-2">
+              {(Object.entries(DIFFICULTY_CONFIG) as [Difficulty, typeof DIFFICULTY_CONFIG[Difficulty]][]).map(([key, cfg]) => (
+                <div
+                  key={key}
+                  className={cn(
+                    "flex-1 rounded-xl p-2 text-center border",
+                    isDifficultyUnlocked(key) ? `${cfg.bgColor} ${cfg.borderColor}` : "bg-muted border-border/30 opacity-40"
+                  )}
+                >
+                  <div className="w-4 h-4 rounded-full mx-auto mb-1" style={{ background: cfg.color }} />
+                  <p className={cn("text-[10px] font-bold", isDifficultyUnlocked(key) ? cfg.textColor : "text-muted-foreground")}>
+                    {cfg.label}
+                  </p>
+                  {isDifficultyUnlocked(key) && (
+                    <Check className={cn("w-2.5 h-2.5 mx-auto mt-0.5", cfg.textColor)} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* ── 아이템 선택창 ── */}
@@ -81,11 +132,11 @@ export default function Wardrobe({ userId: _userId, userDifficulty, avatar = "ma
             {CATEGORIES.map(({ id, label }) => (
               <button
                 key={id}
-                onClick={() => setActiveCategory(id)}
+                onClick={() => { setActiveCategory(id); setBuyConfirm(null); }}
                 className={cn(
                   "flex-1 py-2.5 text-sm font-bold rounded-xl transition-all",
                   activeCategory === id
-                    ? "bg-white text-foreground shadow-sm"
+                    ? "bg-white text-red-600 shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -97,98 +148,138 @@ export default function Wardrobe({ userId: _userId, userDifficulty, avatar = "ma
           {/* 아이템 그리드 */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {categoryItems.map((item) => {
-              const unlocked = isUnlocked(item.difficulty);
+              const diffUnlocked = isDifficultyUnlocked(item.difficulty);
+              const coinUnlocked = isItemUnlocked(item.id, item.coinCost);
+              const isFullyUnlocked = diffUnlocked && coinUnlocked;
               const isEquipped = equipped[item.category] === item.id;
               const cfg = DIFFICULTY_CONFIG[item.difficulty];
+              const showingBuyConfirm = buyConfirm === item.id;
+              const justUnlocked = recentUnlock === item.id;
 
               return (
-                <button
-                  key={item.id}
-                  disabled={!unlocked}
-                  onClick={() => unlocked && equip(item.category, item.id)}
-                  className={cn(
-                    "relative rounded-2xl p-4 text-left border-2 transition-all",
-                    unlocked ? "hover:shadow-md active:scale-95 cursor-pointer" : "opacity-50 cursor-not-allowed",
-                    isEquipped
-                      ? "border-primary bg-primary/5 shadow-sm"
-                      : `border-border/50 bg-card ${unlocked ? "hover:border-border" : ""}`
-                  )}
-                >
-                  {/* 색상 스와치 */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <div
-                      className="w-10 h-10 rounded-full shadow-inner flex-shrink-0 border border-border/30"
-                      style={{
-                        background: item.accentColor
-                          ? `linear-gradient(135deg, ${item.color} 50%, ${item.accentColor} 50%)`
-                          : item.color,
-                      }}
-                    />
-                    {item.accentColor && (
-                      <div
-                        className="w-5 h-5 rounded-full border border-border/30"
-                        style={{ background: item.accentColor }}
-                      />
+                <div key={item.id} className="relative">
+                  <motion.button
+                    whileTap={isFullyUnlocked ? { scale: 0.97 } : {}}
+                    disabled={!diffUnlocked}
+                    onClick={() => handleItemClick(item.id, item.coinCost, diffUnlocked)}
+                    className={cn(
+                      "relative w-full rounded-2xl p-4 text-left border-2 transition-all duration-200",
+                      !diffUnlocked ? "opacity-45 cursor-not-allowed bg-muted border-border/30" :
+                      isEquipped ? "border-red-400 bg-red-50 shadow-sm shadow-red-100" :
+                      !coinUnlocked ? "border-amber-200 bg-amber-50/50 cursor-pointer hover:border-amber-300" :
+                      "border-border/50 bg-card cursor-pointer hover:border-border hover:shadow-sm"
                     )}
-                  </div>
-
-                  <p className="font-bold text-foreground text-sm leading-tight mb-1.5">{item.name}</p>
-                  <p className="text-xs text-muted-foreground leading-snug">{item.description}</p>
-
-                  {/* 난이도 배지 */}
-                  <div
-                    className={cn("mt-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border", cfg.bgColor, cfg.textColor, cfg.borderColor)}
                   >
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{ background: cfg.color }}
-                    />
-                    {cfg.label}
-                  </div>
-
-                  {/* 착용 중 */}
-                  {isEquipped && (
-                    <div className="absolute top-3 right-3 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                      <Check className="w-3.5 h-3.5 text-white" />
+                    {/* 색상 스와치 */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <div
+                        className="w-10 h-10 rounded-full shadow-inner flex-shrink-0 border border-border/30"
+                        style={{
+                          background: item.accentColor
+                            ? `linear-gradient(135deg, ${item.color} 50%, ${item.accentColor} 50%)`
+                            : item.color,
+                        }}
+                      />
                     </div>
-                  )}
 
-                  {/* 잠금 */}
-                  {!unlocked && (
-                    <div className="absolute top-3 right-3 w-6 h-6 bg-muted-foreground/20 rounded-full flex items-center justify-center">
-                      <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                    <p className="font-bold text-foreground text-sm leading-tight mb-1">{item.name}</p>
+                    <p className="text-xs text-muted-foreground leading-snug mb-2">{item.description}</p>
+
+                    {/* 난이도 배지 */}
+                    <div className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border", cfg.bgColor, cfg.textColor, cfg.borderColor)}>
+                      <span className="w-2 h-2 rounded-full" style={{ background: cfg.color }} />
+                      {cfg.label}
                     </div>
-                  )}
-                </button>
+
+                    {/* 코인 비용 */}
+                    {item.coinCost > 0 && (
+                      <div className={cn(
+                        "mt-2 flex items-center gap-1 text-xs font-bold",
+                        coinUnlocked ? "text-green-600" : "text-amber-600"
+                      )}>
+                        {coinUnlocked ? (
+                          <><Check className="w-3 h-3" /> 보유 중</>
+                        ) : (
+                          <><span>🪙</span> {item.coinCost}코인 필요</>
+                        )}
+                      </div>
+                    )}
+                    {item.coinCost === 0 && diffUnlocked && (
+                      <div className="mt-2 text-xs font-bold text-green-600 flex items-center gap-1">
+                        <Check className="w-3 h-3" /> 무료
+                      </div>
+                    )}
+
+                    {/* 착용 중 배지 */}
+                    {isEquipped && (
+                      <div className="absolute top-3 right-3 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                        <Check className="w-3.5 h-3.5 text-white" />
+                      </div>
+                    )}
+
+                    {/* 잠금 아이콘 */}
+                    {!diffUnlocked && (
+                      <div className="absolute top-3 right-3 w-6 h-6 bg-muted-foreground/20 rounded-full flex items-center justify-center">
+                        <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                      </div>
+                    )}
+                    {diffUnlocked && !coinUnlocked && (
+                      <div className="absolute top-3 right-3 w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center">
+                        <ShoppingBag className="w-3.5 h-3.5 text-amber-600" />
+                      </div>
+                    )}
+                  </motion.button>
+
+                  {/* 구매 확인 팝업 */}
+                  <AnimatePresence>
+                    {showingBuyConfirm && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 4 }}
+                        className="absolute top-full left-0 right-0 mt-2 z-20 bg-card border-2 border-amber-300 rounded-2xl p-3 shadow-lg"
+                      >
+                        <p className="text-xs font-bold text-foreground mb-2">
+                          🪙 {item.coinCost}코인으로 잠금 해제할까요?
+                        </p>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          현재 보유: {coins}코인
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleBuy(item.id, item.coinCost)}
+                            disabled={coins < item.coinCost}
+                            className="flex-1 py-1.5 bg-amber-500 text-white rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-amber-600 transition-colors"
+                          >
+                            구매
+                          </button>
+                          <button
+                            onClick={() => setBuyConfirm(null)}
+                            className="flex-1 py-1.5 bg-muted text-muted-foreground rounded-xl text-xs font-bold hover:bg-muted/80 transition-colors"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* 잠금 해제 축하 */}
+                  <AnimatePresence>
+                    {justUnlocked && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="absolute inset-0 bg-green-500/10 border-2 border-green-400 rounded-2xl flex items-center justify-center"
+                      >
+                        <span className="text-2xl">🎉</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               );
             })}
-          </div>
-
-          {/* 등급 안내 */}
-          <div className="mt-4 p-4 bg-card rounded-2xl border border-border/50">
-            <p className="text-sm font-bold text-muted-foreground mb-3">등급별 잠금 해제</p>
-            <div className="flex gap-3">
-              {(Object.entries(DIFFICULTY_CONFIG) as [Difficulty, typeof DIFFICULTY_CONFIG[Difficulty]][]).map(([key, cfg]) => (
-                <div
-                  key={key}
-                  className={cn(
-                    "flex-1 rounded-xl p-3 text-center border",
-                    isUnlocked(key) ? `${cfg.bgColor} ${cfg.borderColor}` : "bg-muted border-border/30 opacity-50"
-                  )}
-                >
-                  <div
-                    className="w-5 h-5 rounded-full mx-auto mb-1.5"
-                    style={{ background: cfg.color }}
-                  />
-                  <p className={cn("text-xs font-bold", isUnlocked(key) ? cfg.textColor : "text-muted-foreground")}>
-                    {cfg.label}
-                  </p>
-                  {isUnlocked(key) && (
-                    <Check className={cn("w-3 h-3 mx-auto mt-1", cfg.textColor)} />
-                  )}
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </div>
