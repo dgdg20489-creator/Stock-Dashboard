@@ -10,6 +10,7 @@ import {
 import { formatCurrency, formatPercent, formatLargeNumber, getColorClass, cn } from "@/lib/utils";
 import { StockChart } from "@/components/StockChart";
 import { OrderBook } from "@/components/OrderBook";
+import { TermTooltip } from "@/components/TermTooltip";
 import { ArrowLeft, Star, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,6 +20,11 @@ import { useMissions } from "@/hooks/use-missions";
 interface StockDetailProps {
   userId: number;
 }
+
+// 매수 기준 % 버튼
+const BUY_PCTS  = [{ label: "25%", pct: 0.25 }, { label: "50%", pct: 0.5 }, { label: "75%", pct: 0.75 }, { label: "최대", pct: 1.0 }];
+// 매도 기준 % 버튼
+const SELL_PCTS = [{ label: "25%", pct: 0.25 }, { label: "50%", pct: 0.5 }, { label: "75%", pct: 0.75 }, { label: "전량", pct: 1.0 }];
 
 export default function StockDetail({ userId }: StockDetailProps) {
   const [match, params] = useRoute("/stock/:ticker");
@@ -38,7 +44,6 @@ export default function StockDetail({ userId }: StockDetailProps) {
   const [showOrderBook, setShowOrderBook] = useState(true);
   const shares = parseInt(sharesStr) || 0;
 
-  // 실시간 폴링 (3초마다 가격 갱신)
   useEffect(() => {
     if (!ticker) return;
     const id = setInterval(() => {
@@ -74,10 +79,21 @@ export default function StockDetail({ userId }: StockDetailProps) {
   const estimatedAmount = shares * stock.currentPrice;
   const holding = portfolio?.holdings.find((h) => h.ticker === ticker);
   const ownedShares = holding ? holding.shares : 0;
+  const cashBalance = portfolio?.cashBalance || 0;
 
   const handleTrade = (type: ExecuteTradeRequestType) => {
     if (shares <= 0) return;
     tradeMutation.mutate({ data: { userId, ticker: stock.ticker, type, shares } });
+  };
+
+  // % 버튼 — 매수: 현금 기준, 매도: 보유주 기준
+  const setBuyPct = (pct: number) => {
+    const calc = Math.floor(cashBalance * pct / stock.currentPrice);
+    setSharesStr(calc > 0 ? String(calc) : "0");
+  };
+  const setSellPct = (pct: number) => {
+    const calc = Math.floor(ownedShares * pct);
+    setSharesStr(calc > 0 ? String(calc) : "0");
   };
 
   return (
@@ -127,14 +143,12 @@ export default function StockDetail({ userId }: StockDetailProps) {
               <span className="text-sm">({formatPercent(stock.changePercent)})</span>
             </div>
           </div>
-          {/* 실시간 뱃지 */}
           <div className="flex items-center gap-1.5 mb-1">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
             <span className="text-[10px] font-extrabold text-red-500">3초 갱신</span>
           </div>
         </div>
 
-        {/* 차트 */}
         <StockChart
           ticker={stock.ticker}
           isPositive={isPositive}
@@ -155,6 +169,7 @@ export default function StockDetail({ userId }: StockDetailProps) {
         >
           {showOrderBook ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           호가창
+          <TermTooltip term="호가창" />
           <span className="text-xs font-semibold text-muted-foreground ml-1">실시간 매수/매도 잔량</span>
         </button>
         {showOrderBook && (
@@ -162,18 +177,18 @@ export default function StockDetail({ userId }: StockDetailProps) {
         )}
       </div>
 
-      {/* 투자 정보 */}
+      {/* 기업 정보 */}
       <div className="bg-card rounded-3xl p-6 shadow-sm border border-border/50">
         <h3 className="text-base font-extrabold mb-5 text-foreground">기업 정보</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-6 gap-x-4">
-          <Metric label="시가총액" value={formatLargeNumber(stock.marketCap)} />
-          <Metric label="52주 최고" value={formatCurrency(stock.high52w)} />
-          <Metric label="52주 최저" value={formatCurrency(stock.low52w)} />
-          <Metric label="배당수익률" value={`${stock.dividendYield.toFixed(2)}%`} />
-          <Metric label="PER" value={`${stock.per.toFixed(2)}배`} />
-          <Metric label="PBR" value={`${stock.pbr.toFixed(2)}배`} />
-          <Metric label="EPS" value={formatCurrency(stock.eps)} />
-          <Metric label="거래량" value={formatLargeNumber(stock.volume)} />
+          <Metric label="시가총액" value={formatLargeNumber(stock.marketCap)} tooltip />
+          <Metric label="52주 최고" value={formatCurrency(stock.high52w)} tooltip />
+          <Metric label="52주 최저" value={formatCurrency(stock.low52w)} tooltip />
+          <Metric label="배당수익률" value={`${stock.dividendYield.toFixed(2)}%`} tooltip />
+          <Metric label="PER" value={`${stock.per.toFixed(2)}배`} tooltip />
+          <Metric label="PBR" value={`${stock.pbr.toFixed(2)}배`} tooltip />
+          <Metric label="EPS" value={formatCurrency(stock.eps)} tooltip />
+          <Metric label="거래량" value={formatLargeNumber(stock.volume)} tooltip />
         </div>
       </div>
 
@@ -187,7 +202,11 @@ export default function StockDetail({ userId }: StockDetailProps) {
         </div>
 
         <div className="flex justify-between text-sm font-medium text-muted-foreground mb-3 px-1">
-          <span>주문가능 현금: <span className="text-foreground font-bold">{formatCurrency(portfolio?.cashBalance || 0)}</span></span>
+          <span className="flex items-center gap-1">
+            주문가능 현금
+            <TermTooltip term="예수금" />
+            : <span className="text-foreground font-bold ml-1">{formatCurrency(cashBalance)}</span>
+          </span>
           <span>보유: <span className="text-foreground font-bold">{ownedShares}주</span></span>
         </div>
 
@@ -202,17 +221,38 @@ export default function StockDetail({ userId }: StockDetailProps) {
           <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xl font-bold text-muted-foreground">주</span>
         </div>
 
-        {/* 빠른 수량 선택 */}
-        <div className="flex gap-2 mt-2">
-          {[10, 30, 50, 100].map((n) => (
-            <button
-              key={n}
-              onClick={() => setSharesStr(String(n))}
-              className="flex-1 py-1.5 bg-muted text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted/80 transition-colors"
-            >
-              {n}주
-            </button>
-          ))}
+        {/* 간편 주문 버튼 — 매수 기준 (현금%) */}
+        <div className="mt-3 space-y-2">
+          <p className="text-[11px] font-bold text-muted-foreground px-1">매수 기준 (현금)</p>
+          <div className="flex gap-2">
+            {BUY_PCTS.map(({ label, pct }) => (
+              <button
+                key={label}
+                onClick={() => setBuyPct(pct)}
+                className="flex-1 py-2 bg-red-50 text-xs font-extrabold text-up rounded-xl hover:bg-red-100 active:scale-95 transition-all border border-red-100"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* 매도 기준 (보유%) — 보유 주식 있을 때만 */}
+          {ownedShares > 0 && (
+            <>
+              <p className="text-[11px] font-bold text-muted-foreground px-1 pt-1">매도 기준 (보유주)</p>
+              <div className="flex gap-2">
+                {SELL_PCTS.map(({ label, pct }) => (
+                  <button
+                    key={label}
+                    onClick={() => setSellPct(pct)}
+                    className="flex-1 py-2 bg-blue-50 text-xs font-extrabold text-down rounded-xl hover:bg-blue-100 active:scale-95 transition-all border border-blue-100"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex justify-between items-center mt-4 px-1">
@@ -230,7 +270,7 @@ export default function StockDetail({ userId }: StockDetailProps) {
           </button>
           <button
             onClick={() => handleTrade(ExecuteTradeRequestType.buy)}
-            disabled={shares <= 0 || (portfolio?.cashBalance || 0) < estimatedAmount || tradeMutation.isPending}
+            disabled={shares <= 0 || cashBalance < estimatedAmount || tradeMutation.isPending}
             className="py-5 rounded-2xl font-extrabold text-xl bg-up text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             매수
@@ -261,10 +301,13 @@ export default function StockDetail({ userId }: StockDetailProps) {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+function Metric({ label, value, tooltip }: { label: string; value: string | number; tooltip?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+        {label}
+        {tooltip && <TermTooltip term={label} />}
+      </span>
       <span className="text-sm font-extrabold text-foreground">{value}</span>
     </div>
   );
