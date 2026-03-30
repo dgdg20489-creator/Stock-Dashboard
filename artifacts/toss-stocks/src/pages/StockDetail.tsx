@@ -143,6 +143,7 @@ export default function StockDetail({ userId }: StockDetailProps) {
           highPrice={stock.highPrice ?? Math.round(stock.currentPrice * 1.015)}
           lowPrice={stock.lowPrice ?? Math.round(stock.currentPrice * 0.985)}
           volume={stock.volume}
+          avgCost={holding?.avgPrice}
         />
       </div>
 

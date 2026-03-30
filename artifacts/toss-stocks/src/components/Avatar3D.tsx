@@ -1,13 +1,111 @@
-import { useRef, Suspense } from "react";
-import { Canvas } from "@react-three/fiber";
+import { useRef, Suspense, useMemo } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import type { EquippedItems } from "@/hooks/use-equipped";
 import { WARDROBE_ITEMS, type WardrobeItem } from "@/data/wardrobe-items";
 
+type Difficulty = "beginner" | "intermediate" | "expert";
+
 interface AvatarProps {
   equipped: EquippedItems;
   avatar: "male" | "female";
+  difficulty?: Difficulty;
+}
+
+// ── 중수: 발밑 은빛 빛 원 ──────────────────────────────────
+function IntermediateAura() {
+  const ringRef = useRef<THREE.Mesh>(null!);
+  const glowRef = useRef<THREE.Mesh>(null!);
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+    if (ringRef.current) {
+      (ringRef.current.material as THREE.MeshBasicMaterial).opacity =
+        0.45 + Math.sin(t * 1.8) * 0.25;
+      ringRef.current.scale.setScalar(1 + Math.sin(t * 0.9) * 0.04);
+    }
+    if (glowRef.current) {
+      (glowRef.current.material as THREE.MeshBasicMaterial).opacity =
+        0.12 + Math.sin(t * 2.2 + 1) * 0.08;
+    }
+  });
+
+  return (
+    <group position={[0, -0.85, 0]}>
+      {/* 빛나는 디스크 */}
+      <mesh ref={glowRef} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.95, 64]} />
+        <meshBasicMaterial color="#C8C8E8" transparent side={THREE.DoubleSide} />
+      </mesh>
+      {/* 은색 링 */}
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.55, 0.85, 64]} />
+        <meshBasicMaterial color="#E0E8FF" transparent side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
+// ── 고수: 금빛 파티클이 아바타 주위를 떠다님 ───────────────
+function ExpertAura() {
+  const groupRef = useRef<THREE.Group>(null!);
+  const diskRef = useRef<THREE.Mesh>(null!);
+
+  const particles = useMemo(
+    () =>
+      Array.from({ length: 28 }, (_, i) => ({
+        angle: (i / 28) * Math.PI * 2,
+        radius: 0.6 + ((i * 37) % 7) * 0.07,
+        height: -0.6 + ((i * 13) % 22) * 0.15,
+        speed: 0.35 + ((i * 7) % 10) * 0.05,
+        size: 0.018 + ((i * 5) % 4) * 0.006,
+        phase: (i * 1.3) % (Math.PI * 2),
+      })),
+    []
+  );
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+    if (groupRef.current) {
+      groupRef.current.children.forEach((child, i) => {
+        const p = particles[i];
+        if (!p) return;
+        const angle = p.angle + t * p.speed;
+        const r = p.radius + Math.sin(t * 0.7 + p.phase) * 0.08;
+        child.position.x = Math.cos(angle) * r;
+        child.position.z = Math.sin(angle) * r;
+        child.position.y = p.height + Math.sin(t * 1.2 + p.phase) * 0.18;
+        const mat = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+        if (mat) mat.opacity = 0.5 + Math.sin(t * 2.5 + p.phase) * 0.4;
+      });
+    }
+    if (diskRef.current) {
+      (diskRef.current.material as THREE.MeshBasicMaterial).opacity =
+        0.18 + Math.sin(t * 1.5) * 0.1;
+      diskRef.current.rotation.z = t * 0.4;
+    }
+  });
+
+  return (
+    <>
+      {/* 금빛 발밑 원판 */}
+      <mesh ref={diskRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.84, 0]}>
+        <ringGeometry args={[0.4, 1.0, 64]} />
+        <meshBasicMaterial color="#FFD700" transparent side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* 파티클들 */}
+      <group ref={groupRef}>
+        {particles.map((p, i) => (
+          <mesh key={i}>
+            <sphereGeometry args={[p.size, 6, 6]} />
+            <meshBasicMaterial color="#FFD700" transparent opacity={0.7} />
+          </mesh>
+        ))}
+      </group>
+    </>
+  );
 }
 
 function getItem(id?: string): WardrobeItem | undefined {
@@ -280,7 +378,7 @@ function HumanoidAvatar({ equipped, avatar }: AvatarProps) {
   );
 }
 
-function Scene({ equipped, avatar }: AvatarProps) {
+function Scene({ equipped, avatar, difficulty = "beginner" }: AvatarProps) {
   return (
     <>
       <PerspectiveCamera makeDefault position={[0, 0.5, 3.2]} fov={55} />
@@ -288,6 +386,10 @@ function Scene({ equipped, avatar }: AvatarProps) {
       <directionalLight position={[3, 5, 3]} intensity={1.4} />
       <directionalLight position={[-2, 3, -2]} intensity={0.6} />
       <hemisphereLight args={["#e0e8ff", "#f0f0f0", 0.5]} />
+
+      {/* 난이도별 아우라 */}
+      {difficulty === "intermediate" && <IntermediateAura />}
+      {difficulty === "expert" && <ExpertAura />}
 
       <HumanoidAvatar equipped={equipped} avatar={avatar} />
 
@@ -306,15 +408,16 @@ function Scene({ equipped, avatar }: AvatarProps) {
 interface Avatar3DProps {
   equipped: EquippedItems;
   avatar?: "male" | "female";
+  difficulty?: Difficulty;
   className?: string;
 }
 
-export function Avatar3D({ equipped, avatar = "male", className }: Avatar3DProps) {
+export function Avatar3D({ equipped, avatar = "male", difficulty = "beginner", className }: Avatar3DProps) {
   return (
     <div className={className ?? "w-full h-full"} style={{ background: "linear-gradient(180deg, #e8ecf4 0%, #f2f4f6 100%)" }}>
-      <Canvas shadows>
+      <Canvas>
         <Suspense fallback={null}>
-          <Scene equipped={equipped} avatar={avatar} />
+          <Scene equipped={equipped} avatar={avatar} difficulty={difficulty} />
         </Suspense>
       </Canvas>
     </div>

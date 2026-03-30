@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useGetStockHistory, useGetStockByTicker, GetStockHistoryPeriod } from "@workspace/api-client-react";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from "recharts";
 import { cn } from "@/lib/utils";
 
 type ChartType = "line" | "candle";
@@ -19,9 +19,11 @@ interface OHLCPoint {
 function CandleChartSVG({
   data,
   containerWidth,
+  avgCost,
 }: {
   data: OHLCPoint[];
   containerWidth: number;
+  avgCost?: number;
 }) {
   const height = 260;
   if (!data.length) return null;
@@ -74,6 +76,25 @@ function CandleChartSVG({
           </g>
         );
       })}
+
+      {/* 평균 매수가 점선 */}
+      {avgCost && avgCost >= minP && avgCost <= maxP && (
+        <g>
+          <line
+            x1={0}
+            y1={toY(avgCost)}
+            x2={containerWidth}
+            y2={toY(avgCost)}
+            stroke="#F97316"
+            strokeWidth={1.5}
+            strokeDasharray="5 4"
+          />
+          <rect x={containerWidth - 62} y={toY(avgCost) - 9} width={60} height={16} rx={4} fill="#F97316" />
+          <text x={containerWidth - 32} y={toY(avgCost) + 3} fontSize={9} fill="white" textAnchor="middle" fontWeight="bold">
+            평균 {new Intl.NumberFormat("ko-KR").format(Math.round(avgCost))}
+          </text>
+        </g>
+      )}
     </svg>
   );
 }
@@ -124,9 +145,11 @@ function VolumeBars({
 function RealtimeChart({
   ticker,
   isPositive,
+  avgCost,
 }: {
   ticker: string;
   isPositive: boolean;
+  avgCost?: number;
 }) {
   const [ticks, setTicks] = useState<{ t: number; price: number }[]>([]);
   const { data: stockData } = useGetStockByTicker(ticker);
@@ -175,6 +198,15 @@ function RealtimeChart({
             isAnimationActive={false}
             dot={false}
           />
+          {avgCost && (
+            <ReferenceLine
+              y={avgCost}
+              stroke="#F97316"
+              strokeDasharray="6 4"
+              strokeWidth={1.5}
+              label={{ value: `평균 ${new Intl.NumberFormat("ko-KR").format(Math.round(avgCost))}원`, position: "insideTopRight", fontSize: 9, fill: "#F97316", fontWeight: "bold" }}
+            />
+          )}
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -182,7 +214,7 @@ function RealtimeChart({
 }
 
 // ── 일반 라인 차트 ──────────────────────────────────────────
-function LineChart({ data, isPositive }: { data: OHLCPoint[]; isPositive: boolean }) {
+function LineChart({ data, isPositive, avgCost }: { data: OHLCPoint[]; isPositive: boolean; avgCost?: number }) {
   const color = isPositive ? "#F04452" : "#3182F6";
   const gradientId = "line-gradient";
 
@@ -218,6 +250,15 @@ function LineChart({ data, isPositive }: { data: OHLCPoint[]; isPositive: boolea
             animationDuration={600}
             dot={false}
           />
+          {avgCost && (
+            <ReferenceLine
+              y={avgCost}
+              stroke="#F97316"
+              strokeDasharray="6 4"
+              strokeWidth={1.5}
+              label={{ value: `평균 ${new Intl.NumberFormat("ko-KR").format(Math.round(avgCost))}원`, position: "insideTopRight", fontSize: 9, fill: "#F97316", fontWeight: "bold" }}
+            />
+          )}
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -233,6 +274,7 @@ interface StockChartProps {
   highPrice: number;
   lowPrice: number;
   volume: number;
+  avgCost?: number;
 }
 
 export function StockChart({
@@ -243,6 +285,7 @@ export function StockChart({
   highPrice,
   lowPrice,
   volume,
+  avgCost,
 }: StockChartProps) {
   const [period, setPeriod] = useState<PeriodKey>("1d");
   const [chartType, setChartType] = useState<ChartType>("line");
@@ -325,12 +368,12 @@ export function StockChart({
             <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
           </div>
         ) : period === "realtime" ? (
-          <RealtimeChart ticker={ticker} isPositive={isPositive} />
+          <RealtimeChart ticker={ticker} isPositive={isPositive} avgCost={avgCost} />
         ) : chartType === "line" ? (
-          <LineChart data={ohlcData} isPositive={isPositive} />
+          <LineChart data={ohlcData} isPositive={isPositive} avgCost={avgCost} />
         ) : (
           <>
-            <CandleChartSVG data={ohlcData} containerWidth={containerWidth} />
+            <CandleChartSVG data={ohlcData} containerWidth={containerWidth} avgCost={avgCost} />
             {/* 캔들 차트 X축 날짜 */}
             {ohlcData.length > 0 && (
               <div className="flex justify-between px-1 mt-0.5">

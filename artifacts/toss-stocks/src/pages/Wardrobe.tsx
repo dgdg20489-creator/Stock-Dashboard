@@ -71,7 +71,7 @@ export default function Wardrobe({ userId: _userId, userDifficulty, avatar = "ma
         <div className="lg:w-[340px] flex-shrink-0">
           <div className="bg-card rounded-3xl overflow-hidden border border-border/50 shadow-sm">
             <div className="h-[440px] lg:h-[500px]">
-              <Avatar3D equipped={equipped} avatar={avatar} />
+              <Avatar3D equipped={equipped} avatar={avatar} difficulty={userDifficulty} />
             </div>
           </div>
 
