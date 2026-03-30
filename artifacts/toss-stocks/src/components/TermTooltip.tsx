@@ -51,13 +51,16 @@ export function TermTooltip({ term, className }: TermTooltipProps) {
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <button
+      <span
+        role="button"
+        tabIndex={0}
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-[9px] font-extrabold flex items-center justify-center hover:bg-gray-300 transition-colors flex-shrink-0 leading-none"
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setOpen((v) => !v); }}
+        className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-[9px] font-extrabold flex items-center justify-center hover:bg-gray-300 transition-colors flex-shrink-0 leading-none cursor-pointer"
         aria-label={`${term} 설명`}
       >
         ?
-      </button>
+      </span>
 
       {open && (
         <div
