@@ -156,9 +156,12 @@ router.get("/users/:userId/portfolio", async (req, res) => {
     const totalReturn = totalAssets - seedMoney;
     const totalReturnPercent = (totalReturn / seedMoney) * 100;
 
-    // 자동 승격 체크
+    // 자동 승격/강등 체크 (승격 우선)
     let promoted = false;
+    let demoted = false;
     let newDifficulty: string | undefined;
+
+    // 승격 조건
     if (user.difficulty === "beginner" && totalReturnPercent >= 20) {
       await db.update(usersTable).set({ difficulty: "intermediate" }).where(eq(usersTable.id, userId));
       promoted = true;
@@ -167,6 +170,16 @@ router.get("/users/:userId/portfolio", async (req, res) => {
       await db.update(usersTable).set({ difficulty: "expert" }).where(eq(usersTable.id, userId));
       promoted = true;
       newDifficulty = "expert";
+    }
+    // 강등 조건 (수익률 -20% 이하)
+    else if (user.difficulty === "expert" && totalReturnPercent <= -20) {
+      await db.update(usersTable).set({ difficulty: "intermediate" }).where(eq(usersTable.id, userId));
+      demoted = true;
+      newDifficulty = "intermediate";
+    } else if (user.difficulty === "intermediate" && totalReturnPercent <= -20) {
+      await db.update(usersTable).set({ difficulty: "beginner" }).where(eq(usersTable.id, userId));
+      demoted = true;
+      newDifficulty = "beginner";
     }
 
     const result = GetUserPortfolioResponse.parse({
@@ -177,6 +190,7 @@ router.get("/users/:userId/portfolio", async (req, res) => {
       totalReturnPercent: Math.round(totalReturnPercent * 100) / 100,
       holdings: holdingItems,
       ...(promoted && { promoted, newDifficulty }),
+      ...(demoted && { demoted, newDifficulty }),
     });
     res.json(result);
   } catch (e) {

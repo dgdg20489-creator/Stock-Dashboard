@@ -192,6 +192,7 @@ export const GetUserPortfolioResponse = zod.object({
     }),
   ),
   promoted: zod.boolean().optional(),
+  demoted: zod.boolean().optional(),
   newDifficulty: zod.string().optional(),
 });
 
