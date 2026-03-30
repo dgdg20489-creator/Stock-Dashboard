@@ -285,7 +285,7 @@ function Scene({ equipped, avatar }: AvatarProps) {
     <>
       <PerspectiveCamera makeDefault position={[0, 0.5, 3.2]} fov={55} />
       <ambientLight intensity={1.2} />
-      <directionalLight position={[3, 5, 3]} intensity={1.4} castShadow />
+      <directionalLight position={[3, 5, 3]} intensity={1.4} />
       <directionalLight position={[-2, 3, -2]} intensity={0.6} />
       <hemisphereLight args={["#e0e8ff", "#f0f0f0", 0.5]} />
 
