@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 // ── 타입 ──────────────────────────────────────────────────────────
 type ChartType = "line" | "candle";
-type PeriodKey = "realtime" | "day" | "week" | "month" | "3m" | "year";
+type PeriodKey = "realtime" | "day" | "week" | "month" | "year";
 type TFKey = "1m" | "5m" | "15m" | "30m" | "60m";
 
 export interface OHLCPoint {
@@ -172,6 +172,38 @@ function aggregateMonthly(daily: OHLCPoint[]): OHLCPoint[] {
     high: Math.max(...group.map(g => g.high)), low: Math.min(...group.map(g => g.low)),
     close: group[group.length - 1].close, volume: group.reduce((s, g) => s + g.volume, 0) });
   return months;
+}
+
+// ── 년봉 집계 ─────────────────────────────────────────────────────
+function aggregateYearly(daily: OHLCPoint[]): OHLCPoint[] {
+  if (!daily.length) return [];
+  const years: OHLCPoint[] = [];
+  let group: OHLCPoint[] = [];
+  let currentYear = daily[0].date.slice(0, 4);
+  for (const d of daily) {
+    const yr = d.date.slice(0, 4);
+    if (yr !== currentYear && group.length) {
+      years.push({
+        date: `${currentYear}-01-01`,
+        open:   group[0].open,
+        high:   Math.max(...group.map(g => g.high)),
+        low:    Math.min(...group.map(g => g.low)),
+        close:  group[group.length - 1].close,
+        volume: group.reduce((s, g) => s + g.volume, 0),
+      });
+      group = []; currentYear = yr;
+    }
+    group.push(d);
+  }
+  if (group.length) years.push({
+    date: `${currentYear}-01-01`,
+    open:   group[0].open,
+    high:   Math.max(...group.map(g => g.high)),
+    low:    Math.min(...group.map(g => g.low)),
+    close:  group[group.length - 1].close,
+    volume: group.reduce((s, g) => s + g.volume, 0),
+  });
+  return years;
 }
 
 // ── 분봉 데이터 생성 (일봉 → N분봉 시뮬레이션) ─────────────────────
@@ -637,6 +669,14 @@ function TimeAxis({ data, containerWidth, period, tf }: {
       labels.push({ x, text, bold: yr !== prevYear, isYear: yr !== prevYear });
       if (yr !== prevYear) prevYear = yr;
     }
+  } else if (period === "year") {
+    // 년봉: 각 슬롯 = 1년, 연도 라벨을 각 봉 위에 표시
+    const targetLabels = Math.max(3, Math.min(data.length, Math.floor(chartW / 45)));
+    const labelInterval = Math.max(1, Math.round(data.length / targetLabels));
+    for (let i = 0; i < data.length; i += labelInterval) {
+      const x = PAD_L + i * slotW + slotW / 2;
+      labels.push({ x, text: data[i]?.date?.slice(0, 4) ?? "", bold: true, isYear: true });
+    }
   } else if (yearSpan >= 2) {
     // 다년 일봉: 연도 경계선 + 연도 라벨
     let prevYear = "";
@@ -777,7 +817,7 @@ interface StockChartProps {
 
 // 초기 뷰 설정 (봉 개수)
 const DEFAULT_SPANS: Record<PeriodKey, number> = {
-  realtime: 120, day: 60, week: 52, month: 24, "3m": 90, year: 120,
+  realtime: 120, day: 60, week: 52, month: 60, year: 30,
 };
 
 export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockChartProps) {
@@ -816,7 +856,7 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
     return normalizeOHLC(history as any[], currentPrice);
   }, [history, currentPrice]);
 
-  // 주봉/월봉 집계 or 분봉 생성
+  // 주봉/월봉/년봉 집계 or 분봉 생성
   const chartData = useMemo(() => {
     if (!rawData.length) return rawData;
     if (period === "realtime") {
@@ -827,8 +867,8 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
     }
     if (period === "week")  return aggregateWeekly(rawData);
     if (period === "month") return aggregateMonthly(rawData);
-    if (period === "3m")   return rawData.slice(-90);
-    return rawData;
+    if (period === "year")  return aggregateYearly(rawData);
+    return rawData; // "day"
   }, [rawData, period, tf]);
 
   // period/tf 바뀌면 뷰 리셋
@@ -885,8 +925,7 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
     { key: "day",      label: "일봉" },
     { key: "week",     label: "주봉" },
     { key: "month",    label: "월봉" },
-    { key: "3m",       label: "3개월" },
-    { key: "year",     label: "1년" },
+    { key: "year",     label: "년봉" },
   ];
 
   const tfs: { key: TFKey; label: string }[] = [
