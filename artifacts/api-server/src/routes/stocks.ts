@@ -20,26 +20,80 @@ const router: IRouter = Router();
 
 interface RealtimeRow {
   ticker: string;
+  name: string;
   current_price: string;
   change_val: string;
   change_pct: string;
   volume: string;
+  market_cap: string;
+  sector: string | null;
+  market: string | null;
+  high52w: string | null;
+  low52w: string | null;
+  per: string | null;
+  pbr: string | null;
+  eps: string | null;
+  dividend_yield: string | null;
+  open_price: string | null;
+  high_price: string | null;
+  low_price: string | null;
+  logo_url: string | null;
 }
 
-async function getRealtimePrices(): Promise<Map<string, { price: number; change: number; changePercent: number; volume: number }>> {
+async function getAllStocksFromDB(): Promise<RealtimeRow[]> {
   try {
     const result = await pool.query<RealtimeRow>(`
-      SELECT ticker, current_price, change_val, change_pct, volume
+      SELECT ticker, name, current_price, change_val, change_pct, volume,
+             market_cap, sector, market,
+             high52w, low52w, per, pbr, eps, dividend_yield,
+             open_price, high_price, low_price, logo_url
       FROM stocks_realtime
-      WHERE updated_at > NOW() - INTERVAL '120 seconds'
+      ORDER BY COALESCE(market_cap, 0) DESC
     `);
+    return result.rows;
+  } catch {
+    return [];
+  }
+}
+
+async function getStockFromDB(ticker: string): Promise<RealtimeRow | null> {
+  try {
+    const result = await pool.query<RealtimeRow>(`
+      SELECT ticker, name, current_price, change_val, change_pct, volume,
+             market_cap, sector, market,
+             high52w, low52w, per, pbr, eps, dividend_yield,
+             open_price, high_price, low_price, logo_url
+      FROM stocks_realtime
+      WHERE ticker = $1
+    `, [ticker]);
+    return result.rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function rowToStockItem(row: RealtimeRow) {
+  const price    = Math.round(parseFloat(row.current_price) || 0);
+  const change   = Math.round(parseFloat(row.change_val)    || 0);
+  const changePct = Math.round((parseFloat(row.change_pct) || 0) * 100) / 100;
+  const volume   = parseInt(row.volume) || 1_000_000;
+  const mcap     = parseInt(row.market_cap) || 0;
+  const sector   = row.sector || (row.market === "KOSDAQ" ? "코스닥" : "종합");
+
+  return { ticker: row.ticker, name: row.name, currentPrice: price, change, changePercent: changePct, volume, marketCap: mcap, sector };
+}
+
+// Keep legacy getRealtimePrices for history/other routes that still need it
+async function getRealtimePrices(): Promise<Map<string, { price: number; change: number; changePercent: number; volume: number }>> {
+  try {
+    const rows = await getAllStocksFromDB();
     const map = new Map<string, { price: number; change: number; changePercent: number; volume: number }>();
-    for (const row of result.rows) {
+    for (const row of rows) {
       map.set(row.ticker, {
-        price:         Math.round(parseFloat(row.current_price)),
-        change:        Math.round(parseFloat(row.change_val)),
-        changePercent: Math.round(parseFloat(row.change_pct) * 100) / 100,
-        volume:        parseInt(row.volume),
+        price:         Math.round(parseFloat(row.current_price) || 0),
+        change:        Math.round(parseFloat(row.change_val)    || 0),
+        changePercent: Math.round((parseFloat(row.change_pct) || 0) * 100) / 100,
+        volume:        parseInt(row.volume) || 1_000_000,
       });
     }
     return map;
@@ -113,58 +167,37 @@ async function getHistoryFromDB(ticker: string, days: number) {
 // --- Routes ---
 
 router.get("/stocks", async (_req, res) => {
-  const rtPrices = await getRealtimePrices();
-  const stocks = STOCKS_DATA.map((s) => {
-    const rt = rtPrices.get(s.ticker);
-    const { price, change, changePercent } = rt
-      ? rt
-      : getStockPrice(s.basePrice, s.ticker);
-    return {
-      ticker:       s.ticker,
-      name:         s.name,
-      currentPrice: rt ? rt.price : price,
-      change:       rt ? rt.change : Math.round(change),
-      changePercent: rt ? rt.changePercent : changePercent,
-      volume:       rt ? rt.volume : getVolume(s.ticker),
-      marketCap:    s.marketCap,
-      sector:       s.sector,
-    };
-  });
-  const parsed = GetStocksResponse.parse(stocks);
+  const rows = await getAllStocksFromDB();
+  if (rows.length === 0) {
+    // Fallback to STOCKS_DATA if DB is empty
+    const rtPrices = await getRealtimePrices();
+    const stocks = STOCKS_DATA.map((s) => {
+      const rt = rtPrices.get(s.ticker);
+      const { price, change, changePercent } = rt ?? getStockPrice(s.basePrice, s.ticker);
+      return { ticker: s.ticker, name: s.name, currentPrice: rt ? rt.price : price,
+               change: rt ? rt.change : Math.round(change), changePercent: rt ? rt.changePercent : changePercent,
+               volume: rt ? rt.volume : getVolume(s.ticker), marketCap: s.marketCap, sector: s.sector };
+    });
+    res.json(GetStocksResponse.parse(stocks));
+    return;
+  }
+  const parsed = GetStocksResponse.parse(rows.map(rowToStockItem));
   res.json(parsed);
 });
 
 router.get("/stocks/search", async (req, res) => {
   const q = ((req.query.q as string) || "").trim().toLowerCase();
-  const rtPrices = await getRealtimePrices();
-  const filtered = STOCKS_DATA.filter(
-    (s) => s.name.toLowerCase().includes(q) || s.ticker.includes(q) || s.sector.toLowerCase().includes(q)
+  const rows = await getAllStocksFromDB();
+  const filtered = rows.filter(
+    (r) => r.name.toLowerCase().includes(q) || r.ticker.includes(q) ||
+           (r.sector || "").toLowerCase().includes(q) || (r.market || "").toLowerCase().includes(q)
   );
-  const stocks = filtered.map((s) => {
-    const rt = rtPrices.get(s.ticker);
-    const { price, change, changePercent } = rt ?? getStockPrice(s.basePrice, s.ticker);
-    return {
-      ticker:        s.ticker,
-      name:          s.name,
-      currentPrice:  rt ? rt.price : price,
-      change:        rt ? rt.change : Math.round(change),
-      changePercent: rt ? rt.changePercent : changePercent,
-      volume:        rt ? rt.volume : getVolume(s.ticker),
-      marketCap:     s.marketCap,
-      sector:        s.sector,
-    };
-  });
-  const parsed = GetStocksResponse.parse(stocks);
+  const parsed = GetStocksResponse.parse(filtered.map(rowToStockItem));
   res.json(parsed);
 });
 
 router.get("/stocks/:ticker/history", async (req, res) => {
-  const stock = STOCKS_DATA.find((s) => s.ticker === req.params.ticker);
-  if (!stock) {
-    res.status(404).json({ message: "Stock not found" });
-    return;
-  }
-
+  const ticker = req.params.ticker;
   const period = (req.query.period as string) || "1m";
   let days = 30;
   switch (period) {
@@ -176,27 +209,38 @@ router.get("/stocks/:ticker/history", async (req, res) => {
   }
 
   // Try DB first (real pykrx data)
-  const dbHistory = await getHistoryFromDB(stock.ticker, days);
+  const dbHistory = await getHistoryFromDB(ticker, days);
   if (dbHistory) {
     const parsed = GetStockHistoryResponse.parse(dbHistory);
     res.json(parsed);
     return;
   }
 
-  // Fallback: generate synthetic OHLCV
+  // Fallback: generate synthetic OHLCV from DB price
+  const dbRow = await getStockFromDB(ticker);
+  const stock = STOCKS_DATA.find((s) => s.ticker === ticker);
+  const basePrice = dbRow ? Math.round(parseFloat(dbRow.current_price) || 0) : (stock?.basePrice ?? 50000);
+  const high52w   = dbRow?.high52w ? parseFloat(dbRow.high52w) : basePrice * 1.3;
+  const low52w    = dbRow?.low52w  ? parseFloat(dbRow.low52w)  : basePrice * 0.7;
+
+  if (basePrice === 0) {
+    res.status(404).json({ message: "Stock not found" });
+    return;
+  }
+
   const history = [];
   const now = new Date();
-  let price = stock.basePrice;
-  const seed = stock.ticker.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  let price = basePrice;
+  const seed = ticker.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
 
   for (let i = days; i >= 0; i--) {
     const date = new Date(now);
     date.setDate(date.getDate() - i);
-    const dayFactor  = Math.sin(i * 0.1 + seed * 0.01) * 0.02;
+    const dayFactor   = Math.sin(i * 0.1 + seed * 0.01) * 0.02;
     const noiseFactor = (Math.sin(i * 7.3 + seed) * 0.5 + 0.5) * 0.02 - 0.01;
     price = Math.round(price * (1 + dayFactor * 0.1 + noiseFactor));
-    price = Math.max(price, stock.low52w * 0.9);
-    price = Math.min(price, stock.high52w * 1.1);
+    price = Math.max(price, low52w * 0.9);
+    price = Math.min(price, high52w * 1.1);
     const highOffset = Math.abs(Math.sin(i * 3.7 + seed)) * price * 0.015;
     const lowOffset  = Math.abs(Math.cos(i * 2.9 + seed)) * price * 0.015;
     const openOffset = (Math.random() - 0.5) * price * 0.01;
@@ -206,7 +250,7 @@ router.get("/stocks/:ticker/history", async (req, res) => {
       high:   Math.round(price + highOffset),
       low:    Math.round(price - lowOffset),
       close:  price,
-      volume: getVolume(stock.ticker + i),
+      volume: getVolume(ticker + i),
     });
   }
   const parsed = GetStockHistoryResponse.parse(history);
@@ -290,36 +334,53 @@ router.get("/news", async (_req, res) => {
 });
 
 router.get("/stocks/:ticker", async (req, res) => {
-  const stock = STOCKS_DATA.find((s) => s.ticker === req.params.ticker);
-  if (!stock) {
+  const ticker = req.params.ticker;
+  // Try DB first
+  const dbRow = await getStockFromDB(ticker);
+  // STOCKS_DATA fallback for metadata
+  const legacy = STOCKS_DATA.find((s) => s.ticker === ticker);
+
+  if (!dbRow && !legacy) {
     res.status(404).json({ message: "Stock not found" });
     return;
   }
-  const rtPrices = await getRealtimePrices();
-  const rt = rtPrices.get(stock.ticker);
-  const { price, change, changePercent } = rt ?? getStockPrice(stock.basePrice, stock.ticker);
-  const currentPrice = rt ? rt.price : price;
-  const highOffset   = stock.basePrice * 0.015;
-  const lowOffset    = stock.basePrice * 0.012;
+
+  const currentPrice = dbRow ? Math.round(parseFloat(dbRow.current_price) || 0) : (legacy?.basePrice ?? 0);
+  const change       = dbRow ? Math.round(parseFloat(dbRow.change_val)    || 0) : 0;
+  const changePct    = dbRow ? Math.round((parseFloat(dbRow.change_pct)   || 0) * 100) / 100 : 0;
+  const volume       = dbRow ? (parseInt(dbRow.volume) || 1_000_000) : getVolume(ticker);
+  const mcap         = dbRow ? (parseInt(dbRow.market_cap) || 0)    : (legacy?.marketCap ?? 0);
+  const sector       = dbRow?.sector || legacy?.sector || "종합";
+  const high52w      = dbRow?.high52w ? parseFloat(dbRow.high52w) : (legacy?.high52w ?? currentPrice * 1.3);
+  const low52w       = dbRow?.low52w  ? parseFloat(dbRow.low52w)  : (legacy?.low52w  ?? currentPrice * 0.7);
+  const per          = dbRow?.per     ? parseFloat(dbRow.per)     : (legacy?.per     ?? 0);
+  const pbr          = dbRow?.pbr     ? parseFloat(dbRow.pbr)     : (legacy?.pbr     ?? 0);
+  const eps          = dbRow?.eps     ? parseFloat(dbRow.eps)     : (legacy?.eps     ?? 0);
+  const dividendYield = dbRow?.dividend_yield ? parseFloat(dbRow.dividend_yield) : (legacy?.dividendYield ?? 0);
+  const openPrice    = dbRow?.open_price ? Math.round(parseFloat(dbRow.open_price)) : Math.round(currentPrice * 1.001);
+  const highOffset   = currentPrice * 0.015;
+  const lowOffset    = currentPrice * 0.012;
+  const highPrice    = dbRow?.high_price ? Math.round(parseFloat(dbRow.high_price)) : Math.round(currentPrice + highOffset);
+  const lowPrice     = dbRow?.low_price  ? Math.round(parseFloat(dbRow.low_price))  : Math.round(currentPrice - lowOffset);
 
   const detail = {
-    ticker:        stock.ticker,
-    name:          stock.name,
+    ticker,
+    name:          dbRow?.name ?? legacy?.name ?? ticker,
     currentPrice,
-    change:        rt ? rt.change : Math.round(change),
-    changePercent: rt ? rt.changePercent : changePercent,
-    volume:        rt ? rt.volume : getVolume(stock.ticker),
-    marketCap:     stock.marketCap,
-    sector:        stock.sector,
-    high52w:       stock.high52w,
-    low52w:        stock.low52w,
-    per:           stock.per,
-    pbr:           stock.pbr,
-    eps:           stock.eps,
-    dividendYield: stock.dividendYield,
-    openPrice:     Math.round(stock.basePrice * 1.001),
-    highPrice:     Math.round(currentPrice + highOffset),
-    lowPrice:      Math.round(currentPrice - lowOffset),
+    change,
+    changePercent: changePct,
+    volume,
+    marketCap:     mcap,
+    sector,
+    high52w,
+    low52w,
+    per,
+    pbr,
+    eps,
+    dividendYield,
+    openPrice,
+    highPrice,
+    lowPrice,
   };
   const parsed = GetStockByTickerResponse.parse(detail);
   res.json(parsed);

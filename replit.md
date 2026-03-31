@@ -18,19 +18,25 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Project: 원광증권 모의투자 대시보드
 
-Korean stock mock-trading dashboard (원광증권) with real market data.
+Korean stock mock-trading dashboard (원광증권) with real 2026 market data.
 
 **Features:**
 - Difficulty selection (초보/중수/고수) with 1000만/500만/100만 KRW seed money
-- **Real pykrx prices** — 20 Korean stocks seeded from 2025-03-24 pykrx data
+- **296 Korean stocks from Naver Finance** — KOSPI top 200 + KOSDAQ top 100 (dynamically loaded at startup)
+- **Real 2026 Naver Finance prices** — fetched from `m.stock.naver.com/api/stock/{ticker}/basic` every 30s
 - **Real Yahoo Finance indices** — KOSPI, KOSDAQ, USD/KRW, S&P500, NASDAQ
 - **241 days of real OHLCV history** per stock from pykrx, served via `/stocks/:ticker/history`
-- **Python KRX Data Fetcher** (`python/krx_fetcher.py`) — updates prices every 10s, indices every 60s
+- **Python KRX Data Fetcher** (`python/krx_fetcher.py`) — dynamic stock list, real prices every 30s, indices every 60s; hourly stock list refresh
+- **1-second UI polling** — Home.tsx and StockDetail.tsx refresh every 1 second for live price updates
+- **KST timezone fix** — News timestamps from Naver stored with correct Korea Standard Time (UTC+9)
+- **Wonkwang University phoenix logo** (`/phoenix-logo.svg`) — SVG in navbar and difficulty screen
+- **StockChart zoom/pan** — mouse wheel to zoom, drag to pan across historical bars
+- **30-min time axis** — shows 09:00, 09:30, 10:00... labels for intraday candle charts (default 30m TF)
 - Buy/sell trading with balance checks; portfolio P&L vs real market prices
 - Ranked leaderboard (all / by difficulty)
 - Promotion/demotion system (초보→중수 at +20%, 중수→고수 at +50%, demote at -20%)
 - 3D avatar wardrobe (Three.js), 5-tab navigation
-- Stock search (name/ticker/sector), watchlist, daily missions, candle chart with indicators
+- Stock search (name/ticker/sector/market), watchlist, daily missions, candle chart with indicators
 - Korean color convention: red=up (상승), blue=down (하락)
 
 **Artifacts:**
@@ -39,9 +45,9 @@ Korean stock mock-trading dashboard (원광증권) with real market data.
 - `python/krx_fetcher.py` — Background Python data service
 
 **API Routes (all under `/api`):**
-- `GET /stocks` — 20 stocks with real/simulated prices (reads from `stocks_realtime`)
-- `GET /stocks/search?q=` — search by name/ticker/sector
-- `GET /stocks/:ticker` — stock detail
+- `GET /stocks` — all stocks from DB (up to 296), ordered by market cap
+- `GET /stocks/search?q=` — search by name/ticker/sector/market in DB
+- `GET /stocks/:ticker` — stock detail (from DB, STOCKS_DATA fallback)
 - `GET /stocks/:ticker/history?period=1d|1w|1m|3m|1y` — real pykrx OHLCV history
 - `GET /stocks/:ticker/news` — related news
 - `GET /market/summary` — real Yahoo Finance index values
@@ -52,12 +58,13 @@ Korean stock mock-trading dashboard (원광증권) with real market data.
 - `POST /trades` — execute buy/sell
 - `GET /rankings?difficulty=all|beginner|intermediate|expert` — leaderboard
 
-**DB Tables:** `users`, `holdings`, `trades`, `stocks_realtime`, `stocks_history`, `market_indices`
+**DB Tables:** `users`, `holdings`, `trades`, `stocks_realtime` (21 cols incl. sector, high52w, low52w, per, pbr, eps, dividend_yield, open_price, high_price, low_price, market, logo_url), `stocks_history`, `market_indices`, `market_news`
 
 **Real Data Notes:**
-- pykrx available up to 2025-03-24 (Korean market dates only)
-- Yahoo Finance provides current real-time index values
-- Stock prices simulate realistic intraday movement around real pykrx base prices
+- Naver Finance dynamic stock list: KOSPI top 200 + KOSDAQ top 100 (fetched at startup, refreshed hourly)
+- Naver Finance API: `m.stock.naver.com/api/stock/{ticker}/basic` → closePrice, compareToPreviousClosePrice, fluctuationsRatio
+- News timestamps are KST (Korea Standard Time, UTC+9) — stored as timezone-aware datetimes
+- Stock prices simulate realistic intraday movement between Naver price fetches
 - History uses actual trading days (241 days from 2024-03-24 to 2025-03-24)
 
 ## Structure

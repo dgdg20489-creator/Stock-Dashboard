@@ -74,7 +74,7 @@ function StockRow({ stock, index, showVolume }: { stock: any; index: number; sho
 
 export default function Home() {
   const { data: stocks, isLoading } = useGetStocks({
-    query: { refetchInterval: 5000 },
+    query: { refetchInterval: 1000, staleTime: 0 },
   });
   const [activeTab, setActiveTab]   = useState<TabType>("volume_amount");
   const [searchQuery, setSearchQuery] = useState("");

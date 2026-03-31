@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useGetStockHistory, useGetStockByTicker, GetStockHistoryPeriod } from "@workspace/api-client-react";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, ReferenceLine, Tooltip as RechartsTooltip } from "recharts";
 import { Settings, X } from "lucide-react";
@@ -541,6 +541,59 @@ function SettingsPanel({ indicators, onChange, onClose }: SettingsPanelProps) {
   );
 }
 
+// ── 시간축 (30분 단위) ─────────────────────────────────────────────
+const TF_MINUTES: Record<TFKey, number> = { "1m": 1, "5m": 5, "15m": 15, "30m": 30, "60m": 60, "120m": 120 };
+
+function TimeAxis({ data, containerWidth, timeframe, showIntraday }: {
+  data: OHLCPoint[];
+  containerWidth: number;
+  timeframe: TFKey;
+  showIntraday: boolean;
+}) {
+  const PAD_L = 4;
+  const PAD_R = 60;
+  const chartW = containerWidth - PAD_L - PAD_R;
+  const n = data.length;
+  if (n === 0 || chartW <= 0) return null;
+  const slotW = chartW / n;
+  const tfMin = TF_MINUTES[timeframe] ?? 30;
+  const targetLabels = Math.max(4, Math.min(8, Math.floor(chartW / 60)));
+  const labelInterval = Math.max(1, Math.round(n / targetLabels));
+
+  const labels: { x: number; text: string; bold: boolean }[] = [];
+  for (let i = 0; i < n; i += labelInterval) {
+    const x = PAD_L + i * slotW + slotW / 2;
+    const d = data[i];
+    let text = "";
+    let bold = false;
+    if (showIntraday) {
+      const parts = d.date.split(" ");
+      const barJ = parseInt(parts[1] ?? "0");
+      if (barJ === 0) {
+        text = parts[0]?.slice(5, 10) ?? "";
+        bold = true;
+      } else {
+        const totalMins = 9 * 60 + barJ * tfMin;
+        const hh = Math.floor(totalMins / 60).toString().padStart(2, "0");
+        const mm = (totalMins % 60).toString().padStart(2, "0");
+        text = `${hh}:${mm}`;
+      }
+    } else {
+      text = d.date?.slice(5, 10) ?? "";
+    }
+    labels.push({ x, text, bold });
+  }
+
+  return (
+    <svg width={containerWidth} height={18} className="overflow-visible select-none">
+      {labels.map(({ x, text, bold }, idx) => (
+        <text key={idx} x={x} y={13} fontSize={9} fill={bold ? "#475569" : "#94A3B8"}
+          textAnchor="middle" fontWeight={bold ? "bold" : "normal"}>{text}</text>
+      ))}
+    </svg>
+  );
+}
+
 // ── 메인 StockChart ───────────────────────────────────────────────
 interface StockChartProps {
   ticker: string;
@@ -556,11 +609,16 @@ interface StockChartProps {
 export function StockChart({ ticker, isPositive, currentPrice, openPrice, highPrice, lowPrice, volume, avgCost }: StockChartProps) {
   const [period, setPeriod] = useState<PeriodKey>("1d");
   const [chartType, setChartType] = useState<ChartType>("line");
-  const [tf, setTF] = useState<TFKey>("5m");
+  const [tf, setTF] = useState<TFKey>("30m");
   const [indicators, setIndicators] = useState<Indicators>(DEFAULT_IND);
   const [showSettings, setShowSettings] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(600);
+
+  // 줌/팬 상태
+  const [viewOffset, setViewOffset] = useState(0);   // 오른쪽 끝에서 몇 개 bars를 숨길지
+  const [viewSpan, setViewSpan] = useState(80);       // 화면에 보여줄 bars 수
+  const dragStartRef = useRef<{ x: number; offset: number } | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -586,6 +644,42 @@ export function StockChart({ ticker, isPositive, currentPrice, openPrice, highPr
     if (!showTF) return rawData;
     return genIntradayCandles(rawData, tf);
   }, [rawData, showTF, tf]);
+
+  // 줌/팬: period/tf/data가 바뀌면 뷰 리셋
+  useEffect(() => {
+    setViewOffset(0);
+    setViewSpan(Math.min(80, chartData.length || 80));
+  }, [period, tf, chartData.length]);
+
+  // 줌/팬: 보여줄 데이터 슬라이스
+  const visibleData = useMemo(() => {
+    if (!chartData.length) return chartData;
+    const span = Math.max(10, Math.min(viewSpan, chartData.length));
+    const end = Math.min(chartData.length, Math.max(span, chartData.length - viewOffset));
+    const start = Math.max(0, end - span);
+    return chartData.slice(start, end);
+  }, [chartData, viewOffset, viewSpan]);
+
+  // 마우스 휠 → 줌
+  const handleChartWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.2 : 0.83;
+    setViewSpan(prev => Math.max(10, Math.min(chartData.length || 200, Math.round(prev * factor))));
+  }, [chartData.length]);
+
+  // 드래그 → 팬
+  const handleChartMouseDown = useCallback((e: React.MouseEvent) => {
+    dragStartRef.current = { x: e.clientX, offset: viewOffset };
+  }, [viewOffset]);
+  const handleChartMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragStartRef.current) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const pxPerBar = Math.max(1, (containerWidth - 64) / viewSpan);
+    const shiftBars = Math.round(-dx / pxPerBar);
+    const maxOff = Math.max(0, chartData.length - viewSpan);
+    setViewOffset(Math.max(0, Math.min(maxOff, dragStartRef.current.offset + shiftBars)));
+  }, [viewSpan, containerWidth, chartData.length]);
+  const handleChartMouseUp = useCallback(() => { dragStartRef.current = null; }, []);
 
   const toggleIndicator = (k: keyof Indicators) => setIndicators(prev => ({ ...prev, [k]: !prev[k] }));
 
@@ -659,7 +753,7 @@ export function StockChart({ ticker, isPositive, currentPrice, openPrice, highPr
         </div>
       )}
 
-      {/* 차트 영역 */}
+      {/* 차트 영역 (줌/팬 지원) */}
       <div ref={containerRef} className="w-full relative">
         {isLoading && period !== "realtime" ? (
           <div className="h-[260px] flex items-center justify-center">
@@ -668,37 +762,51 @@ export function StockChart({ ticker, isPositive, currentPrice, openPrice, highPr
         ) : period === "realtime" ? (
           <RealtimeChart ticker={ticker} isPositive={isPositive} avgCost={avgCost} />
         ) : (
-          <>
-            <EnhancedChart data={chartData} containerWidth={containerWidth} avgCost={avgCost} chartType={chartType} indicators={indicators} />
-            {/* X축 날짜 */}
-            {chartData.length > 0 && (
-              <div className="flex justify-between px-1 mt-0.5 pr-16">
-                <span className="text-[9px] text-muted-foreground">{chartData[0]?.date?.slice(5, 10)}</span>
-                <span className="text-[9px] text-muted-foreground">{chartData[Math.floor(chartData.length / 2)]?.date?.slice(5, 10)}</span>
-                <span className="text-[9px] text-muted-foreground">{chartData[chartData.length - 1]?.date?.slice(5, 10)}</span>
-              </div>
+          <div
+            className="cursor-grab active:cursor-grabbing select-none"
+            onWheel={handleChartWheel}
+            onMouseDown={handleChartMouseDown}
+            onMouseMove={handleChartMouseMove}
+            onMouseUp={handleChartMouseUp}
+            onMouseLeave={handleChartMouseUp}
+          >
+            <EnhancedChart data={visibleData} containerWidth={containerWidth} avgCost={avgCost} chartType={chartType} indicators={indicators} />
+            {/* 시간축 */}
+            {visibleData.length > 0 && (
+              <TimeAxis
+                data={visibleData}
+                containerWidth={containerWidth}
+                timeframe={tf}
+                showIntraday={showTF}
+              />
             )}
-          </>
+            {/* 줌 힌트 */}
+            <div className="flex justify-end px-1 mt-0.5 pr-16">
+              <span className="text-[8px] text-muted-foreground/50 select-none">
+                🔍 스크롤 줌 · 드래그 팬
+              </span>
+            </div>
+          </div>
         )}
 
         {/* 거래량 */}
-        {period !== "realtime" && chartData.length > 0 && (
+        {period !== "realtime" && visibleData.length > 0 && (
           <div className="mt-1 border-t border-border/30 pt-1">
-            <VolumeBarsEnhanced data={chartData} containerWidth={containerWidth} />
+            <VolumeBarsEnhanced data={visibleData} containerWidth={containerWidth} />
           </div>
         )}
 
         {/* RSI */}
-        {indicators.rsi && period !== "realtime" && chartData.length > 0 && (
+        {indicators.rsi && period !== "realtime" && visibleData.length > 0 && (
           <div className="mt-1 border-t border-border/20 pt-1">
-            <RSIPanel data={chartData} containerWidth={containerWidth} />
+            <RSIPanel data={visibleData} containerWidth={containerWidth} />
           </div>
         )}
 
         {/* MACD */}
-        {indicators.macd && period !== "realtime" && chartData.length > 0 && (
+        {indicators.macd && period !== "realtime" && visibleData.length > 0 && (
           <div className="mt-1 border-t border-border/20 pt-1">
-            <MACDPanel data={chartData} containerWidth={containerWidth} />
+            <MACDPanel data={visibleData} containerWidth={containerWidth} />
           </div>
         )}
       </div>

@@ -26,8 +26,8 @@ export function Navbar() {
           <div className="flex items-center gap-8">
             {/* 로고 */}
             <Link href="/" className="flex items-center gap-2.5 group cursor-pointer flex-shrink-0">
-              <div className="w-9 h-9 bg-gradient-to-br from-red-600 to-red-500 rounded-xl flex items-center justify-center text-white font-extrabold text-base shadow-sm shadow-red-500/30 group-hover:scale-105 transition-transform select-none">
-                원
+              <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-red-700 to-red-500 flex items-center justify-center shadow-sm shadow-red-500/30 group-hover:scale-105 transition-transform select-none p-1">
+                <img src="/phoenix-logo.svg" alt="봉황 로고" className="w-full h-full object-contain" />
               </div>
               <div className="hidden sm:flex flex-col leading-none">
                 <span className="font-extrabold text-lg tracking-tight text-foreground">원광증권</span>

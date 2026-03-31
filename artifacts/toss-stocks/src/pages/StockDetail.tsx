@@ -46,7 +46,7 @@ export default function StockDetail({ userId }: StockDetailProps) {
     if (!ticker) return;
     const id = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: [`/api/stocks/${ticker}`] });
-    }, 3000);
+    }, 1000);
     return () => clearInterval(id);
   }, [ticker, queryClient]);
 

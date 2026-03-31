@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <radialGradient id="fireGlow" cx="50%" cy="60%" r="50%">
+      <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- Glow -->
+  <circle cx="60" cy="65" r="45" fill="url(#fireGlow)"/>
+  <!-- Tail feathers -->
+  <path d="M60 95 C52 108 38 115 30 112 C38 104 45 98 60 95Z" fill="#C0392B" opacity="0.8"/>
+  <path d="M60 95 C60 110 55 118 50 118 C53 110 56 104 60 95Z" fill="#E74C3C"/>
+  <path d="M60 95 C68 108 82 115 90 112 C82 104 75 98 60 95Z" fill="#C0392B" opacity="0.8"/>
+  <path d="M60 95 C60 110 65 118 70 118 C67 110 64 104 60 95Z" fill="#E74C3C"/>
+  <!-- Left wing -->
+  <path d="M60 65 C48 58 28 60 18 55 C22 48 32 44 42 48 C35 42 28 34 25 25 C34 26 44 34 48 42 C44 36 42 26 44 18 C52 22 56 34 54 45 C56 40 58 30 62 24 C66 30 66 42 62 52 Z" fill="#E74C3C"/>
+  <!-- Right wing -->
+  <path d="M60 65 C72 58 92 60 102 55 C98 48 88 44 78 48 C85 42 92 34 95 25 C86 26 76 34 72 42 C76 36 78 26 76 18 C68 22 64 34 66 45 C64 40 62 30 58 24 C54 30 54 42 58 52 Z" fill="#C0392B"/>
+  <!-- Body -->
+  <ellipse cx="60" cy="72" rx="14" ry="22" fill="#E74C3C"/>
+  <!-- Breast highlight -->
+  <ellipse cx="60" cy="70" rx="8" ry="14" fill="#FF6B35" opacity="0.6"/>
+  <!-- Head -->
+  <circle cx="60" cy="46" r="12" fill="#E74C3C"/>
+  <!-- Crest feathers -->
+  <path d="M55 36 C53 26 56 20 58 16 C59 20 59 28 58 36Z" fill="#FF6B35"/>
+  <path d="M60 34 C60 24 63 18 64 14 C65 18 64 26 62 34Z" fill="#E74C3C"/>
+  <path d="M65 36 C67 26 64 20 62 16 C61 20 61 28 62 36Z" fill="#FF6B35"/>
+  <!-- Eye -->
+  <circle cx="60" cy="45" r="4" fill="#FFF"/>
+  <circle cx="61" cy="45" r="2.5" fill="#1A1A2E"/>
+  <circle cx="62" cy="44" r="0.8" fill="#FFF"/>
+  <!-- Beak -->
+  <path d="M60 52 L55 56 L60 54 L65 56 Z" fill="#FF8C00"/>
+  <!-- Wing highlights -->
+  <path d="M42 48 C38 44 34 38 36 30" stroke="#FF6B35" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+  <path d="M78 48 C82 44 86 38 84 30" stroke="#FF6B35" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+</svg>

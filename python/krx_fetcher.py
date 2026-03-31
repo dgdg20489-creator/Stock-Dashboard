@@ -2,8 +2,9 @@
 """
 원광증권 실시간 데이터 서비스
 - 네이버 금융 API: 실시간 주가 (2026년 현재)
-- 네이버 금융 API: 종목별·시장 뉴스
+- 네이버 금융 API: 종목별·시장 뉴스 (실제 발행 시간 KST)
 - Yahoo Finance: 글로벌 지수
+- 동적 주식 목록: KOSPI 상위 200 + KOSDAQ 상위 100
 """
 import os, time, math, random, logging, traceback
 import psycopg2
@@ -14,29 +15,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 DATABASE_URL = os.environ["DATABASE_URL"]
-
-STOCKS = [
-    ("005930", "삼성전자",    3607500),
-    ("000660", "SK하이닉스",  1537200),
-    ("035420", "NAVER",       338100),
-    ("035720", "카카오",       186900),
-    ("373220", "LG에너지솔루션", 776500),
-    ("005380", "현대차",       454700),
-    ("051910", "LG화학",       186800),
-    ("006400", "삼성SDI",      135500),
-    ("207940", "삼성바이오로직스", 1130800),
-    ("000270", "기아",         402800),
-    ("066570", "LG전자",       133700),
-    ("105560", "KB금융",       336700),
-    ("096770", "SK이노베이션",  110400),
-    ("003550", "LG",           121500),
-    ("086790", "하나금융지주",  186200),
-    ("055550", "신한지주",     247000),
-    ("012330", "현대모비스",   271700),
-    ("030200", "KT",           130100),
-    ("028260", "삼성물산",     225500),
-    ("032830", "삼성생명",     404600),
-]
+KST = timezone(timedelta(hours=9))  # Korea Standard Time (UTC+9)
 
 INDICES = [
     ("^KS11",    "KOSPI",   "kospi"),
@@ -50,19 +29,124 @@ NAVER_HEADERS = {
     "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
     "Referer": "https://m.stock.naver.com/",
 }
+NAVER_WEB_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept-Language": "ko-KR,ko;q=0.9",
+}
 FALLBACK_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; WonkwangBot/1.0)"}
 
-# pykrx fallback base prices (2025-03-24) — used only if Naver fetch fails
+# Fallback prices if Naver is unreachable (2026-03-31 closing prices)
 FALLBACK_PRICES = {
-    "005930": 60500,   "000660": 211500, "035420": 207000,  "035720": 41900,
-    "373220": 331500,  "005380": 213000, "051910": 264500,  "006400": 197275,
-    "207940": 1586540, "000270": 98700,  "066570": 81800,   "105560": 81800,
-    "096770": 125500,  "003550": 69700,  "086790": 62500,   "055550": 48600,
-    "012330": 279500,  "030200": 49600,  "028260": 124000,  "032830": 85000,
+    "005930": 169000, "000660": 824000, "035420": 201000, "035720": 45800,
+    "373220": 396500, "005380": 448500, "051910": 299000, "006400": 414500,
+    "207940": 1531000, "000270": 146800, "066570": 105400, "105560": 143700,
+    "096770": 108800, "003550": 83400,  "086790": 107700, "055550": 88100,
+    "012330": 381800, "030200": 60500,  "028260": 254300, "032830": 211800,
 }
 
 PYKRX_END   = "20250324"
 PYKRX_START = "20240324"
+
+
+def fetch_naver_stock_list(sosok: int, pages: int = 4) -> list:
+    """네이버 금융 시가총액 페이지에서 KOSPI/KOSDAQ 종목 목록 가져오기."""
+    import requests
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return []
+    market = "KOSPI" if sosok == 0 else "KOSDAQ"
+    stocks = []
+    seen = set()
+    for page in range(1, pages + 1):
+        url = f"https://finance.naver.com/sise/sise_market_sum.naver?sosok={sosok}&page={page}"
+        try:
+            r = requests.get(url, headers=NAVER_WEB_HEADERS, timeout=10)
+            r.encoding = "euc-kr"
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(r.text, "html.parser")
+            rows = soup.select("table.type_2 tr")
+            found = 0
+            for row in rows:
+                cols = row.select("td")
+                link = row.select_one('a[href*="code="]')
+                if not link or len(cols) < 11:
+                    continue
+                code = link["href"].split("code=")[-1][:6]
+                if not code.isdigit() or len(code) != 6 or code in seen:
+                    continue
+                seen.add(code)
+                name = link.get_text(strip=True)
+                ct = [c.get_text(strip=True).replace(",", "") for c in cols]
+                try:
+                    price = int(ct[2]) if ct[2] else 0
+                except Exception:
+                    price = 0
+                try:
+                    mcap = int(ct[6]) if ct[6] else 0
+                except Exception:
+                    mcap = 0
+                try:
+                    per = float(ct[10]) if ct[10] and ct[10] not in ["-", ""] else 0.0
+                except Exception:
+                    per = 0.0
+                stocks.append({"ticker": code, "name": name, "market": market,
+                               "market_cap": mcap, "price": price, "per": per})
+                found += 1
+            log.info(f"  {market} p{page}: {found} stocks (cumulative {len(stocks)})")
+            time.sleep(0.3)
+        except Exception as e:
+            log.warning(f"fetch_naver_stock_list {market} p{page}: {e}")
+    return stocks
+
+
+def seed_all_stocks_dynamic(conn):
+    """네이버 금융에서 전체 주식 목록을 동적으로 가져와 DB에 저장."""
+    log.info("=== 네이버 금융 전체 종목 목록 로딩 시작 ===")
+    all_stocks: list = []
+
+    # KOSPI 상위 200종목 (4 페이지 × 50개)
+    kospi = fetch_naver_stock_list(0, pages=4)
+    all_stocks.extend(kospi)
+    log.info(f"KOSPI: {len(kospi)}종목")
+
+    # KOSDAQ 상위 100종목 (2 페이지 × 50개)
+    kosdaq = fetch_naver_stock_list(1, pages=2)
+    all_stocks.extend(kosdaq)
+    log.info(f"KOSDAQ: {len(kosdaq)}종목")
+
+    if not all_stocks:
+        log.warning("네이버에서 종목 로딩 실패 — 기존 DB 유지")
+        return 0
+
+    # UPSERT into DB (새 종목은 추가, 기존 종목은 이름/시장/시총 업데이트)
+    rows = []
+    for s in all_stocks:
+        base = s["price"] or FALLBACK_PRICES.get(s["ticker"], 50000)
+        rows.append((s["ticker"], s["name"], base, base, 0, 0.0,
+                     1_000_000, s["market_cap"], s["market"], s["per"]))
+
+    with conn.cursor() as cur:
+        execute_values(cur, """
+            INSERT INTO stocks_realtime
+                (ticker, name, current_price, base_price, change_val, change_pct,
+                 volume, market_cap, market, per)
+            VALUES %s
+            ON CONFLICT (ticker) DO UPDATE SET
+                name       = EXCLUDED.name,
+                market     = EXCLUDED.market,
+                market_cap = EXCLUDED.market_cap
+        """, rows)
+    conn.commit()
+    log.info(f"=== {len(rows)}종목 DB 저장 완료 ===")
+    return len(rows)
+
+
+def get_all_tickers_from_db(conn) -> list:
+    """DB에서 전체 ticker 목록을 시총 순으로 가져옴."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT ticker FROM stocks_realtime ORDER BY market_cap DESC NULLS LAST")
+        return [r[0] for r in cur.fetchall()]
 
 
 def get_conn():
@@ -157,71 +241,48 @@ def fetch_naver_price(ticker: str) -> dict | None:
 
 
 def seed_realtime(conn):
-    """Seed stocks_realtime with initial data (Naver prices or fallback)."""
+    """Seed stocks_realtime — 동적으로 네이버 금융 전체 종목 로딩."""
     with conn.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM stocks_realtime")
         count = cur.fetchone()[0]
-        if count >= len(STOCKS):
-            log.info(f"stocks_realtime already seeded ({count} stocks)")
-            return
 
-    log.info("Seeding stocks_realtime with Naver Finance prices...")
-    rows = []
-    for ticker, name, market_cap in STOCKS:
-        naver = fetch_naver_price(ticker)
-        if naver:
-            base = naver["price"]
-            change = naver["change"]
-            pct = naver["change_pct"]
-            log.info(f"  {ticker} ({name}): {base:,}원 ({pct:+.2f}%)")
-        else:
-            base = FALLBACK_PRICES.get(ticker, 50000)
-            change = 0.0
-            pct = 0.0
-            log.info(f"  {ticker} ({name}): fallback {base:,}원")
-        rows.append((ticker, name, base, base, change, pct, 1_000_000, market_cap))
-        time.sleep(0.15)
-
-    with conn.cursor() as cur:
-        execute_values(cur, """
-            INSERT INTO stocks_realtime
-                (ticker, name, current_price, base_price, change_val, change_pct, volume, market_cap)
-            VALUES %s
-            ON CONFLICT (ticker) DO UPDATE SET
-                current_price = EXCLUDED.current_price,
-                base_price    = EXCLUDED.base_price,
-                change_val    = EXCLUDED.change_val,
-                change_pct    = EXCLUDED.change_pct,
-                market_cap    = EXCLUDED.market_cap,
-                updated_at    = NOW()
-        """, rows)
-    conn.commit()
-    log.info(f"Seeded {len(rows)} stocks into stocks_realtime")
+    if count < 20:
+        # 첫 실행: 동적 종목 목록 가져오기
+        n = seed_all_stocks_dynamic(conn)
+        log.info(f"초기 seeding 완료: {n}종목")
+    else:
+        log.info(f"stocks_realtime 이미 {count}종목 존재 — 목록 업데이트만 수행")
+        # 새로 추가된 종목 반영 (기존 종목은 가격 유지)
+        seed_all_stocks_dynamic(conn)
 
 
 def update_realtime_prices(conn):
-    """Fetch all stock prices from Naver Finance and update DB (including base_price)."""
-    import requests
+    """DB에 있는 모든 종목의 실시간 가격을 네이버 금융에서 가져와 업데이트."""
+    tickers = get_all_tickers_from_db(conn)
+    if not tickers:
+        log.warning("DB에 종목이 없음 — 가격 업데이트 스킵")
+        return
     updated = 0
-    for ticker, name, _ in STOCKS:
+    for ticker in tickers:
         try:
             naver = fetch_naver_price(ticker)
             if not naver:
                 continue
             with conn.cursor() as cur:
-                # Also update base_price so simulation stays anchored to real Naver price
                 cur.execute("""
                     UPDATE stocks_realtime
-                    SET current_price=%s, base_price=%s, change_val=%s, change_pct=%s, updated_at=NOW()
+                    SET current_price=%s, base_price=%s, change_val=%s, change_pct=%s,
+                        logo_url=COALESCE(NULLIF(%s,''), logo_url), updated_at=NOW()
                     WHERE ticker=%s
-                """, (naver["price"], naver["price"], naver["change"], naver["change_pct"], ticker))
+                """, (naver["price"], naver["price"], naver["change"], naver["change_pct"],
+                      naver.get("logo_url", ""), ticker))
             updated += 1
-            time.sleep(0.1)
+            time.sleep(0.07)  # 70ms per stock → 300종목 약 21초
         except Exception as e:
             log.debug(f"Price update {ticker}: {e}")
     conn.commit()
     if updated > 0:
-        log.info(f"Naver prices updated for {updated} stocks")
+        log.info(f"네이버 실시간 가격 업데이트: {updated}종목")
 
 
 def simulate_prices(conn):
@@ -356,12 +417,17 @@ def update_indices(conn):
 # ─────────────────────────────────────────────────
 
 def parse_naver_datetime(dt_str: str) -> datetime | None:
-    """Parse Naver datetime: '202603311416' → datetime object."""
+    """Parse Naver datetime string (KST) → timezone-aware UTC datetime.
+    Naver times are Korean Standard Time (UTC+9). We store as KST-aware so
+    the API returns correct ISO timestamps.
+    Format examples: '202603311416' (12자리), '20260331' (8자리)
+    """
     try:
         if len(dt_str) == 12:
-            return datetime.strptime(dt_str, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
+            # KST aware datetime (not UTC!)
+            return datetime.strptime(dt_str, "%Y%m%d%H%M").replace(tzinfo=KST)
         elif len(dt_str) == 8:
-            return datetime.strptime(dt_str, "%Y%m%d").replace(tzinfo=timezone.utc)
+            return datetime.strptime(dt_str, "%Y%m%d").replace(tzinfo=KST)
     except Exception:
         pass
     return None
@@ -548,15 +614,16 @@ def refresh_all_news(conn):
         market_items = fetch_market_news_api()
     store_news(conn, "MARKET", market_items)
 
-    # Stock-specific news for all 20 stocks
+    # DB의 상위 30종목 (시총 순)에 대한 뉴스 가져오기
+    tickers = get_all_tickers_from_db(conn)[:30]
     total = 0
-    for ticker, name, _ in STOCKS:
+    for ticker in tickers:
         items = fetch_stock_news(ticker, page_size=5)
         store_news(conn, ticker, items)
         total += len(items)
         time.sleep(0.12)
 
-    log.info(f"News refresh done: {total} stock articles, {len(market_items)} market articles")
+    log.info(f"뉴스 새로고침 완료: 종목 {total}건, 시장 {len(market_items)}건")
 
     # Prune old news (keep latest 20 per ticker)
     try:
@@ -583,38 +650,44 @@ def main():
     log.info("=== 원광증권 KRX Fetcher 시작 ===")
     conn = get_conn()
     create_tables(conn)
-    seed_realtime(conn)
+    seed_realtime(conn)    # 동적 종목 목록 로딩 (KOSPI 200 + KOSDAQ 100)
     seed_history(conn)
 
-    # Initial data fetch: real 2026 prices from Naver Finance
-    log.info("Fetching real-time prices from Naver Finance...")
+    # 초기 실시간 가격 패치
+    log.info("초기 실시간 가격 로딩 (네이버 금융)...")
     update_realtime_prices(conn)
     update_indices(conn)
     refresh_all_news(conn)
 
     cycle = 0
-    naver_price_cycle = 0  # track Naver price fetch cycles
+    last_stock_list_refresh = time.time()  # 1시간마다 종목 목록 갱신
 
     while True:
         try:
             cycle += 1
 
-            # Every 30s: fetch real prices from Naver Finance (every 3 simulation cycles)
+            # 매 30s: 네이버 금융 실시간 가격 업데이트 (3 사이클마다)
             if cycle % 3 == 0:
-                naver_price_cycle += 1
                 update_realtime_prices(conn)
-                log.info(f"Naver price cycle {naver_price_cycle}")
+                log.info(f"가격 업데이트 완료 (cycle {cycle})")
             else:
-                # Between Naver fetches: light simulation for smooth live movement
+                # 사이클 사이: 미세 시뮬레이션 (자연스러운 움직임)
                 simulate_prices(conn)
 
-            # Every 60s: update global indices
+            # 매 60s: 글로벌 지수 업데이트
             if cycle % 6 == 0:
                 update_indices(conn)
 
-            # Every 5 min: refresh news
+            # 매 5분: 뉴스 새로고침
             if cycle % 30 == 0:
                 refresh_all_news(conn)
+
+            # 매 1시간: 전체 종목 목록 재갱신 (신규 상장 반영)
+            now = time.time()
+            if now - last_stock_list_refresh > 3600:
+                log.info("1시간 경과 — 전체 종목 목록 재갱신...")
+                seed_all_stocks_dynamic(conn)
+                last_stock_list_refresh = now
 
             if cycle % 2 == 0:
                 log.info(f"Cycle {cycle} OK")
