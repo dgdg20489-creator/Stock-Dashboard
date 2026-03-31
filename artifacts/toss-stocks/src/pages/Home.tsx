@@ -1,9 +1,10 @@
 import { useGetStocks } from "@workspace/api-client-react";
 import { MarketSummary } from "@/components/MarketSummary";
+import { NewsSection } from "@/components/NewsSection";
 import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Flame, TrendingUp, DollarSign, Calendar, Star, Search, X } from "lucide-react";
 import { useWatchlist } from "@/hooks/use-watchlist";
@@ -260,6 +261,15 @@ export default function Home() {
             })
           )}
         </div>
+      </section>
+
+      {/* 오늘의 주요 뉴스 */}
+      <section>
+        <NewsSection
+          title="오늘의 주요 뉴스"
+          limit={5}
+          showSummary={false}
+        />
       </section>
     </div>
   );

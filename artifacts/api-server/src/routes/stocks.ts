@@ -213,10 +213,80 @@ router.get("/stocks/:ticker/history", async (req, res) => {
   res.json(parsed);
 });
 
-router.get("/stocks/:ticker/news", (req, res) => {
-  const news = getNews(req.params.ticker);
+router.get("/stocks/:ticker/news", async (req, res) => {
+  const ticker = req.params.ticker;
+  try {
+    const result = await pool.query(`
+      SELECT id, ticker, title, body, office_name, article_url, published_at
+      FROM market_news
+      WHERE ticker = $1
+      ORDER BY published_at DESC NULLS LAST, fetched_at DESC
+      LIMIT 5
+    `, [ticker]);
+
+    if (result.rows.length > 0) {
+      const news = result.rows.map((r) => ({
+        id:          r.id,
+        title:       r.title,
+        summary:     r.body || "",
+        source:      r.office_name || "네이버금융",
+        publishedAt: r.published_at ? new Date(r.published_at).toISOString() : new Date().toISOString(),
+        url:         r.article_url || `https://finance.naver.com/item/news.naver?code=${ticker}`,
+      }));
+      const parsed = GetStockNewsResponse.parse(news);
+      res.json(parsed);
+      return;
+    }
+  } catch { /* fall through to mock */ }
+
+  // Fallback to mock news
+  const news = getNews(ticker);
   const parsed = GetStockNewsResponse.parse(news);
   res.json(parsed);
+});
+
+router.get("/news", async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, ticker, title, body, office_name, article_url, published_at
+      FROM market_news
+      WHERE ticker = 'MARKET'
+      ORDER BY published_at DESC NULLS LAST, fetched_at DESC
+      LIMIT 5
+    `);
+
+    if (result.rows.length === 0) {
+      // Fall back: grab latest news across all stock tickers
+      const fallback = await pool.query(`
+        SELECT DISTINCT ON (id) id, ticker, title, body, office_name, article_url, published_at
+        FROM market_news
+        ORDER BY id, published_at DESC NULLS LAST
+        LIMIT 5
+      `);
+      const news = fallback.rows.map((r) => ({
+        id:          r.id,
+        title:       r.title,
+        summary:     r.body || "",
+        source:      r.office_name || "네이버금융",
+        publishedAt: r.published_at ? new Date(r.published_at).toISOString() : new Date().toISOString(),
+        url:         r.article_url || "https://finance.naver.com/news/",
+      }));
+      res.json(news);
+      return;
+    }
+
+    const news = result.rows.map((r) => ({
+      id:          r.id,
+      title:       r.title,
+      summary:     r.body || "",
+      source:      r.office_name || "네이버금융",
+      publishedAt: r.published_at ? new Date(r.published_at).toISOString() : new Date().toISOString(),
+      url:         r.article_url || "https://finance.naver.com/news/",
+    }));
+    res.json(news);
+  } catch (e) {
+    res.json([]);
+  }
 });
 
 router.get("/stocks/:ticker", async (req, res) => {

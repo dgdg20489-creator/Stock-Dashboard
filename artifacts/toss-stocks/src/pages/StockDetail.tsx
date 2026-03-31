@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { 
   useGetStockByTicker, 
-  useGetStockNews, 
   useGetUserPortfolio, 
   useExecuteTrade,
   ExecuteTradeRequestType
@@ -11,8 +10,8 @@ import { formatCurrency, formatPercent, formatLargeNumber, getColorClass, cn } f
 import { StockChart } from "@/components/StockChart";
 import { OrderBook } from "@/components/OrderBook";
 import { TermTooltip } from "@/components/TermTooltip";
+import { NewsSection } from "@/components/NewsSection";
 import { ArrowLeft, Star, ChevronDown, ChevronUp } from "lucide-react";
-import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { useMissions } from "@/hooks/use-missions";
@@ -33,7 +32,6 @@ export default function StockDetail({ userId }: StockDetailProps) {
   const queryClient = useQueryClient();
 
   const { data: stock, isLoading } = useGetStockByTicker(ticker, { query: { enabled: !!ticker } });
-  const { data: news } = useGetStockNews(ticker, { query: { enabled: !!ticker } });
   const { data: portfolio } = useGetUserPortfolio(userId);
 
   const { isWatched, toggleWatch } = useWatchlist();
@@ -184,10 +182,10 @@ export default function StockDetail({ userId }: StockDetailProps) {
           <Metric label="시가총액" value={formatLargeNumber(stock.marketCap)} tooltip />
           <Metric label="52주 최고" value={formatCurrency(stock.high52w)} tooltip />
           <Metric label="52주 최저" value={formatCurrency(stock.low52w)} tooltip />
-          <Metric label="배당수익률" value={`${stock.dividendYield.toFixed(2)}%`} tooltip />
-          <Metric label="PER" value={`${stock.per.toFixed(2)}배`} tooltip />
+          <Metric label="배당수익률" value={stock.dividendYield > 0 ? `${stock.dividendYield.toFixed(2)}%` : "-"} tooltip />
+          <Metric label="PER" value={stock.per > 0 ? `${stock.per.toFixed(2)}배` : "적자"} tooltip />
           <Metric label="PBR" value={`${stock.pbr.toFixed(2)}배`} tooltip />
-          <Metric label="EPS" value={formatCurrency(stock.eps)} tooltip />
+          <Metric label="EPS" value={stock.eps >= 0 ? formatCurrency(stock.eps) : `▼${formatCurrency(Math.abs(stock.eps))}`} tooltip />
           <Metric label="거래량" value={formatLargeNumber(stock.volume)} tooltip />
         </div>
       </div>
@@ -279,24 +277,12 @@ export default function StockDetail({ userId }: StockDetailProps) {
       </div>
 
       {/* 관련 뉴스 */}
-      {news && news.length > 0 && (
-        <div className="bg-card rounded-3xl p-6 shadow-sm border border-border/50">
-          <h3 className="text-base font-extrabold mb-5 text-foreground">관련 뉴스</h3>
-          <div className="space-y-6">
-            {news.map((item) => (
-              <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="block group">
-                <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-snug mb-1.5">{item.title}</h4>
-                <p className="text-muted-foreground text-xs font-medium line-clamp-2 leading-relaxed">{item.summary}</p>
-                <div className="flex items-center gap-2 mt-2 text-xs font-semibold text-muted-foreground">
-                  <span>{item.source}</span>
-                  <span>·</span>
-                  <span>{format(new Date(item.publishedAt), "yyyy.MM.dd")}</span>
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+      <NewsSection
+        ticker={ticker}
+        title={`${stock.name} 관련 뉴스`}
+        limit={3}
+        showSummary={true}
+      />
     </div>
   );
 }
