@@ -16,38 +16,49 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
-## Project: 토스증권 모의투자 대시보드
+## Project: 원광증권 모의투자 대시보드
 
-Korean stock mock-trading dashboard in Toss Securities style.
+Korean stock mock-trading dashboard (원광증권) with real market data.
 
 **Features:**
 - Difficulty selection (초보/중수/고수) with 1000만/500만/100만 KRW seed money
-- Real-time simulated stock prices (10 Korean stocks + 5 US/indices)
-- Buy/sell trading with balance checks
-- Portfolio tracking with P&L
+- **Real pykrx prices** — 20 Korean stocks seeded from 2025-03-24 pykrx data
+- **Real Yahoo Finance indices** — KOSPI, KOSDAQ, USD/KRW, S&P500, NASDAQ
+- **241 days of real OHLCV history** per stock from pykrx, served via `/stocks/:ticker/history`
+- **Python KRX Data Fetcher** (`python/krx_fetcher.py`) — updates prices every 10s, indices every 60s
+- Buy/sell trading with balance checks; portfolio P&L vs real market prices
 - Ranked leaderboard (all / by difficulty)
-- Sidebar: avatar, portfolio summary, trade history
-- Pretendard font, white card design on #F2F4F6 background
+- Promotion/demotion system (초보→중수 at +20%, 중수→고수 at +50%, demote at -20%)
+- 3D avatar wardrobe (Three.js), 5-tab navigation
+- Stock search (name/ticker/sector), watchlist, daily missions, candle chart with indicators
 - Korean color convention: red=up (상승), blue=down (하락)
 
 **Artifacts:**
 - `artifacts/toss-stocks` — React + Vite frontend (`@workspace/toss-stocks`) at `/`
 - `artifacts/api-server` — Express 5 API server (`@workspace/api-server`) at port 8080
+- `python/krx_fetcher.py` — Background Python data service
 
 **API Routes (all under `/api`):**
-- `GET /stocks` — stock list
+- `GET /stocks` — 20 stocks with real/simulated prices (reads from `stocks_realtime`)
+- `GET /stocks/search?q=` — search by name/ticker/sector
 - `GET /stocks/:ticker` — stock detail
-- `GET /stocks/:ticker/history?period=1d|1w|1m|3m|1y` — price history
+- `GET /stocks/:ticker/history?period=1d|1w|1m|3m|1y` — real pykrx OHLCV history
 - `GET /stocks/:ticker/news` — related news
-- `GET /market/summary` — KOSPI/KOSDAQ/USD-KRW/S&P500/NASDAQ
+- `GET /market/summary` — real Yahoo Finance index values
 - `POST /users` — create user
 - `GET /users/:id` — get user
-- `GET /users/:id/portfolio` — portfolio with holdings
+- `GET /users/:id/portfolio` — portfolio with P&L vs real market prices
 - `GET /users/:id/trades` — trade history
 - `POST /trades` — execute buy/sell
 - `GET /rankings?difficulty=all|beginner|intermediate|expert` — leaderboard
 
-**DB Tables:** `users`, `holdings`, `trades`
+**DB Tables:** `users`, `holdings`, `trades`, `stocks_realtime`, `stocks_history`, `market_indices`
+
+**Real Data Notes:**
+- pykrx available up to 2025-03-24 (Korean market dates only)
+- Yahoo Finance provides current real-time index values
+- Stock prices simulate realistic intraday movement around real pykrx base prices
+- History uses actual trading days (241 days from 2024-03-24 to 2025-03-24)
 
 ## Structure
 

@@ -1,63 +1,103 @@
 export const STOCKS_DATA = [
   {
-    ticker: "005930", name: "삼성전자", basePrice: 72000, sector: "반도체",
-    marketCap: 4295000, high52w: 88800, low52w: 59900,
-    per: 14.2, pbr: 1.35, eps: 5070, dividendYield: 2.1,
+    ticker: "005930", name: "삼성전자", basePrice: 60500, sector: "반도체",
+    marketCap: 3607500, high52w: 88800, low52w: 49900,
+    per: 14.2, pbr: 1.35, eps: 4260, dividendYield: 2.8,
   },
   {
-    ticker: "000660", name: "SK하이닉스", basePrice: 186000, sector: "반도체",
-    marketCap: 1352000, high52w: 238000, low52w: 138000,
-    per: 8.5, pbr: 2.1, eps: 21900, dividendYield: 0.8,
+    ticker: "000660", name: "SK하이닉스", basePrice: 211500, sector: "반도체",
+    marketCap: 1537200, high52w: 248500, low52w: 144700,
+    per: 8.5, pbr: 2.1, eps: 24880, dividendYield: 0.8,
   },
   {
-    ticker: "035420", name: "NAVER", basePrice: 165000, sector: "IT서비스",
-    marketCap: 270000, high52w: 235000, low52w: 145000,
-    per: 28.3, pbr: 1.8, eps: 5830, dividendYield: 0.5,
+    ticker: "035420", name: "NAVER", basePrice: 207000, sector: "IT서비스",
+    marketCap: 338100, high52w: 235500, low52w: 151100,
+    per: 28.3, pbr: 1.8, eps: 7315, dividendYield: 0.5,
   },
   {
-    ticker: "035720", name: "카카오", basePrice: 38500, sector: "IT서비스",
-    marketCap: 171500, high52w: 62000, low52w: 33000,
-    per: 42.1, pbr: 1.2, eps: 915, dividendYield: 0.3,
+    ticker: "035720", name: "카카오", basePrice: 41900, sector: "IT서비스",
+    marketCap: 186900, high52w: 55700, low52w: 32550,
+    per: 42.1, pbr: 1.2, eps: 995, dividendYield: 0.3,
   },
   {
-    ticker: "373220", name: "LG에너지솔루션", basePrice: 320000, sector: "배터리",
-    marketCap: 749000, high52w: 420000, low52w: 285000,
-    per: 52.4, pbr: 3.8, eps: 6110, dividendYield: 0.2,
+    ticker: "373220", name: "LG에너지솔루션", basePrice: 331500, sector: "배터리",
+    marketCap: 776500, high52w: 444000, low52w: 311000,
+    per: 52.4, pbr: 3.8, eps: 6330, dividendYield: 0.2,
   },
   {
-    ticker: "005380", name: "현대차", basePrice: 195000, sector: "자동차",
-    marketCap: 416500, high52w: 287000, low52w: 180000,
-    per: 5.8, pbr: 0.65, eps: 33620, dividendYield: 3.2,
+    ticker: "005380", name: "현대차", basePrice: 213000, sector: "자동차",
+    marketCap: 454700, high52w: 299500, low52w: 189200,
+    per: 5.8, pbr: 0.65, eps: 36720, dividendYield: 3.2,
   },
   {
-    ticker: "051910", name: "LG화학", basePrice: 295000, sector: "화학",
-    marketCap: 208500, high52w: 380000, low52w: 262000,
-    per: 18.2, pbr: 0.95, eps: 16210, dividendYield: 1.8,
+    ticker: "051910", name: "LG화학", basePrice: 264500, sector: "화학",
+    marketCap: 186800, high52w: 466000, low52w: 208000,
+    per: 18.2, pbr: 0.95, eps: 14530, dividendYield: 1.8,
   },
   {
-    ticker: "006400", name: "삼성SDI", basePrice: 275000, sector: "배터리",
-    marketCap: 189200, high52w: 380000, low52w: 230000,
-    per: 22.5, pbr: 1.2, eps: 12220, dividendYield: 0.9,
+    ticker: "006400", name: "삼성SDI", basePrice: 197275, sector: "배터리",
+    marketCap: 135500, high52w: 484131, low52w: 182882,
+    per: 22.5, pbr: 1.2, eps: 8768, dividendYield: 0.9,
   },
   {
-    ticker: "207940", name: "삼성바이오로직스", basePrice: 870000, sector: "바이오",
-    marketCap: 620000, high52w: 1050000, low52w: 780000,
-    per: 68.5, pbr: 6.2, eps: 12700, dividendYield: 0.1,
+    ticker: "207940", name: "삼성바이오로직스", basePrice: 1586540, sector: "바이오",
+    marketCap: 1130800, high52w: 1779339, low52w: 1061127,
+    per: 68.5, pbr: 6.2, eps: 23164, dividendYield: 0.1,
   },
   {
-    ticker: "000270", name: "기아", basePrice: 85000, sector: "자동차",
-    marketCap: 345000, high52w: 120000, low52w: 72000,
-    per: 4.2, pbr: 0.72, eps: 20240, dividendYield: 4.5,
+    ticker: "000270", name: "기아", basePrice: 98700, sector: "자동차",
+    marketCap: 402800, high52w: 135000, low52w: 89500,
+    per: 4.2, pbr: 0.72, eps: 23500, dividendYield: 4.5,
   },
   {
-    ticker: "066570", name: "LG전자", basePrice: 95000, sector: "전자",
-    marketCap: 155000, high52w: 130000, low52w: 85000,
-    per: 12.4, pbr: 0.88, eps: 7660, dividendYield: 2.3,
+    ticker: "066570", name: "LG전자", basePrice: 81800, sector: "전자",
+    marketCap: 133700, high52w: 115400, low52w: 75600,
+    per: 12.4, pbr: 0.88, eps: 6600, dividendYield: 2.3,
   },
   {
-    ticker: "105560", name: "KB금융", basePrice: 68000, sector: "금융",
-    marketCap: 280000, high52w: 82000, low52w: 54000,
-    per: 6.2, pbr: 0.58, eps: 10970, dividendYield: 5.1,
+    ticker: "105560", name: "KB금융", basePrice: 81800, sector: "금융",
+    marketCap: 336700, high52w: 103900, low52w: 62000,
+    per: 6.2, pbr: 0.58, eps: 13200, dividendYield: 5.1,
+  },
+  {
+    ticker: "096770", name: "SK이노베이션", basePrice: 125500, sector: "에너지",
+    marketCap: 110400, high52w: 140200, low52w: 91700,
+    per: 15.3, pbr: 0.72, eps: 8200, dividendYield: 1.5,
+  },
+  {
+    ticker: "003550", name: "LG", basePrice: 69700, sector: "지주",
+    marketCap: 121500, high52w: 91400, low52w: 66000,
+    per: 9.1, pbr: 0.55, eps: 7660, dividendYield: 3.8,
+  },
+  {
+    ticker: "086790", name: "하나금융지주", basePrice: 62500, sector: "금융",
+    marketCap: 186200, high52w: 69300, low52w: 51600,
+    per: 5.5, pbr: 0.52, eps: 11360, dividendYield: 5.8,
+  },
+  {
+    ticker: "055550", name: "신한지주", basePrice: 48600, sector: "금융",
+    marketCap: 247000, high52w: 64600, low52w: 40450,
+    per: 5.2, pbr: 0.50, eps: 9350, dividendYield: 5.5,
+  },
+  {
+    ticker: "012330", name: "현대모비스", basePrice: 279500, sector: "자동차부품",
+    marketCap: 271700, high52w: 281000, low52w: 200500,
+    per: 7.8, pbr: 0.68, eps: 35840, dividendYield: 2.1,
+  },
+  {
+    ticker: "030200", name: "KT", basePrice: 49600, sector: "통신",
+    marketCap: 130100, high52w: 51500, low52w: 33000,
+    per: 8.9, pbr: 0.62, eps: 5573, dividendYield: 4.2,
+  },
+  {
+    ticker: "028260", name: "삼성물산", basePrice: 124000, sector: "건설/무역",
+    marketCap: 225500, high52w: 161300, low52w: 112400,
+    per: 11.2, pbr: 0.79, eps: 11071, dividendYield: 2.0,
+  },
+  {
+    ticker: "032830", name: "삼성생명", basePrice: 85000, sector: "보험",
+    marketCap: 404600, high52w: 111000, low52w: 76600,
+    per: 8.3, pbr: 0.55, eps: 10240, dividendYield: 3.5,
   },
 ];
 
@@ -77,6 +117,19 @@ export const NEWS_DATA: Record<string, Array<{id: string; title: string; summary
   ],
   "035720": [
     { id: "n8", title: "카카오, 인공지능 서비스 전면 개편", summary: "카카오가 주요 서비스에 AI를 통합하는 대규모 개편을 예고했다. 카카오T, 카카오맵 등에 AI 기능이 추가된다.", source: "아이뉴스24", publishedAt: new Date(Date.now() - 4 * 3600000).toISOString(), url: "#" },
+    { id: "n9", title: "카카오, 3분기 연속 영업익 흑자 달성", summary: "카카오가 비용 구조 효율화 후 3분기 연속 영업이익 흑자를 달성했다. AI 광고 매출 증가가 기여했다.", source: "연합뉴스", publishedAt: new Date(Date.now() - 10 * 3600000).toISOString(), url: "#" },
+  ],
+  "373220": [
+    { id: "n10", title: "LG에너지솔루션, 북미 배터리 공장 가동률 상향", summary: "LG에너지솔루션 미국 오하이오 배터리 공장이 목표 가동률을 달성했다. GM과의 합작 공장 확장도 예정됐다.", source: "한국경제", publishedAt: new Date(Date.now() - 2 * 3600000).toISOString(), url: "#" },
+  ],
+  "005380": [
+    { id: "n11", title: "현대차, 글로벌 전기차 판매 20% 증가", summary: "현대차그룹이 1분기 글로벌 전기차 판매량 20% 증가를 기록했다. 아이오닉 6·9가 유럽과 북미에서 인기를 끌고 있다.", source: "매일경제", publishedAt: new Date(Date.now() - 3 * 3600000).toISOString(), url: "#" },
+  ],
+  "096770": [
+    { id: "n12", title: "SK이노베이션, 배터리 사업 분사 일정 확정", summary: "SK이노베이션이 배터리 사업부 SK온의 상장 일정을 2025년 말로 잠정 확정했다.", source: "한국경제", publishedAt: new Date(Date.now() - 5 * 3600000).toISOString(), url: "#" },
+  ],
+  "105560": [
+    { id: "n13", title: "KB금융, 역대 최고 배당금 발표", summary: "KB금융그룹이 주주환원 강화 정책의 일환으로 역대 최고 수준의 배당금을 발표했다.", source: "연합뉴스", publishedAt: new Date(Date.now() - 4 * 3600000).toISOString(), url: "#" },
   ],
 };
 
@@ -99,9 +152,10 @@ export function getStockPrice(
   ticker: string
 ): { price: number; change: number; changePercent: number } {
   const seed = ticker.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-  const timeBasedFactor = Math.sin(Date.now() / 1000000 + seed) * 0.03;
-  const randomFactor = (Math.random() - 0.5) * 0.005;
-  const totalFactor = timeBasedFactor + randomFactor;
+  const timeBasedFactor = Math.sin(Date.now() / 300000 + seed * 0.17) * 0.02;
+  const driftFactor = Math.sin(Date.now() / 10800000 + seed * 0.41) * 0.015;
+  const randomFactor = (Math.random() - 0.5) * 0.006;
+  const totalFactor = timeBasedFactor + driftFactor + randomFactor;
   const price = Math.round(basePrice * (1 + totalFactor));
   const change = price - basePrice;
   const changePercent = (change / basePrice) * 100;
@@ -110,7 +164,8 @@ export function getStockPrice(
 
 export function getVolume(ticker: string): number {
   const seed = ticker.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-  return Math.floor((seed * 12345) % 5000000) + 500000;
+  const timeSeed = Math.floor(Date.now() / 10000);
+  return Math.floor(((seed * 9876 + timeSeed) % 8_000_000) + 200_000);
 }
 
 export function getNews(ticker: string) {

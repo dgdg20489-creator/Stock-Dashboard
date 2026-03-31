@@ -8,7 +8,7 @@ import {
   GetUserTradesResponse,
   EquipItemsResponse,
 } from "@workspace/api-zod";
-import { getStockPrice } from "./stocksData.js";
+import { getStockPrice, getStockByTicker } from "./stocksData.js";
 
 const router: IRouter = Router();
 
@@ -93,7 +93,8 @@ router.get("/users/:userId", async (req, res) => {
 
     let stockValue = 0;
     for (const h of holdings) {
-      const { price } = getStockPrice(Number(h.avgPrice), h.ticker);
+      const stockMeta = getStockByTicker(h.ticker);
+      const { price } = getStockPrice(stockMeta?.basePrice ?? Number(h.avgPrice), h.ticker);
       stockValue += price * Number(h.shares);
     }
 
@@ -131,7 +132,8 @@ router.get("/users/:userId/portfolio", async (req, res) => {
 
     let stockValue = 0;
     const holdingItems = holdings.map((h) => {
-      const { price } = getStockPrice(Number(h.avgPrice), h.ticker);
+      const stockMeta = getStockByTicker(h.ticker);
+      const { price } = getStockPrice(stockMeta?.basePrice ?? Number(h.avgPrice), h.ticker);
       const shares = Number(h.shares);
       const avgPrice = Number(h.avgPrice);
       const evaluationAmount = price * shares;

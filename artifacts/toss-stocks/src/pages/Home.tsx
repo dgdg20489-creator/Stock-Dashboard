@@ -3,31 +3,26 @@ import { MarketSummary } from "@/components/MarketSummary";
 import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Flame, TrendingUp, DollarSign, Calendar, Star } from "lucide-react";
+import { Flame, TrendingUp, DollarSign, Calendar, Star, Search, X } from "lucide-react";
 import { useWatchlist } from "@/hooks/use-watchlist";
 
 type TabType = "volume_amount" | "volume_count" | "top_gainers" | "earnings";
 
 const EARNINGS_STOCKS = [
-  { ticker: "005930", name: "삼성전자", date: "2026-04-30", expectedEps: "1,850", sector: "반도체" },
-  { ticker: "000660", name: "SK하이닉스", date: "2026-04-24", expectedEps: "12,400", sector: "반도체" },
-  { ticker: "035420", name: "NAVER", date: "2026-05-08", expectedEps: "3,200", sector: "IT서비스" },
-  { ticker: "051910", name: "LG화학", date: "2026-04-29", expectedEps: "8,900", sector: "화학" },
+  { ticker: "005930", name: "삼성전자",  date: "2026-04-30", expectedEps: "1,850",  sector: "반도체" },
+  { ticker: "000660", name: "SK하이닉스",date: "2026-04-24", expectedEps: "12,400", sector: "반도체" },
+  { ticker: "035420", name: "NAVER",      date: "2026-05-08", expectedEps: "3,200",  sector: "IT서비스" },
+  { ticker: "051910", name: "LG화학",     date: "2026-04-29", expectedEps: "8,900",  sector: "화학" },
 ];
 
 function StarButton({ ticker }: { ticker: string }) {
   const { isWatched, toggleWatch } = useWatchlist();
   const watched = isWatched(ticker);
-
   return (
     <button
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleWatch(ticker);
-      }}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleWatch(ticker); }}
       className={cn(
         "p-1.5 rounded-xl transition-all hover:scale-110 active:scale-95 flex-shrink-0",
         watched ? "text-yellow-400" : "text-muted-foreground/30 hover:text-yellow-300"
@@ -77,64 +72,131 @@ function StockRow({ stock, index, showVolume }: { stock: any; index: number; sho
 }
 
 export default function Home() {
-  const { data: stocks, isLoading } = useGetStocks();
-  const [activeTab, setActiveTab] = useState<TabType>("volume_amount");
+  const { data: stocks, isLoading } = useGetStocks({
+    query: { refetchInterval: 5000 },
+  });
+  const [activeTab, setActiveTab]   = useState<TabType>("volume_amount");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const tabs = [
     { id: "volume_amount" as TabType, label: "거래대금", icon: DollarSign },
-    { id: "volume_count" as TabType, label: "거래량", icon: TrendingUp },
-    { id: "top_gainers" as TabType, label: "급상승", icon: Flame },
-    { id: "earnings" as TabType, label: "실적 예정", icon: Calendar },
+    { id: "volume_count" as TabType,  label: "거래량",   icon: TrendingUp },
+    { id: "top_gainers"  as TabType,  label: "급상승",   icon: Flame },
+    { id: "earnings"     as TabType,  label: "실적 예정", icon: Calendar },
   ];
+
+  const q = searchQuery.trim().toLowerCase();
 
   const sorted = stocks ? [...stocks] : [];
   let displayStocks = sorted;
-  if (activeTab === "volume_amount") {
-    displayStocks = sorted.sort((a, b) => b.currentPrice * b.volume - a.currentPrice * a.volume);
-  } else if (activeTab === "volume_count") {
-    displayStocks = sorted.sort((a, b) => b.volume - a.volume);
-  } else if (activeTab === "top_gainers") {
-    displayStocks = sorted.sort((a, b) => b.changePercent - a.changePercent);
+  if (!q) {
+    if (activeTab === "volume_amount") {
+      displayStocks = sorted.sort((a, b) => b.currentPrice * b.volume - a.currentPrice * a.volume);
+    } else if (activeTab === "volume_count") {
+      displayStocks = sorted.sort((a, b) => b.volume - a.volume);
+    } else if (activeTab === "top_gainers") {
+      displayStocks = sorted.sort((a, b) => b.changePercent - a.changePercent);
+    }
+  } else {
+    displayStocks = sorted.filter(
+      (s) => s.name.toLowerCase().includes(q) || s.ticker.includes(q) || (s.sector ?? "").toLowerCase().includes(q)
+    );
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500">
       {/* 시장 지수 */}
       <section>
         <MarketSummary />
       </section>
 
+      {/* 검색창 */}
+      <section className="px-1">
+        <div className={cn(
+          "flex items-center gap-2 bg-card border rounded-2xl px-4 py-3 transition-all duration-200",
+          searchFocused ? "border-red-500 shadow-sm shadow-red-500/20" : "border-border/50"
+        )}>
+          <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <input
+            ref={searchRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder="종목명, 종목코드, 섹터 검색..."
+            className="flex-1 bg-transparent text-sm font-medium text-foreground placeholder:text-muted-foreground/60 outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => { setSearchQuery(""); searchRef.current?.focus(); }}
+              className="p-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {searchQuery && (
+          <p className="text-xs text-muted-foreground mt-2 px-1">
+            검색 결과 <span className="font-bold text-foreground">{displayStocks.length}개</span>
+          </p>
+        )}
+      </section>
+
       {/* 주식 목록 탭 */}
       <section>
-        <div className="flex items-center justify-between mb-4 px-1">
-          <h2 className="text-xl font-extrabold text-foreground">실시간 시장</h2>
-          <Link href="/watchlist" className="flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
-            <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-            관심 종목
-          </Link>
-        </div>
+        {!searchQuery && (
+          <div className="flex items-center justify-between mb-4 px-1">
+            <h2 className="text-xl font-extrabold text-foreground">실시간 시장</h2>
+            <Link href="/watchlist" className="flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
+              <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+              관심 종목
+            </Link>
+          </div>
+        )}
 
-        {/* 탭 선택 */}
-        <div className="flex gap-1 bg-muted p-1.5 rounded-2xl mb-4 overflow-x-auto scrollbar-hide">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all duration-200 min-w-[80px]",
-                activeTab === tab.id
-                  ? "bg-white text-red-600 shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <tab.icon className="w-3.5 h-3.5" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* 탭 선택 (검색 중에는 숨김) */}
+        {!searchQuery && (
+          <div className="flex gap-1 bg-muted p-1.5 rounded-2xl mb-4 overflow-x-auto scrollbar-hide">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all duration-200 min-w-[80px]",
+                  activeTab === tab.id
+                    ? "bg-white text-red-600 shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <tab.icon className="w-3.5 h-3.5" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden">
-          {activeTab === "earnings" ? (
+          {/* 검색 결과 */}
+          {searchQuery ? (
+            isLoading ? (
+              <div className="p-8 flex justify-center">
+                <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+              </div>
+            ) : displayStocks.length === 0 ? (
+              <div className="p-10 text-center text-muted-foreground">
+                <Search className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="font-bold">검색 결과가 없습니다</p>
+                <p className="text-xs mt-1">다른 검색어를 입력해 보세요</p>
+              </div>
+            ) : (
+              displayStocks.map((stock, i) => (
+                <StockRow key={stock.ticker} stock={stock} index={i} />
+              ))
+            )
+          ) : activeTab === "earnings" ? (
             isLoading ? (
               <div className="p-8 flex justify-center">
                 <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
