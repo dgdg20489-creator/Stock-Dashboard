@@ -3,6 +3,7 @@ import { useGetUser, useGetUserPortfolio, useGetUserTrades } from "@workspace/ap
 import { formatCurrency, formatPercent, getColorClass, cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { StockLogo } from "@/components/StockLogo";
+import { GameAvatar } from "@/components/GameAvatar";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
@@ -159,9 +160,7 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm"
       >
         <div className="flex items-center gap-5">
-          <div className="w-20 h-20 bg-muted rounded-3xl flex items-center justify-center text-5xl shadow-inner flex-shrink-0">
-            {user.avatar === "male" ? "👨" : "👩"}
-          </div>
+          <GameAvatar avatarId={user.avatar} size={80} rounded="rounded-3xl" className="shadow-inner flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <h2 className="text-2xl font-extrabold text-foreground">{user.username}</h2>
             <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-bold bg-red-50 text-red-600 mt-1">

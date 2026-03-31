@@ -973,19 +973,19 @@ def main():
             cycle += 1
             now = time.time()
 
-            # 매 30s: 네이버 금융 상위 500종목 개별 가격 업데이트 (3 사이클마다)
-            if cycle % 3 == 0:
+            # 매 5s: 미세 시뮬레이션 (실시간 순위 갱신용 - 매 사이클)
+            simulate_prices(conn)
+
+            # 매 30s: 네이버 금융 상위 500종목 실제 가격 업데이트 (6 사이클마다)
+            if cycle % 6 == 0:
                 update_realtime_prices(conn)
-            else:
-                # 사이클 사이: 미세 시뮬레이션 (자연스러운 움직임)
-                simulate_prices(conn)
 
             # 매 60s: 글로벌 지수 업데이트
-            if cycle % 6 == 0:
+            if cycle % 12 == 0:
                 update_indices(conn)
 
             # 매 5분: 뉴스 새로고침 (AI 감성 분석 포함)
-            if cycle % 30 == 0:
+            if cycle % 60 == 0:
                 refresh_all_news(conn)
 
             # 매 5분: 전체 종목 일괄 가격 업데이트 (시장목록 페이지 이용)
@@ -1006,8 +1006,8 @@ def main():
                 promote_ipo_to_realtime(conn)
                 last_ipo_check = now
 
-            if cycle % 2 == 0:
-                log.info(f"Cycle {cycle} OK")
+            if cycle % 4 == 0:
+                log.info(f"Cycle {cycle} OK (5s 주기)")
 
         except psycopg2.Error as e:
             log.error(f"DB error: {e}")
@@ -1019,7 +1019,7 @@ def main():
             log.error(f"Cycle error: {e}")
             traceback.print_exc()
 
-        time.sleep(10)
+        time.sleep(5)  # 5초 주기 — 실시간 순위 갱신
 
 
 if __name__ == "__main__":
