@@ -582,7 +582,7 @@ function MACDPanel({ data, containerWidth }: { data: OHLCPoint[]; containerWidth
   );
 }
 
-// ── 시간축 ────────────────────────────────────────────────────────
+// ── 시간축 (연도 구분선 + 날짜 라벨) ────────────────────────────
 function TimeAxis({ data, containerWidth, period, tf }: {
   data: OHLCPoint[];
   containerWidth: number;
@@ -594,41 +594,86 @@ function TimeAxis({ data, containerWidth, period, tf }: {
   const n = data.length;
   if (n === 0 || chartW <= 0) return null;
   const slotW = chartW / n;
-  const targetLabels = Math.max(4, Math.min(8, Math.floor(chartW / 60)));
-  const labelInterval = Math.max(1, Math.round(n / targetLabels));
-
-  const labels: { x: number; text: string; bold: boolean }[] = [];
   const isIntraday = period === "realtime";
   const tfMin = { "1m": 1, "5m": 5, "15m": 15, "30m": 30, "60m": 60 }[tf] ?? 1;
 
-  for (let i = 0; i < n; i += labelInterval) {
-    const x = PAD_L + i * slotW + slotW / 2;
-    const d = data[i];
-    let text = "";
-    let bold = false;
-    if (isIntraday) {
+  // 데이터 범위가 얼마나 긴지 계산
+  const firstDate = data[0]?.date?.slice(0, 4) ?? "";
+  const lastDate  = data[data.length - 1]?.date?.slice(0, 4) ?? "";
+  const yearSpan  = parseInt(lastDate || "0") - parseInt(firstDate || "0");
+
+  // 라벨 전략 자동 선택
+  const labels: { x: number; text: string; bold: boolean; isYear: boolean }[] = [];
+  const yearLines: { x: number; year: string }[] = [];
+
+  if (isIntraday) {
+    // 분봉: 시:분 표시
+    const targetLabels = Math.max(4, Math.min(8, Math.floor(chartW / 60)));
+    const labelInterval = Math.max(1, Math.round(n / targetLabels));
+    for (let i = 0; i < n; i += labelInterval) {
+      const x = PAD_L + i * slotW + slotW / 2;
+      const d = data[i];
       const parts = d.date.split(" ");
       const barJ = parseInt(parts[1] ?? "0");
-      if (barJ === 0) { text = parts[0]?.slice(5, 10) ?? ""; bold = true; }
-      else {
+      if (barJ === 0) {
+        labels.push({ x, text: parts[0]?.slice(5, 10) ?? "", bold: true, isYear: false });
+      } else {
         const totalMins = 9 * 60 + barJ * tfMin;
         const hh = Math.floor(totalMins / 60).toString().padStart(2, "0");
         const mm = (totalMins % 60).toString().padStart(2, "0");
-        text = `${hh}:${mm}`;
+        labels.push({ x, text: `${hh}:${mm}`, bold: false, isYear: false });
       }
-    } else if (period === "week" || period === "month") {
-      text = d.date?.slice(0, 7) ?? ""; bold = true;
-    } else {
-      text = d.date?.slice(5, 10) ?? "";
     }
-    labels.push({ x, text, bold });
+  } else if (period === "week" || period === "month") {
+    // 주봉/월봉: 연-월 표시
+    const targetLabels = Math.max(3, Math.min(8, Math.floor(chartW / 70)));
+    const labelInterval = Math.max(1, Math.round(n / targetLabels));
+    let prevYear = "";
+    for (let i = 0; i < n; i += labelInterval) {
+      const x = PAD_L + i * slotW + slotW / 2;
+      const yr = data[i]?.date?.slice(0, 4) ?? "";
+      const text = yr !== prevYear ? yr : data[i]?.date?.slice(5, 7) ?? "";
+      labels.push({ x, text, bold: yr !== prevYear, isYear: yr !== prevYear });
+      if (yr !== prevYear) prevYear = yr;
+    }
+  } else if (yearSpan >= 2) {
+    // 다년 일봉: 연도 경계선 + 연도 라벨
+    let prevYear = "";
+    data.forEach((d, i) => {
+      const yr = d.date?.slice(0, 4) ?? "";
+      if (yr !== prevYear) {
+        const x = PAD_L + i * slotW;
+        if (prevYear !== "") yearLines.push({ x, year: yr }); // 연도 구분선
+        labels.push({ x: x + slotW / 2, text: yr, bold: true, isYear: true });
+        prevYear = yr;
+      }
+    });
+  } else {
+    // 1년 이내: 월-일 표시
+    const targetLabels = Math.max(4, Math.min(8, Math.floor(chartW / 60)));
+    const labelInterval = Math.max(1, Math.round(n / targetLabels));
+    for (let i = 0; i < n; i += labelInterval) {
+      const x = PAD_L + i * slotW + slotW / 2;
+      labels.push({ x, text: data[i]?.date?.slice(5, 10) ?? "", bold: false, isYear: false });
+    }
   }
 
   return (
-    <svg width={containerWidth} height={18} className="overflow-visible select-none">
-      {labels.map(({ x, text, bold }, idx) => (
-        <text key={idx} x={x} y={13} fontSize={9} fill={bold ? "#475569" : "#94A3B8"}
-          textAnchor="middle" fontWeight={bold ? "bold" : "normal"}>{text}</text>
+    <svg width={containerWidth} height={20} className="overflow-visible select-none">
+      {/* 연도 구분 수직선 */}
+      {yearLines.map(({ x, year }, idx) => (
+        <line key={`yl-${idx}`} x1={x} y1={0} x2={x} y2={-280}
+          stroke="#e2e8f0" strokeWidth={1} strokeDasharray="4 2" pointerEvents="none" />
+      ))}
+      {/* 날짜/연도 라벨 */}
+      {labels.map(({ x, text, bold, isYear }, idx) => (
+        <text key={idx} x={x} y={14}
+          fontSize={isYear ? 10 : 9}
+          fill={bold ? "#374151" : "#94A3B8"}
+          textAnchor="middle"
+          fontWeight={bold ? "700" : "normal"}>
+          {text}
+        </text>
       ))}
     </svg>
   );
@@ -729,8 +774,9 @@ interface StockChartProps {
   avgCost?: number;
 }
 
+// 초기 뷰: 최근 1개월치 표시 후 왼쪽 드래그로 과거 탐색
 const DEFAULT_SPANS: Record<PeriodKey, number> = {
-  realtime: 60, day: 60, week: 52, month: 12, "3m": 60, year: 200,
+  realtime: 60, day: 30, week: 12, month: 12, "3m": 30, year: 60,
 };
 
 export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockChartProps) {
@@ -755,10 +801,10 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
   }, []);
 
   // realtime → "1m" (최근 30일로 분봉 시뮬레이션)
-  // 나머지 → "1y" (pykrx 241일 전체)
+  // 나머지 → "all" (상장일 ~ 오늘 수정주가 전체)
   const apiPeriod = useMemo(() => {
     if (period === "realtime") return GetStockHistoryPeriod["1m"];
-    return GetStockHistoryPeriod["1y"];
+    return GetStockHistoryPeriod["all"];
   }, [period]);
 
   const { data: history, isLoading } = useGetStockHistory(ticker, { period: apiPeriod });
@@ -945,9 +991,12 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
             <div className="flex justify-between px-1 mt-0.5">
               <span className="text-[8px] text-muted-foreground/50">
                 {visibleData.length}봉 표시 / 총 {chartData.length}봉
+                {chartData.length > 0 && chartData[0]?.date && (
+                  <> &middot; {chartData[0].date.slice(0, 4)}~{chartData[chartData.length-1]?.date?.slice(0, 7)}</>
+                )}
               </span>
               <span className="text-[8px] text-muted-foreground/50 pr-16">
-                🔍 휠: 줌 · 🖱 드래그: 과거 탐색
+                🔍 휠 줌 &middot; ← 드래그: 과거 탐색
               </span>
             </div>
           </div>

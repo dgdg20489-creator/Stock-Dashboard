@@ -45,8 +45,9 @@ FALLBACK_PRICES = {
     "012330": 381800, "030200": 60500,  "028260": 254300, "032830": 211800,
 }
 
-PYKRX_END   = "20250324"
-PYKRX_START = "20240324"
+PYKRX_END           = datetime.today().strftime("%Y%m%d")  # 항상 오늘
+PYKRX_START         = "20240101"                          # 1년치 기본 (seed_history용)
+PYKRX_FULL_START    = "19900101"                          # 수정주가 전체 히스토리 시작
 
 
 # ─────────────────────────────────────────────────
@@ -439,45 +440,76 @@ STOCKS = [
     ("035420", "NAVER", "IT서비스"), ("035720", "카카오", "IT서비스"),
 ]
 
+def _parse_ohlcv_df(df, ticker):
+    """pykrx DataFrame → (ticker, date, o, h, l, c, v) 리스트. 수정주가 포함."""
+    rows = []
+    for ts, row in df.iterrows():
+        try:
+            o = int(row.get("시가",   row.iloc[0]))
+            h = int(row.get("고가",   row.iloc[1]))
+            l = int(row.get("저가",   row.iloc[2]))
+            c = int(row.get("종가",   row.iloc[3]))
+            v = int(row.get("거래량", row.iloc[4]))
+            if c <= 0:
+                continue
+            rows.append((ticker, ts.strftime("%Y-%m-%d"), o, h, l, c, v))
+        except Exception:
+            pass
+    return rows
+
+
+def _upsert_history(conn, rows):
+    """OHLCV rows를 DB에 UPSERT (수정주가 업데이트 지원)."""
+    if not rows:
+        return
+    with conn.cursor() as cur:
+        execute_values(cur, """
+            INSERT INTO stocks_history
+                (ticker, date, open_price, high_price, low_price, close_price, volume)
+            VALUES %s
+            ON CONFLICT (ticker, date) DO UPDATE SET
+                open_price  = EXCLUDED.open_price,
+                high_price  = EXCLUDED.high_price,
+                low_price   = EXCLUDED.low_price,
+                close_price = EXCLUDED.close_price,
+                volume      = EXCLUDED.volume
+        """, rows)
+    conn.commit()
+
+
+def fetch_full_history_ticker(conn, ticker: str, start: str = PYKRX_FULL_START) -> int:
+    """상장일(19900101)부터 오늘까지 수정주가 전체 OHLCV를 DB에 저장/갱신."""
+    try:
+        from pykrx import stock as ps
+        end = datetime.today().strftime("%Y%m%d")
+        df = ps.get_market_ohlcv_by_date(start, end, ticker, adjusted=True)
+        if df is None or df.empty:
+            return 0
+        rows = _parse_ohlcv_df(df, ticker)
+        _upsert_history(conn, rows)
+        return len(rows)
+    except Exception as e:
+        log.debug(f"fetch_full_history {ticker}: {e}")
+        return 0
+
+
 def seed_history(conn):
+    """초기 구동 시 주요 종목의 수정주가 전체 히스토리를 시드."""
     with conn.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM stocks_history")
         count = cur.fetchone()[0]
-        if count > 500:
+        if count > 4820:
             log.info(f"stocks_history already seeded ({count} rows), skipping")
             return
 
-    log.info("Seeding historical OHLCV from pykrx (this takes ~1-2 min)...")
+    log.info("Seeding adjusted-price OHLCV from pykrx (19900101~today)...")
     try:
         from pykrx import stock as ps
         for ticker, name, _ in STOCKS:
-            try:
-                df = ps.get_market_ohlcv(PYKRX_START, PYKRX_END, ticker)
-                if df.empty:
-                    continue
-                rows = []
-                for ts, row in df.iterrows():
-                    try:
-                        o = int(row.get("시가",   row.iloc[0]))
-                        h = int(row.get("고가",   row.iloc[1]))
-                        l = int(row.get("저가",   row.iloc[2]))
-                        c = int(row.get("종가",   row.iloc[3]))
-                        v = int(row.get("거래량", row.iloc[4]))
-                        rows.append((ticker, ts.strftime("%Y-%m-%d"), o, h, l, c, v))
-                    except Exception:
-                        pass
-                if rows:
-                    with conn.cursor() as cur:
-                        execute_values(cur, """
-                            INSERT INTO stocks_history
-                                (ticker, date, open_price, high_price, low_price, close_price, volume)
-                            VALUES %s ON CONFLICT DO NOTHING
-                        """, rows)
-                    conn.commit()
-                    log.info(f"  {ticker} ({name}): {len(rows)} days")
-                time.sleep(0.3)
-            except Exception as e:
-                log.warning(f"  pykrx {ticker}: {e}")
+            n = fetch_full_history_ticker(conn, ticker)
+            if n:
+                log.info(f"  {ticker} ({name}): {n} days (adjusted)")
+            time.sleep(0.4)
     except ImportError:
         log.warning("pykrx not available, skipping history seed")
 
@@ -967,6 +999,9 @@ def main():
     last_stock_list_refresh  = time.time()  # 1시간마다 종목 목록 갱신
     last_batch_price_update  = time.time()  # 5분마다 전체 종목 일괄 가격 업데이트
     last_ipo_check           = time.time()  # 1시간마다 IPO 확인
+    # 수정주가 전체 히스토리 배치 처리: ticker 인덱스 추적
+    full_history_ticker_idx  = 0
+    full_history_tickers     = []  # 다음 사이클에 채워짐
 
     while True:
         try:
@@ -1005,6 +1040,27 @@ def main():
                 fetch_ipo_from_naver(conn)
                 promote_ipo_to_realtime(conn)
                 last_ipo_check = now
+
+            # ── 수정주가 전체 히스토리 배치 (매 10사이클=50s마다 2종목씩) ──
+            if cycle % 10 == 0:
+                if not full_history_tickers:
+                    # ticker 목록 갱신 (DB의 전체 종목)
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT ticker FROM stocks_realtime ORDER BY market_cap DESC NULLS LAST LIMIT 200")
+                        full_history_tickers = [r[0] for r in cur.fetchall()]
+                    full_history_ticker_idx = 0
+                    log.info(f"수정주가 히스토리 배치 시작: {len(full_history_tickers)}종목 큐")
+
+                # 2종목씩 처리
+                batch = full_history_tickers[full_history_ticker_idx:full_history_ticker_idx + 2]
+                for t in batch:
+                    n = fetch_full_history_ticker(conn, t)
+                    if n > 0:
+                        log.debug(f"  수정주가 히스토리: {t} → {n}일")
+                full_history_ticker_idx += 2
+                if full_history_ticker_idx >= len(full_history_tickers):
+                    full_history_ticker_idx = 0
+                    log.info(f"수정주가 히스토리 배치 1라운드 완료")
 
             if cycle % 4 == 0:
                 log.info(f"Cycle {cycle} OK (5s 주기)")

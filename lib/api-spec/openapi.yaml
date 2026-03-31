@@ -82,7 +82,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [1d, 1w, 1m, 3m, 1y]
+            enum: [1d, 1w, 1m, 3m, 1y, all]
             default: 1m
       responses:
         "200":

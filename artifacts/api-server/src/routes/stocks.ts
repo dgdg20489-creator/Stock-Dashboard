@@ -141,17 +141,25 @@ interface HistoryRow {
   volume: string;
 }
 
-async function getHistoryFromDB(ticker: string, days: number) {
+async function getHistoryFromDB(ticker: string, days: number | null) {
   try {
-    const result = await pool.query<HistoryRow>(`
-      SELECT date, open_price, high_price, low_price, close_price, volume
-      FROM stocks_history
-      WHERE ticker = $1
-      ORDER BY date DESC
-      LIMIT $2
-    `, [ticker, days]);
+    const query = days === null
+      ? {
+          text: `SELECT date, open_price, high_price, low_price, close_price, volume
+                 FROM stocks_history WHERE ticker = $1
+                 ORDER BY date ASC`,
+          values: [ticker],
+        }
+      : {
+          text: `SELECT date, open_price, high_price, low_price, close_price, volume
+                 FROM stocks_history WHERE ticker = $1
+                 ORDER BY date DESC LIMIT $2`,
+          values: [ticker, days],
+        };
+    const result = await pool.query<HistoryRow>(query.text, query.values);
     if (result.rows.length < 5) return null;
-    return result.rows.reverse().map((r) => ({
+    const rows = days === null ? result.rows : result.rows.reverse();
+    return rows.map((r) => ({
       date:   r.date instanceof Date ? r.date.toISOString().split("T")[0] : String(r.date).split("T")[0],
       open:   Math.round(parseFloat(r.open_price)),
       high:   Math.round(parseFloat(r.high_price)),
@@ -199,13 +207,15 @@ router.get("/stocks/search", async (req, res) => {
 router.get("/stocks/:ticker/history", async (req, res) => {
   const ticker = req.params.ticker;
   const period = (req.query.period as string) || "1m";
-  let days = 30;
+  // null = no LIMIT (return all available rows)
+  let days: number | null = 30;
   switch (period) {
-    case "1d": days = 1;   break;
-    case "1w": days = 7;   break;
-    case "1m": days = 30;  break;
-    case "3m": days = 90;  break;
-    case "1y": days = 365; break;
+    case "1d":  days = 1;    break;
+    case "1w":  days = 7;    break;
+    case "1m":  days = 30;   break;
+    case "3m":  days = 90;   break;
+    case "1y":  days = 365;  break;
+    case "all": days = null; break;
   }
 
   // Try DB first (real pykrx data)
