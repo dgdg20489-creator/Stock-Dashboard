@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-client-react";
 import { formatCurrency, formatPercent, formatLargeNumber, getColorClass, cn } from "@/lib/utils";
 import { StockChart } from "@/components/StockChart";
+import { StockLogo } from "@/components/StockLogo";
 import { OrderBook } from "@/components/OrderBook";
 import { TermTooltip } from "@/components/TermTooltip";
 import { NewsSection } from "@/components/NewsSection";
@@ -121,9 +122,7 @@ export default function StockDetail({ userId }: StockDetailProps) {
       {/* 가격 헤더 */}
       <div className="bg-card rounded-3xl px-6 pt-6 pb-2 shadow-sm border border-border/50">
         <div className="flex items-center gap-4 mb-5">
-          <div className="w-14 h-14 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-inner flex-shrink-0">
-            {stock.name.charAt(0)}
-          </div>
+          <StockLogo ticker={stock.ticker} name={stock.name} size="lg" />
           <div>
             <h1 className="text-xl font-extrabold text-foreground">{stock.name}</h1>
             <p className="text-sm font-semibold text-muted-foreground">{stock.ticker} · {stock.sector}</p>

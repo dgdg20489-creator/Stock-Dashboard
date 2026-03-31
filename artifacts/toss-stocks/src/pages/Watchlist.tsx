@@ -3,6 +3,7 @@ import { useGetStocks } from "@workspace/api-client-react";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { formatCurrency, formatPercent, getColorClass, cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { StockLogo } from "@/components/StockLogo";
 import { Link } from "wouter";
 import { Star, FolderPlus, Pencil, Trash2, ChevronDown, ChevronRight, Plus, Check, X } from "lucide-react";
 
@@ -175,9 +176,7 @@ export default function Watchlist() {
                         groupStocks.map((stock) => (
                           <div key={stock.ticker} className="flex items-center px-5 py-3.5 hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0">
                             <Link href={`/stock/${stock.ticker}`} className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className="w-9 h-9 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-extrabold text-sm shadow-inner flex-shrink-0">
-                                {stock.name.charAt(0)}
-                              </div>
+                              <StockLogo ticker={stock.ticker} name={stock.name} size="sm" />
                               <div className="min-w-0">
                                 <p className="font-bold text-foreground text-sm truncate">{stock.name}</p>
                                 <p className="text-xs text-muted-foreground font-medium">{stock.ticker}</p>

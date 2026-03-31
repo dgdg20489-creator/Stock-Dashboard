@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Flame, TrendingUp, DollarSign, Calendar, Star, Search, X, Rocket } from "lucide-react";
 import { useWatchlist } from "@/hooks/use-watchlist";
+import { StockLogo } from "@/components/StockLogo";
 
 type TabType = "volume_amount" | "volume_count" | "top_gainers" | "ipo";
 
@@ -56,8 +57,8 @@ function StockRow({ stock, index, showVolume }: { stock: any; index: number; sho
         >
           <div className="flex items-center gap-3">
             <span className="w-6 text-center text-sm font-bold text-muted-foreground">{index + 1}</span>
-            <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-extrabold text-base shadow-inner group-hover:scale-105 transition-transform flex-shrink-0">
-              {stock.name.charAt(0)}
+            <div className="group-hover:scale-105 transition-transform">
+              <StockLogo ticker={stock.ticker} name={stock.name} size="md" />
             </div>
             <div>
               <p className="font-bold text-foreground group-hover:text-primary transition-colors">{stock.name}</p>
@@ -102,9 +103,7 @@ function IpoRow({ ipo, index }: { ipo: IpoStock; index: number }) {
     >
       <div className="flex items-center gap-3">
         <span className="w-6 text-center text-sm font-bold text-muted-foreground">{index + 1}</span>
-        <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center text-white font-extrabold text-base shadow-inner flex-shrink-0">
-          {ipo.name.charAt(0)}
-        </div>
+        <StockLogo ticker={ipo.ticker} name={ipo.name} size="md" />
         <div>
           <p className="font-bold text-foreground">{ipo.name}</p>
           <div className="flex items-center gap-1.5 mt-0.5">

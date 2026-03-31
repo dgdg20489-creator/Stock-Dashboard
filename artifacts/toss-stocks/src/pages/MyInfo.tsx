@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useGetUser, useGetUserPortfolio, useGetUserTrades } from "@workspace/api-client-react";
 import { formatCurrency, formatPercent, getColorClass, cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { StockLogo } from "@/components/StockLogo";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
@@ -307,8 +308,8 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
                 className="flex items-center justify-between py-4 group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-extrabold text-base shadow-inner group-hover:scale-105 transition-transform">
-                    {holding.name.charAt(0)}
+                  <div className="group-hover:scale-105 transition-transform">
+                    <StockLogo ticker={holding.ticker} name={holding.name} size="md" />
                   </div>
                   <div>
                     <p className="font-bold text-foreground group-hover:text-primary transition-colors">{holding.name}</p>
