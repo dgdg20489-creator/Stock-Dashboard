@@ -200,7 +200,7 @@ function genIntradayCandles(daily: OHLCPoint[], tf: TFKey): OHLCPoint[] {
       price = close;
     }
   }
-  return result.slice(-120);
+  return result; // 전체 반환, visibleData zoom/pan으로 제어
 }
 
 // ── SVG 좌표 변환 헬퍼 ────────────────────────────────────────────

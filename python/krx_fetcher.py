@@ -494,22 +494,34 @@ def fetch_full_history_ticker(conn, ticker: str, start: str = PYKRX_FULL_START) 
 
 
 def seed_history(conn):
-    """초기 구동 시 주요 종목의 수정주가 전체 히스토리를 시드."""
+    """초기 구동 시 DB의 상위 종목부터 수정주가 전체 히스토리를 시드.
+    이미 히스토리가 있는 종목은 건너뛰고, 없는 종목만 추가."""
+    # 히스토리 없는 종목 수 확인
     with conn.cursor() as cur:
-        cur.execute("SELECT COUNT(*) FROM stocks_history")
-        count = cur.fetchone()[0]
-        if count > 4820:
-            log.info(f"stocks_history already seeded ({count} rows), skipping")
-            return
+        cur.execute("""
+            SELECT r.ticker, r.name
+            FROM stocks_realtime r
+            LEFT JOIN (
+                SELECT DISTINCT ticker FROM stocks_history
+            ) h ON r.ticker = h.ticker
+            WHERE h.ticker IS NULL
+            ORDER BY COALESCE(r.market_cap, 0) DESC
+            LIMIT 50
+        """)
+        to_seed = cur.fetchall()
 
-    log.info("Seeding adjusted-price OHLCV from pykrx (19900101~today)...")
+    if not to_seed:
+        log.info("모든 종목 히스토리 이미 존재 — seed_history 건너뜀")
+        return
+
+    log.info(f"수정주가 히스토리 초기 시드: {len(to_seed)}종목 (상위 시총순)...")
     try:
         from pykrx import stock as ps
-        for ticker, name, _ in STOCKS:
+        for ticker, name in to_seed:
             n = fetch_full_history_ticker(conn, ticker)
             if n:
                 log.info(f"  {ticker} ({name}): {n} days (adjusted)")
-            time.sleep(0.4)
+            time.sleep(0.3)
     except ImportError:
         log.warning("pykrx not available, skipping history seed")
 
@@ -1046,18 +1058,18 @@ def main():
                 if not full_history_tickers:
                     # ticker 목록 갱신 (DB의 전체 종목)
                     with conn.cursor() as cur:
-                        cur.execute("SELECT ticker FROM stocks_realtime ORDER BY market_cap DESC NULLS LAST LIMIT 200")
+                        cur.execute("SELECT ticker FROM stocks_realtime ORDER BY COALESCE(market_cap, 0) DESC")
                         full_history_tickers = [r[0] for r in cur.fetchall()]
                     full_history_ticker_idx = 0
                     log.info(f"수정주가 히스토리 배치 시작: {len(full_history_tickers)}종목 큐")
 
-                # 2종목씩 처리
-                batch = full_history_tickers[full_history_ticker_idx:full_history_ticker_idx + 2]
+                # 5종목씩 처리 (매 50s마다 → 2427종목 약 6.8시간)
+                batch = full_history_tickers[full_history_ticker_idx:full_history_ticker_idx + 5]
                 for t in batch:
                     n = fetch_full_history_ticker(conn, t)
                     if n > 0:
                         log.debug(f"  수정주가 히스토리: {t} → {n}일")
-                full_history_ticker_idx += 2
+                full_history_ticker_idx += 5
                 if full_history_ticker_idx >= len(full_history_tickers):
                     full_history_ticker_idx = 0
                     log.info(f"수정주가 히스토리 배치 1라운드 완료")

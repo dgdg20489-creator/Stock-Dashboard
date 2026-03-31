@@ -230,8 +230,11 @@ router.get("/stocks/:ticker/history", async (req, res) => {
   const dbRow = await getStockFromDB(ticker);
   const stock = STOCKS_DATA.find((s) => s.ticker === ticker);
   const basePrice = dbRow ? Math.round(parseFloat(dbRow.current_price) || 0) : (stock?.basePrice ?? 50000);
-  const high52w   = dbRow?.high52w ? parseFloat(dbRow.high52w) : basePrice * 1.3;
-  const low52w    = dbRow?.low52w  ? parseFloat(dbRow.low52w)  : basePrice * 0.7;
+  // Guard: high52w/low52w가 0이면 basePrice 기준으로 계산 (0이면 price가 0이 돼버림)
+  const raw52High = dbRow?.high52w ? parseFloat(dbRow.high52w) : 0;
+  const raw52Low  = dbRow?.low52w  ? parseFloat(dbRow.low52w)  : 0;
+  const high52w   = raw52High > 0 ? raw52High : basePrice * 1.3;
+  const low52w    = raw52Low  > 0 ? raw52Low  : basePrice * 0.7;
 
   if (basePrice === 0) {
     res.status(404).json({ message: "Stock not found" });
