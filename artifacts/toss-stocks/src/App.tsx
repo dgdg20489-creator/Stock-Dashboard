@@ -13,7 +13,7 @@ import Home from "./pages/Home";
 import StockDetail from "./pages/StockDetail";
 import Rankings from "./pages/Rankings";
 import MyInfo from "./pages/MyInfo";
-import Tips from "./pages/Tips";
+import News from "./pages/News";
 import Watchlist from "./pages/Watchlist";
 import Wardrobe from "./pages/Wardrobe";
 import DailyMissions from "./pages/DailyMissions";
@@ -194,7 +194,7 @@ function Router() {
           <Route path="/" component={Home} />
           <Route path="/stock/:ticker">{() => <StockDetail userId={userId} />}</Route>
           <Route path="/rankings" component={Rankings} />
-          <Route path="/tips" component={Tips} />
+          <Route path="/news" component={News} />
           <Route path="/watchlist" component={Watchlist} />
           <Route path="/wardrobe">{() => <Wardrobe userId={userId} userDifficulty={difficulty} avatar={avatar} />}</Route>
           <Route path="/missions">{() => <DailyMissions userId={userId} />}</Route>

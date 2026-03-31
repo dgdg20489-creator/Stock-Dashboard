@@ -261,11 +261,12 @@ router.get("/stocks/:ticker/news", async (req, res) => {
   const ticker = req.params.ticker;
   try {
     const result = await pool.query(`
-      SELECT id, ticker, title, body, office_name, article_url, published_at
+      SELECT id, ticker, title, body, office_name, article_url, published_at,
+             COALESCE(sentiment, 'neutral') as sentiment
       FROM market_news
       WHERE ticker = $1
       ORDER BY published_at DESC NULLS LAST, fetched_at DESC
-      LIMIT 5
+      LIMIT 10
     `, [ticker]);
 
     if (result.rows.length > 0) {
@@ -276,6 +277,7 @@ router.get("/stocks/:ticker/news", async (req, res) => {
         source:      r.office_name || "네이버금융",
         publishedAt: r.published_at ? new Date(r.published_at).toISOString() : new Date().toISOString(),
         url:         r.article_url || `https://finance.naver.com/item/news.naver?code=${ticker}`,
+        sentiment:   r.sentiment || "neutral",
       }));
       const parsed = GetStockNewsResponse.parse(news);
       res.json(parsed);
@@ -289,35 +291,16 @@ router.get("/stocks/:ticker/news", async (req, res) => {
   res.json(parsed);
 });
 
-router.get("/news", async (_req, res) => {
+router.get("/news", async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
   try {
     const result = await pool.query(`
-      SELECT id, ticker, title, body, office_name, article_url, published_at
+      SELECT DISTINCT ON (id) id, ticker, title, body, office_name, article_url, published_at,
+             COALESCE(sentiment, 'neutral') as sentiment
       FROM market_news
-      WHERE ticker = 'MARKET'
-      ORDER BY published_at DESC NULLS LAST, fetched_at DESC
-      LIMIT 5
-    `);
-
-    if (result.rows.length === 0) {
-      // Fall back: grab latest news across all stock tickers
-      const fallback = await pool.query(`
-        SELECT DISTINCT ON (id) id, ticker, title, body, office_name, article_url, published_at
-        FROM market_news
-        ORDER BY id, published_at DESC NULLS LAST
-        LIMIT 5
-      `);
-      const news = fallback.rows.map((r) => ({
-        id:          r.id,
-        title:       r.title,
-        summary:     r.body || "",
-        source:      r.office_name || "네이버금융",
-        publishedAt: r.published_at ? new Date(r.published_at).toISOString() : new Date().toISOString(),
-        url:         r.article_url || "https://finance.naver.com/news/",
-      }));
-      res.json(news);
-      return;
-    }
+      ORDER BY id, published_at DESC NULLS LAST
+      LIMIT $1
+    `, [limit]);
 
     const news = result.rows.map((r) => ({
       id:          r.id,
@@ -326,8 +309,35 @@ router.get("/news", async (_req, res) => {
       source:      r.office_name || "네이버금융",
       publishedAt: r.published_at ? new Date(r.published_at).toISOString() : new Date().toISOString(),
       url:         r.article_url || "https://finance.naver.com/news/",
+      sentiment:   r.sentiment || "neutral",
     }));
     res.json(news);
+  } catch (e) {
+    res.json([]);
+  }
+});
+
+router.get("/ipo", async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT ticker, name, market, ipo_price, listing_date,
+             subscription_start, subscription_end,
+             CASE WHEN listing_date <= CURRENT_DATE THEN 'listed' ELSE 'upcoming' END as status
+      FROM ipo_stocks
+      ORDER BY listing_date ASC
+      LIMIT 50
+    `);
+    const ipos = result.rows.map((r) => ({
+      ticker:            r.ticker,
+      name:              r.name,
+      market:            r.market,
+      ipoPrice:          r.ipo_price ? parseFloat(r.ipo_price) : null,
+      listingDate:       r.listing_date ? new Date(r.listing_date).toISOString().split("T")[0] : "",
+      subscriptionStart: r.subscription_start ? new Date(r.subscription_start).toISOString().split("T")[0] : null,
+      subscriptionEnd:   r.subscription_end   ? new Date(r.subscription_end).toISOString().split("T")[0]   : null,
+      status:            r.status,
+    }));
+    res.json(ipos);
   } catch (e) {
     res.json([]);
   }

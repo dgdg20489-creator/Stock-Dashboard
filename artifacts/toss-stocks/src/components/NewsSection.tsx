@@ -11,6 +11,7 @@ export interface NewsItem {
   source: string;
   publishedAt: string;
   url: string;
+  sentiment?: "bullish" | "bearish" | "neutral" | null;
 }
 
 const POSITIVE_WORDS = [
@@ -60,7 +61,8 @@ interface NewsCardProps {
 }
 
 export function NewsCard({ item, showSummary = false }: NewsCardProps) {
-  const sentiment = getSentiment(item.title);
+  const apiSentiment = item.sentiment === "bullish" ? "positive" : item.sentiment === "bearish" ? "negative" : null;
+  const sentiment = apiSentiment ?? getSentiment(item.title);
   return (
     <a
       href={item.url}

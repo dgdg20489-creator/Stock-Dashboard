@@ -22,11 +22,15 @@ Korean stock mock-trading dashboard (원광증권) with real 2026 market data.
 
 **Features:**
 - Difficulty selection (초보/중수/고수) with 1000만/500만/100만 KRW seed money
-- **296 Korean stocks from Naver Finance** — KOSPI top 200 + KOSDAQ top 100 (dynamically loaded at startup)
+- **2426 Korean stocks from Naver Finance** — KOSPI ALL (~839) + KOSDAQ ALL (~1587) (dynamically loaded at startup)
 - **Real 2026 Naver Finance prices** — fetched from `m.stock.naver.com/api/stock/{ticker}/basic` every 30s
 - **Real Yahoo Finance indices** — KOSPI, KOSDAQ, USD/KRW, S&P500, NASDAQ
 - **241 days of real OHLCV history** per stock from pykrx, served via `/stocks/:ticker/history`
-- **Python KRX Data Fetcher** (`python/krx_fetcher.py`) — dynamic stock list, real prices every 30s, indices every 60s; hourly stock list refresh
+- **Python KRX Data Fetcher** (`python/krx_fetcher.py`) — dynamic stock list (ALL listed), real prices top 500 every 30s, batch ALL stocks every 5min via listing pages, indices every 60s; hourly stock list refresh
+- **AI 감성 분석** — 뉴스 저장 시 한국어 키워드 분석 → bullish/bearish/neutral DB 저장; SQL UPDATE로 기존 322건도 반영
+- **뉴스 전용 탭** — `/news` 페이지: 전체/호재/악재 필터, 감성 통계 카드, 100건 표시
+- **거래대금/거래량/급상승 100위** — 탭별 상위 100종목 표시 + KOSPI/KOSDAQ 배지
+- **IPO(공모주) 탭** — `ipo_stocks` 테이블 + `/api/ipo` 엔드포인트; 상장일 도달 시 stocks_realtime 자동 추가
 - **1-second UI polling** — Home.tsx and StockDetail.tsx refresh every 1 second for live price updates
 - **KST timezone fix** — News timestamps from Naver stored with correct Korea Standard Time (UTC+9)
 - **Wonkwang University phoenix logo** (`/phoenix-logo.svg`) — SVG in navbar and difficulty screen

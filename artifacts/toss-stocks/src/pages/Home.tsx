@@ -5,18 +5,25 @@ import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { useState, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { Flame, TrendingUp, DollarSign, Calendar, Star, Search, X } from "lucide-react";
+import { Flame, TrendingUp, DollarSign, Calendar, Star, Search, X, Rocket } from "lucide-react";
 import { useWatchlist } from "@/hooks/use-watchlist";
 
-type TabType = "volume_amount" | "volume_count" | "top_gainers" | "earnings";
+type TabType = "volume_amount" | "volume_count" | "top_gainers" | "ipo";
 
-const EARNINGS_STOCKS = [
-  { ticker: "005930", name: "삼성전자",  date: "2026-04-30", expectedEps: "1,850",  sector: "반도체" },
-  { ticker: "000660", name: "SK하이닉스",date: "2026-04-24", expectedEps: "12,400", sector: "반도체" },
-  { ticker: "035420", name: "NAVER",      date: "2026-05-08", expectedEps: "3,200",  sector: "IT서비스" },
-  { ticker: "051910", name: "LG화학",     date: "2026-04-29", expectedEps: "8,900",  sector: "화학" },
-];
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+interface IpoStock {
+  ticker: string;
+  name: string;
+  market: string;
+  ipoPrice: number | null;
+  listingDate: string;
+  subscriptionStart: string | null;
+  subscriptionEnd: string | null;
+  status: "upcoming" | "listed";
+}
 
 function StarButton({ ticker }: { ticker: string }) {
   const { isWatched, toggleWatch } = useWatchlist();
@@ -44,7 +51,7 @@ function StockRow({ stock, index, showVolume }: { stock: any; index: number; sho
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.04 }}
+          transition={{ delay: index * 0.02 }}
           className="flex items-center justify-between w-full"
         >
           <div className="flex items-center gap-3">
@@ -54,7 +61,17 @@ function StockRow({ stock, index, showVolume }: { stock: any; index: number; sho
             </div>
             <div>
               <p className="font-bold text-foreground group-hover:text-primary transition-colors">{stock.name}</p>
-              <p className="text-xs text-muted-foreground font-semibold">{stock.ticker}</p>
+              <p className="text-xs text-muted-foreground font-semibold">
+                {stock.ticker}
+                {stock.market && (
+                  <span className={cn(
+                    "ml-1.5 px-1 py-0.5 rounded text-[9px] font-bold",
+                    stock.market === "KOSPI" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-600"
+                  )}>
+                    {stock.market}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
           <div className="text-right">
@@ -72,20 +89,85 @@ function StockRow({ stock, index, showVolume }: { stock: any; index: number; sho
   );
 }
 
+function IpoRow({ ipo, index }: { ipo: IpoStock; index: number }) {
+  const isUpcoming = ipo.status === "upcoming";
+  const daysLeft = Math.ceil((new Date(ipo.listingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04 }}
+      className="flex items-center justify-between px-4 py-4 border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors"
+    >
+      <div className="flex items-center gap-3">
+        <span className="w-6 text-center text-sm font-bold text-muted-foreground">{index + 1}</span>
+        <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center text-white font-extrabold text-base shadow-inner flex-shrink-0">
+          {ipo.name.charAt(0)}
+        </div>
+        <div>
+          <p className="font-bold text-foreground">{ipo.name}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className={cn(
+              "text-[9px] font-bold px-1 py-0.5 rounded",
+              ipo.market === "KOSPI" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-600"
+            )}>
+              {ipo.market}
+            </span>
+            {isUpcoming ? (
+              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600">
+                상장예정
+              </span>
+            ) : (
+              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-gray-100 text-gray-600">
+                상장완료
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="text-right">
+        {ipo.ipoPrice ? (
+          <p className="font-extrabold text-foreground">{formatCurrency(ipo.ipoPrice)}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">미정</p>
+        )}
+        <div className="flex items-center gap-1 justify-end mt-0.5">
+          <Calendar className="w-3 h-3 text-orange-500" />
+          <p className="text-xs font-bold text-orange-500">{ipo.listingDate}</p>
+        </div>
+        {isUpcoming && daysLeft > 0 && (
+          <p className="text-[10px] text-muted-foreground">D-{daysLeft}</p>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 export default function Home() {
   const { data: stocks, isLoading } = useGetStocks({
     query: { refetchInterval: 1000, staleTime: 0 },
   });
-  const [activeTab, setActiveTab]   = useState<TabType>("volume_amount");
+  const [activeTab, setActiveTab] = useState<TabType>("volume_amount");
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const { data: ipoData, isLoading: ipoLoading } = useQuery<IpoStock[]>({
+    queryKey: ["ipo-stocks"],
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/api/ipo`);
+      if (!r.ok) return [];
+      return r.json();
+    },
+    refetchInterval: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const tabs = [
     { id: "volume_amount" as TabType, label: "거래대금", icon: DollarSign },
     { id: "volume_count" as TabType,  label: "거래량",   icon: TrendingUp },
     { id: "top_gainers"  as TabType,  label: "급상승",   icon: Flame },
-    { id: "earnings"     as TabType,  label: "실적 예정", icon: Calendar },
+    { id: "ipo"          as TabType,  label: "상장예정", icon: Rocket },
   ];
 
   const q = searchQuery.trim().toLowerCase();
@@ -94,11 +176,17 @@ export default function Home() {
   let displayStocks = sorted;
   if (!q) {
     if (activeTab === "volume_amount") {
-      displayStocks = sorted.sort((a, b) => b.currentPrice * b.volume - a.currentPrice * a.volume);
+      displayStocks = sorted
+        .sort((a, b) => b.currentPrice * b.volume - a.currentPrice * a.volume)
+        .slice(0, 100);
     } else if (activeTab === "volume_count") {
-      displayStocks = sorted.sort((a, b) => b.volume - a.volume);
+      displayStocks = sorted
+        .sort((a, b) => b.volume - a.volume)
+        .slice(0, 100);
     } else if (activeTab === "top_gainers") {
-      displayStocks = sorted.sort((a, b) => b.changePercent - a.changePercent);
+      displayStocks = sorted
+        .sort((a, b) => b.changePercent - a.changePercent)
+        .slice(0, 100);
     }
   } else {
     displayStocks = sorted.filter(
@@ -117,7 +205,7 @@ export default function Home() {
       <section className="px-1">
         <div className={cn(
           "flex items-center gap-2 bg-card border rounded-2xl px-4 py-3 transition-all duration-200",
-          searchFocused ? "border-red-500 shadow-sm shadow-red-500/20" : "border-border/50"
+          false ? "border-red-500 shadow-sm shadow-red-500/20" : "border-border/50"
         )}>
           <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <input
@@ -125,8 +213,8 @@ export default function Home() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
+            onFocus={() => {}}
+            onBlur={() => {}}
             placeholder="종목명, 종목코드, 섹터 검색..."
             className="flex-1 bg-transparent text-sm font-medium text-foreground placeholder:text-muted-foreground/60 outline-none"
           />
@@ -151,10 +239,15 @@ export default function Home() {
         {!searchQuery && (
           <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-xl font-extrabold text-foreground">실시간 시장</h2>
-            <Link href="/watchlist" className="flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
-              <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-              관심 종목
-            </Link>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-medium">
+                총 {stocks?.length ?? 0}종목
+              </span>
+              <Link href="/watchlist" className="flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
+                <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                관심
+              </Link>
+            </div>
           </div>
         )}
 
@@ -197,50 +290,31 @@ export default function Home() {
                 <StockRow key={stock.ticker} stock={stock} index={i} />
               ))
             )
-          ) : activeTab === "earnings" ? (
-            isLoading ? (
+          ) : activeTab === "ipo" ? (
+            ipoLoading ? (
               <div className="p-8 flex justify-center">
                 <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
               </div>
+            ) : !ipoData || ipoData.length === 0 ? (
+              <div className="p-10 text-center text-muted-foreground">
+                <Rocket className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="font-bold">상장 예정 종목이 없습니다</p>
+                <p className="text-xs mt-1">데이터를 불러오는 중입니다</p>
+              </div>
             ) : (
               <div>
-                {EARNINGS_STOCKS.map((item, i) => {
-                  const stock = stocks?.find(s => s.ticker === item.ticker);
-                  return (
-                    <div key={item.ticker} className="flex items-center border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors group">
-                      <StarButton ticker={item.ticker} />
-                      <Link href={`/stock/${item.ticker}`} className="flex items-center justify-between flex-1 px-3 py-4">
-                        <motion.div
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.05 }}
-                          className="flex items-center justify-between w-full"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="w-6 text-center text-sm font-bold text-muted-foreground">{i + 1}</span>
-                            <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center text-white font-extrabold text-base shadow-inner group-hover:scale-105 transition-transform flex-shrink-0">
-                              {item.name.charAt(0)}
-                            </div>
-                            <div>
-                              <p className="font-bold text-foreground group-hover:text-primary transition-colors">{item.name}</p>
-                              <p className="text-xs text-muted-foreground font-semibold">{item.sector}</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            {stock && (
-                              <p className="font-extrabold text-foreground">{formatCurrency(stock.currentPrice)}</p>
-                            )}
-                            <div className="flex items-center gap-1.5 justify-end mt-0.5">
-                              <Calendar className="w-3 h-3 text-orange-500" />
-                              <p className="text-xs font-bold text-orange-500">{item.date} 예정</p>
-                            </div>
-                            <p className="text-xs text-muted-foreground font-medium">예상 EPS {item.expectedEps}원</p>
-                          </div>
-                        </motion.div>
-                      </Link>
-                    </div>
-                  );
-                })}
+                <div className="px-4 py-3 border-b border-border/40 bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Rocket className="w-4 h-4 text-orange-500" />
+                    <span className="text-sm font-bold text-foreground">신규 상장 예정</span>
+                    <span className="text-xs text-muted-foreground">
+                      상장일 기준 자동 반영
+                    </span>
+                  </div>
+                </div>
+                {ipoData.map((ipo, i) => (
+                  <IpoRow key={ipo.ticker} ipo={ipo} index={i} />
+                ))}
               </div>
             )
           ) : isLoading ? (
@@ -248,17 +322,25 @@ export default function Home() {
               <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
             </div>
           ) : (
-            displayStocks.map((stock, i) => {
-              const volumeLabel =
-                activeTab === "volume_amount"
-                  ? `거래대금 ${(stock.currentPrice * stock.volume / 100000000).toFixed(0)}억`
-                  : activeTab === "volume_count"
-                  ? `거래량 ${stock.volume.toLocaleString("ko-KR")}주`
-                  : undefined;
-              return (
-                <StockRow key={stock.ticker} stock={stock} index={i} showVolume={volumeLabel} />
-              );
-            })
+            <>
+              <div className="px-4 py-2.5 border-b border-border/40 bg-muted/30 flex items-center justify-between">
+                <span className="text-xs font-bold text-muted-foreground">
+                  {activeTab === "volume_amount" ? "거래대금 순위" : activeTab === "volume_count" ? "거래량 순위" : "급상승 순위"} · 상위 100위
+                </span>
+                <span className="text-xs text-muted-foreground">{displayStocks.length}종목</span>
+              </div>
+              {displayStocks.map((stock, i) => {
+                const volumeLabel =
+                  activeTab === "volume_amount"
+                    ? `거래대금 ${(stock.currentPrice * stock.volume / 100000000).toFixed(0)}억`
+                    : activeTab === "volume_count"
+                    ? `거래량 ${stock.volume.toLocaleString("ko-KR")}주`
+                    : undefined;
+                return (
+                  <StockRow key={stock.ticker} stock={stock} index={i} showVolume={volumeLabel} />
+                );
+              })}
+            </>
           )}
         </div>
       </section>
