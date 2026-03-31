@@ -47,8 +47,8 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
         className="w-full max-w-2xl"
       >
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-gradient-to-br from-red-700 to-red-500 rounded-3xl mx-auto flex items-center justify-center shadow-lg mb-6 p-2">
-            <img src="/phoenix-logo.svg" alt="원광증권 봉황" className="w-full h-full object-contain" />
+          <div className="w-20 h-20 bg-white rounded-3xl mx-auto flex items-center justify-center shadow-lg mb-6 p-1">
+            <img src="/wonkwang-logo.png" alt="원광대학교 로고" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-3xl font-bold text-foreground mb-3 tracking-tight">원광증권 모의투자</h1>
           <p className="text-muted-foreground font-medium text-lg">프로필과 난이도를 설정하고 투자를 시작해보세요</p>
