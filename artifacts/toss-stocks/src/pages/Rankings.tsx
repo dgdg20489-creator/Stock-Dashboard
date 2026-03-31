@@ -4,39 +4,66 @@ import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameAvatar } from "@/components/GameAvatar";
 
+function TrophyIcon({ rank, size = 48 }: { rank: 1 | 2 | 3; size?: number }) {
+  const configs = {
+    1: { cup: "#FFD700", shine: "#FFF176", shadow: "#B8860B", base: "#DAA520", label: "금" },
+    2: { cup: "#C0C0C0", shine: "#FFFFFF", shadow: "#808080", base: "#A9A9A9", label: "은" },
+    3: { cup: "#CD7F32", shine: "#E8A958", shadow: "#7B4A1E", base: "#A0522D", label: "동" },
+  };
+  const c = configs[rank];
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* cup body */}
+      <path d="M14 6h20v18c0 6-4 10-10 10S14 30 14 24V6z" fill={c.cup} />
+      {/* shine */}
+      <path d="M18 8h4v12c0 2-1 3-2 3s-2-1-2-3V8z" fill={c.shine} opacity="0.5" />
+      {/* handles */}
+      <path d="M14 10H8a6 6 0 0 0 6 6V10z" fill={c.cup} />
+      <path d="M34 10h6a6 6 0 0 1-6 6V10z" fill={c.cup} />
+      {/* handle shadow */}
+      <path d="M14 13H8" stroke={c.shadow} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M34 13h6" stroke={c.shadow} strokeWidth="1.5" strokeLinecap="round" />
+      {/* stem */}
+      <rect x="21" y="34" width="6" height="5" fill={c.base} />
+      {/* base */}
+      <rect x="15" y="39" width="18" height="4" rx="2" fill={c.base} />
+      {/* base shine */}
+      <rect x="17" y="40" width="14" height="1.5" rx="0.75" fill={c.shine} opacity="0.4" />
+      {/* rank text on cup */}
+      <text x="24" y="22" textAnchor="middle" fontSize="10" fontWeight="900" fill={c.shadow} fontFamily="system-ui">{c.label}</text>
+    </svg>
+  );
+}
+
 export default function Rankings() {
-  const [difficulty, setDifficulty] = useState<GetRankingsDifficulty>(GetRankingsDifficulty.all);
-  const prevRanksRef = useRef<Map<number, number>>(new Map()); // userId → prev rank
-  const [rankChanges, setRankChanges] = useState<Map<number, number>>(new Map()); // userId → delta
+  const [difficulty, setDifficulty] = useState<GetRankingsDifficulty>(GetRankingsDifficulty.beginner);
+  const prevRanksRef = useRef<Map<number, number>>(new Map());
+  const [rankChanges, setRankChanges] = useState<Map<number, number>>(new Map());
 
   const { data: rankings, isLoading } = useGetRankings(
     { difficulty },
-    { query: { refetchInterval: 5 * 1000 } } // 5초마다 실시간 갱신
+    { query: { refetchInterval: 5 * 1000 } }
   );
 
-  // Compute rank changes when rankings update
   useEffect(() => {
     if (!rankings) return;
     const newChanges = new Map<number, number>();
     rankings.forEach(entry => {
       const prev = prevRanksRef.current.get(entry.userId);
       if (prev !== undefined && prev !== entry.rank) {
-        newChanges.set(entry.userId, prev - entry.rank); // positive = moved up
+        newChanges.set(entry.userId, prev - entry.rank);
       }
     });
     setRankChanges(newChanges);
-    // Update prev map
     const newPrev = new Map<number, number>();
     rankings.forEach(e => newPrev.set(e.userId, e.rank));
     prevRanksRef.current = newPrev;
-    // Clear change indicators after 3s
     if (newChanges.size > 0) {
       setTimeout(() => setRankChanges(new Map()), 3000);
     }
   }, [rankings]);
 
   const tabs = [
-    { id: GetRankingsDifficulty.all,          label: "전체" },
     { id: GetRankingsDifficulty.beginner,     label: "초보" },
     { id: GetRankingsDifficulty.intermediate, label: "중수" },
     { id: GetRankingsDifficulty.expert,       label: "고수" },
@@ -44,14 +71,20 @@ export default function Rankings() {
 
   const currentUserId = parseInt(localStorage.getItem("toss_userId") || "0");
 
-  const medalColors = [
-    "bg-gradient-to-br from-yellow-300 to-amber-500 text-amber-900 shadow-amber-300/50",
-    "bg-gradient-to-br from-slate-300 to-slate-500 text-slate-800 shadow-slate-300/50",
-    "bg-gradient-to-br from-amber-600 to-amber-800 text-amber-100 shadow-amber-700/50",
+  const top3BgColors = [
+    "bg-gradient-to-b from-yellow-50 to-amber-100 border-amber-300",
+    "bg-gradient-to-b from-slate-50 to-slate-100 border-slate-300",
+    "bg-gradient-to-b from-orange-50 to-amber-50 border-amber-700/40",
+  ];
+
+  const rankBadgeColors = [
+    "bg-gradient-to-br from-yellow-300 to-amber-500 text-amber-900",
+    "bg-gradient-to-br from-slate-300 to-slate-500 text-slate-800",
+    "bg-gradient-to-br from-amber-600 to-amber-800 text-amber-100",
   ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
+    <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <div>
@@ -63,7 +96,7 @@ export default function Rankings() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs (초보 / 중수 / 고수 only) */}
       <div className="flex gap-2 bg-muted p-1.5 rounded-2xl">
         {tabs.map(tab => (
           <button
@@ -80,7 +113,7 @@ export default function Rankings() {
         ))}
       </div>
 
-      {/* Table */}
+      {/* Body */}
       <div className="bg-card rounded-3xl shadow-sm border border-border/50 overflow-hidden">
         {isLoading ? (
           <div className="p-12 flex flex-col items-center gap-3">
@@ -89,51 +122,85 @@ export default function Rankings() {
           </div>
         ) : !rankings || rankings.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-4xl mb-3">🏆</p>
-            <p className="text-muted-foreground font-medium">랭킹 데이터가 없습니다.</p>
+            <TrophyIcon rank={1} size={56} />
+            <p className="text-muted-foreground font-medium mt-3">랭킹 데이터가 없습니다.</p>
             <p className="text-xs text-muted-foreground mt-1">투자를 시작하면 랭킹에 표시됩니다.</p>
           </div>
         ) : (
           <div className="w-full">
-            {/* Top 3 podium */}
-            {rankings.length >= 3 && (
-              <div className="grid grid-cols-3 gap-3 p-4 pb-2 border-b border-border/40">
-                {[rankings[1], rankings[0], rankings[2]].map((entry, podiumIdx) => {
-                  if (!entry) return <div key={podiumIdx} />;
-                  const rank = podiumIdx === 1 ? 1 : podiumIdx === 0 ? 2 : 3;
-                  const heights = ["h-28", "h-36", "h-24"];
-                  const isSelf = entry.userId === currentUserId;
-                  return (
-                    <motion.div
-                      key={entry.userId}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: podiumIdx * 0.1 }}
-                      className={`flex flex-col items-center gap-1 ${podiumIdx === 1 ? "order-2" : podiumIdx === 0 ? "order-1" : "order-3"}`}
-                    >
-                      <div className={`relative flex flex-col items-center ${heights[podiumIdx]} justify-end pb-2`}>
-                        <GameAvatar avatarId={entry.avatar} size={podiumIdx === 1 ? 56 : 44} rounded="rounded-xl" className="shadow-lg mb-1" />
-                        <span className={`text-[10px] font-bold truncate max-w-16 text-center ${isSelf ? "text-primary" : "text-foreground"}`}>
-                          {entry.username}{isSelf ? " 👤" : ""}
-                        </span>
-                        <span className="text-[9px] text-muted-foreground font-semibold">
-                          {formatPercent(entry.totalReturnPercent)}
-                        </span>
+
+            {/* ── TOP 3 PODIUM ── */}
+            {rankings.length >= 1 && (
+              <div className="px-4 pt-6 pb-4 border-b border-border/40 bg-gradient-to-b from-muted/30 to-transparent">
+
+                {/* 1등: 금 트로피 — 맨 위 중앙 */}
+                {rankings[0] && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="flex flex-col items-center mb-4"
+                  >
+                    <div className={`relative flex flex-col items-center gap-2 px-8 py-4 rounded-2xl border-2 ${top3BgColors[0]} shadow-lg shadow-amber-200/60`}>
+                      {/* 금 트로피 + 왕관 효과 */}
+                      <div className="relative">
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-2xl">👑</div>
+                        <TrophyIcon rank={1} size={56} />
                       </div>
-                      <div className={`w-full rounded-t-xl flex items-center justify-center py-1.5 font-black text-lg shadow-lg ${medalColors[rank - 1]}`}
-                        style={{ height: `${[40, 56, 32][rank - 1]}px` }}>
-                        {rank}
+                      <GameAvatar avatarId={rankings[0].avatar} size={52} rounded="rounded-xl" className="shadow-md ring-2 ring-amber-400" />
+                      <div className="text-center">
+                        <p className={`font-black text-base ${rankings[0].userId === currentUserId ? "text-primary" : "text-foreground"}`}>
+                          {rankings[0].username}{rankings[0].userId === currentUserId ? " 👤" : ""}
+                        </p>
+                        <p className={`text-sm font-bold ${getColorClass(rankings[0].totalReturn)}`}>
+                          {formatPercent(rankings[0].totalReturnPercent)}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-semibold mt-0.5">
+                          {formatCurrency(rankings[0].totalAssets)}
+                        </p>
                       </div>
-                    </motion.div>
-                  );
-                })}
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* 2등 (왼쪽) + 3등 (오른쪽) */}
+                <div className="grid grid-cols-2 gap-3">
+                  {[rankings[1], rankings[2]].map((entry, idx) => {
+                    if (!entry) return <div key={idx} />;
+                    const rank = (idx + 2) as 2 | 3;
+                    const isSelf = entry.userId === currentUserId;
+                    return (
+                      <motion.div
+                        key={entry.userId}
+                        initial={{ opacity: 0, x: idx === 0 ? -20 : 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.15, duration: 0.4 }}
+                        className={`flex flex-col items-center gap-2 px-4 py-3 rounded-2xl border ${top3BgColors[rank - 1]} shadow-md`}
+                      >
+                        <TrophyIcon rank={rank} size={40} />
+                        <GameAvatar avatarId={entry.avatar} size={44} rounded="rounded-xl" className="shadow-sm" />
+                        <div className="text-center">
+                          <p className={`font-bold text-sm ${isSelf ? "text-primary" : "text-foreground"} truncate max-w-24`}>
+                            {entry.username}{isSelf ? " 👤" : ""}
+                          </p>
+                          <p className={`text-xs font-bold ${getColorClass(entry.totalReturn)}`}>
+                            {formatPercent(entry.totalReturnPercent)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-semibold">
+                            {formatCurrency(entry.totalAssets)}
+                          </p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            {/* Full list */}
+            {/* ── 4위 이하 리스트 ── */}
             <div className="divide-y divide-border/40">
               <AnimatePresence>
-                {rankings.map((entry, idx) => {
+                {(rankings.length > 3 ? rankings.slice(3) : []).map((entry) => {
                   const change = rankChanges.get(entry.userId) ?? 0;
                   const isSelf = entry.userId === currentUserId;
                   return (
@@ -145,17 +212,11 @@ export default function Rankings() {
                       transition={{ duration: 0.3 }}
                       className={`flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors ${isSelf ? "bg-primary/5" : ""}`}
                     >
-                      {/* Rank badge */}
+                      {/* 순위 뱃지 */}
                       <div className="w-10 flex-shrink-0 flex flex-col items-center gap-0.5">
-                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm shadow-sm ${
-                          entry.rank === 1 ? medalColors[0] :
-                          entry.rank === 2 ? medalColors[1] :
-                          entry.rank === 3 ? medalColors[2] :
-                          "bg-muted text-muted-foreground"
-                        }`}>
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm bg-muted text-muted-foreground">
                           {entry.rank}
                         </span>
-                        {/* Rank change indicator */}
                         {change !== 0 && (
                           <motion.span
                             initial={{ opacity: 0, scale: 0.6 }}
@@ -168,7 +229,6 @@ export default function Rankings() {
                         )}
                       </div>
 
-                      {/* Avatar + name */}
                       <GameAvatar avatarId={entry.avatar} size={44} rounded="rounded-xl" className="shadow-sm flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -187,7 +247,6 @@ export default function Rankings() {
                         </div>
                       </div>
 
-                      {/* Return */}
                       <div className={`text-right font-bold text-base flex-shrink-0 ${getColorClass(entry.totalReturn)}`}>
                         {formatPercent(entry.totalReturnPercent)}
                       </div>
@@ -196,6 +255,7 @@ export default function Rankings() {
                 })}
               </AnimatePresence>
             </div>
+
           </div>
         )}
       </div>
