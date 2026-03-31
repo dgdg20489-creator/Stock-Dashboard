@@ -538,15 +538,18 @@ def update_indices(conn):
 # ─────────────────────────────────────────────────
 
 def parse_naver_datetime(dt_str: str) -> datetime | None:
-    """Parse Naver datetime string (KST) → timezone-aware KST datetime.
-    Naver times are Korean Standard Time (UTC+9). We store as KST-aware.
+    """Parse Naver datetime string (KST) → UTC-aware datetime for PostgreSQL.
+    Naver times are Korea Standard Time (UTC+9).
+    We explicitly convert to UTC so psycopg2 stores the correct value.
     Format examples: '202603311416' (12자리), '20260331' (8자리)
     """
     try:
         if len(dt_str) == 12:
-            return datetime.strptime(dt_str, "%Y%m%d%H%M").replace(tzinfo=KST)
+            kst_dt = datetime.strptime(dt_str, "%Y%m%d%H%M").replace(tzinfo=KST)
+            return kst_dt.astimezone(timezone.utc)
         elif len(dt_str) == 8:
-            return datetime.strptime(dt_str, "%Y%m%d").replace(tzinfo=KST)
+            kst_dt = datetime.strptime(dt_str, "%Y%m%d").replace(tzinfo=KST)
+            return kst_dt.astimezone(timezone.utc)
     except Exception:
         pass
     return None

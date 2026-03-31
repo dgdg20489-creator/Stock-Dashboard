@@ -1,8 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, Newspaper } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
-import { ko } from "date-fns/locale";
 
 export interface NewsItem {
   id: string;
@@ -36,7 +34,33 @@ export function getSentiment(title: string): "positive" | "negative" | null {
 
 export function timeAgo(iso: string): string {
   try {
-    return formatDistanceToNow(new Date(iso), { addSuffix: true, locale: ko });
+    const KST_OFFSET = 9 * 60 * 60 * 1000;
+    const pub = new Date(iso);
+    const now = new Date();
+
+    const pubKST = pub.getTime() + KST_OFFSET;
+    const nowKST = now.getTime() + KST_OFFSET;
+
+    const diffMs = nowKST - pubKST;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffMs < 0) {
+      const absSec = Math.abs(diffSec);
+      if (absSec < 60) return "방금 전";
+      return "방금 전";
+    }
+    if (diffSec < 60) return "방금 전";
+    if (diffMin < 60) return `${diffMin}분 전`;
+    if (diffHour < 24) return `${diffHour}시간 전`;
+    if (diffDay < 7) return `${diffDay}일 전`;
+
+    const d = new Date(pub.getTime() + KST_OFFSET);
+    const month = d.getUTCMonth() + 1;
+    const day = d.getUTCDate();
+    return `${month}월 ${day}일`;
   } catch {
     return "";
   }
@@ -116,7 +140,7 @@ export function NewsSection({
       if (!r.ok) return [];
       return r.json();
     },
-    refetchInterval: 5 * 60 * 1000, // 5 min
+    refetchInterval: 5 * 60 * 1000,
     staleTime: 2 * 60 * 1000,
   });
 
