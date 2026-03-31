@@ -242,8 +242,10 @@ router.get("/stocks/:ticker/history", async (req, res) => {
   const now = new Date();
   let price = basePrice;
   const seed = ticker.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  // days===null means "all" → use 365 for synthetic fallback
+  const loopDays = days ?? 365;
 
-  for (let i = days; i >= 0; i--) {
+  for (let i = loopDays; i >= 0; i--) {
     const date = new Date(now);
     date.setDate(date.getDate() - i);
     const dayFactor   = Math.sin(i * 0.1 + seed * 0.01) * 0.02;

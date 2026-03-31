@@ -238,7 +238,8 @@ function EnhancedChart({
 
   const n = data.length;
   const slotW = chartW / n;
-  const bodyW = Math.max(1.5, Math.min(18, slotW * 0.62));
+  // bodyW: 슬롯의 80% 사용, 최소 1.5px (많은 봉), 최대는 슬롯 너비 제한만 (간격 없음)
+  const bodyW = Math.max(1.5, slotW * 0.8);
   const wickW = Math.max(0.6, Math.min(1.5, slotW * 0.12));
 
   // ── Y축 오토스케일: 유효한 가격값만 사용 ──
@@ -774,9 +775,9 @@ interface StockChartProps {
   avgCost?: number;
 }
 
-// 초기 뷰: 최근 1개월치 표시 후 왼쪽 드래그로 과거 탐색
+// 초기 뷰 설정 (봉 개수)
 const DEFAULT_SPANS: Record<PeriodKey, number> = {
-  realtime: 60, day: 30, week: 12, month: 12, "3m": 30, year: 60,
+  realtime: 120, day: 60, week: 52, month: 24, "3m": 90, year: 120,
 };
 
 export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockChartProps) {
@@ -818,7 +819,12 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
   // 주봉/월봉 집계 or 분봉 생성
   const chartData = useMemo(() => {
     if (!rawData.length) return rawData;
-    if (period === "realtime") return genIntradayCandles(rawData.slice(-2), tf);
+    if (period === "realtime") {
+      // 분봉 생성: TF에 맞춰 충분한 일봉 사용 (120봉 확보)
+      const bpd = TF_BARS[tf];
+      const daysNeeded = Math.ceil(120 / bpd) + 5;
+      return genIntradayCandles(rawData.slice(-daysNeeded), tf);
+    }
     if (period === "week")  return aggregateWeekly(rawData);
     if (period === "month") return aggregateMonthly(rawData);
     if (period === "3m")   return rawData.slice(-90);
