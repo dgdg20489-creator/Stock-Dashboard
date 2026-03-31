@@ -477,51 +477,122 @@ def _upsert_history(conn, rows):
     conn.commit()
 
 
+def _yf_suffix(conn, ticker: str) -> str:
+    """DB에서 시장(KOSPI/KOSDAQ)을 조회해 Yahoo Finance 접미사 반환."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT market FROM stocks_realtime WHERE ticker=%s", (ticker,))
+            row = cur.fetchone()
+        if row and row[0] and "KOSDAQ" in str(row[0]).upper():
+            return ".KQ"
+    except Exception:
+        pass
+    return ".KS"   # 기본: KOSPI
+
+
+def fetch_yfinance_history(conn, ticker: str) -> int:
+    """Yahoo Finance에서 상장일부터 오늘까지 전체 OHLCV 수집 (pykrx 3000일 한계 극복)."""
+    try:
+        import yfinance as yf
+        suffix = _yf_suffix(conn, ticker)
+        yf_ticker = f"{ticker}{suffix}"
+        df = yf.download(yf_ticker, start="1990-01-01",
+                         end=(datetime.today() + timedelta(days=1)).strftime("%Y-%m-%d"),
+                         auto_adjust=True, progress=False)
+        if df is None or df.empty:
+            return 0
+        # yfinance 최신 버전은 (Column, Ticker) 멀티레벨 컬럼 반환 → 1레벨로 평탄화
+        if isinstance(df.columns, __import__("pandas").MultiIndex):
+            df.columns = [col[0] for col in df.columns]
+        rows = []
+        for ts, row in df.iterrows():
+            try:
+                o = float(row["Open"])
+                h = float(row["High"])
+                l = float(row["Low"])
+                c = float(row["Close"])
+                v = int(row.get("Volume", 0) or 0)
+                if c <= 0 or h <= 0:
+                    continue
+                rows.append((ticker, ts.strftime("%Y-%m-%d"), o, h, l, c, v))
+            except Exception:
+                continue
+        if rows:
+            _upsert_history(conn, rows)
+        return len(rows)
+    except Exception as e:
+        log.debug(f"yfinance {ticker}: {e}")
+        return 0
+
+
 def fetch_full_history_ticker(conn, ticker: str, start: str = PYKRX_FULL_START) -> int:
-    """상장일(19900101)부터 오늘까지 수정주가 전체 OHLCV를 DB에 저장/갱신."""
+    """상장일부터 오늘까지 전체 OHLCV 수집.
+    1단계: Yahoo Finance (상장일~오늘, pykrx 3000일 한계 없음)
+    2단계: pykrx 수정주가로 최근 데이터 덮어쓰기 (더 정확한 조정주가)"""
+    # ── 1단계: Yahoo Finance (전체 히스토리) ──────────────────────────
+    yf_rows = fetch_yfinance_history(conn, ticker)
+
+    # ── 2단계: pykrx 수정주가 (2014~ 정밀 데이터로 갱신) ─────────────
+    pykrx_rows = 0
     try:
         from pykrx import stock as ps
         end = datetime.today().strftime("%Y%m%d")
-        df = ps.get_market_ohlcv_by_date(start, end, ticker, adjusted=True)
-        if df is None or df.empty:
-            return 0
-        rows = _parse_ohlcv_df(df, ticker)
-        _upsert_history(conn, rows)
-        return len(rows)
+        df = ps.get_market_ohlcv_by_date(PYKRX_FULL_START, end, ticker, adjusted=True)
+        if df is not None and not df.empty:
+            rows = _parse_ohlcv_df(df, ticker)
+            _upsert_history(conn, rows)
+            pykrx_rows = len(rows)
     except Exception as e:
-        log.debug(f"fetch_full_history {ticker}: {e}")
-        return 0
+        log.debug(f"pykrx {ticker}: {e}")
+
+    return max(yf_rows, pykrx_rows)
 
 
 def seed_history(conn):
     """초기 구동 시 DB의 상위 종목부터 수정주가 전체 히스토리를 시드.
-    이미 히스토리가 있는 종목은 건너뛰고, 없는 종목만 추가."""
-    # 히스토리 없는 종목 수 확인
+    - 히스토리가 아예 없는 종목 → 신규 시드
+    - 최초 날짜가 2014-01-01 이후인 종목 → 3000일 한계로 잘린 것이므로 재수집"""
     with conn.cursor() as cur:
+        # 히스토리 없는 종목
         cur.execute("""
             SELECT r.ticker, r.name
             FROM stocks_realtime r
-            LEFT JOIN (
-                SELECT DISTINCT ticker FROM stocks_history
-            ) h ON r.ticker = h.ticker
+            LEFT JOIN (SELECT DISTINCT ticker FROM stocks_history) h
+              ON r.ticker = h.ticker
             WHERE h.ticker IS NULL
             ORDER BY COALESCE(r.market_cap, 0) DESC
             LIMIT 50
         """)
-        to_seed = cur.fetchall()
+        no_history = cur.fetchall()
+
+        # 이미 시드됐지만 가장 오래된 날짜가 2014-01-02 이후 → 잘린 히스토리
+        cur.execute("""
+            SELECT r.ticker, r.name
+            FROM stocks_realtime r
+            JOIN (
+                SELECT ticker, MIN(date) AS min_date
+                FROM stocks_history
+                GROUP BY ticker
+            ) h ON r.ticker = h.ticker
+            WHERE h.min_date > '2014-01-02'
+            ORDER BY COALESCE(r.market_cap, 0) DESC
+            LIMIT 50
+        """)
+        partial_history = cur.fetchall()
+
+    to_seed = no_history + [row for row in partial_history if row not in no_history]
 
     if not to_seed:
-        log.info("모든 종목 히스토리 이미 존재 — seed_history 건너뜀")
+        log.info("모든 종목 전체 히스토리 완비 — seed_history 건너뜀")
         return
 
-    log.info(f"수정주가 히스토리 초기 시드: {len(to_seed)}종목 (상위 시총순)...")
+    log.info(f"수정주가 히스토리 시드: {len(to_seed)}종목 (신규 {len(no_history)} + 부분재수집 {len(partial_history)})")
     try:
-        from pykrx import stock as ps
         for ticker, name in to_seed:
             n = fetch_full_history_ticker(conn, ticker)
             if n:
                 log.info(f"  {ticker} ({name}): {n} days (adjusted)")
-            time.sleep(0.3)
+            time.sleep(0.1)
     except ImportError:
         log.warning("pykrx not available, skipping history seed")
 
