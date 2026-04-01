@@ -7,7 +7,7 @@
 - 동적 주식 목록: KOSPI 전체 + KOSDAQ 전체 (~2300종목)
 - 공모주(IPO): 상장 예정 종목 자동 수집 및 상장일 자동 반영
 """
-import os, time, math, random, logging, traceback
+import os, time, math, random, logging, traceback, threading
 import psycopg2
 from psycopg2.extras import execute_values
 from datetime import datetime, timedelta, timezone
@@ -1241,89 +1241,146 @@ def main():
     log.info("=== 원광증권 KRX Fetcher 시작 ===")
     conn = get_conn()
     create_tables(conn)
-    seed_realtime(conn)    # 전체 종목 목록 로딩 (KOSPI+KOSDAQ 전체)
-    seed_history(conn)
+    seed_realtime(conn)    # 전체 종목 목록 로딩 (KOSPI+KOSDAQ 전체) — 필수 동기
 
-    # 초기 가격 로딩
-    log.info("초기 실시간 가격 로딩 (네이버 금융)...")
-    update_realtime_prices(conn)
-    update_indices(conn)
-    refresh_all_news(conn)
-    fetch_ipo_from_naver(conn)
+    # 나머지 초기화는 백그라운드에서 실행 (메인 루프 차단 방지)
+    def _init_bg():
+        bg = get_conn()
+        try:
+            seed_history(bg)
+            log.info("초기 실시간 가격 로딩 (네이버 금융, 백그라운드)...")
+            update_realtime_prices(bg)
+            update_indices(bg)
+            refresh_all_news(bg)
+            fetch_ipo_from_naver(bg)
+            log.info("초기화 백그라운드 작업 완료")
+        except Exception as e:
+            log.error(f"[INIT_BG] {e}")
+            traceback.print_exc()
+        finally:
+            try:
+                bg.close()
+            except Exception:
+                pass
 
+    threading.Thread(target=_init_bg, name="bg-init", daemon=True).start()
+    log.info("초기화 백그라운드 시작 — 메인 루프 즉시 진입")
+
+    # ── 백그라운드 스레드 헬퍼 ──────────────────────────────────────────────
+    # 각 느린 작업은 자체 DB 커넥션을 갖는 데몬 스레드에서 실행.
+    # 메인 루프는 simulate_prices(매 1초)만 담당 → 블로킹 없음.
+    _bg_threads: dict = {}
+
+    def _bg_run(name: str, fn, *args):
+        """name 키로 단일 인스턴스 백그라운드 스레드 실행. 이미 실행 중이면 스킵."""
+        existing = _bg_threads.get(name)
+        if existing and existing.is_alive():
+            return  # 이전 작업이 아직 완료되지 않음 — 중복 실행 방지
+
+        def _worker():
+            bg_conn = None
+            try:
+                bg_conn = get_conn()
+                fn(bg_conn, *args)
+            except Exception as exc:
+                log.error(f"[BG:{name}] {exc}")
+                traceback.print_exc()
+            finally:
+                if bg_conn:
+                    try:
+                        bg_conn.close()
+                    except Exception:
+                        pass
+
+        t = threading.Thread(target=_worker, name=f"bg-{name}", daemon=True)
+        _bg_threads[name] = t
+        t.start()
+
+    # 히스토리 배치 상태 (메인 스레드에서 관리, 실제 I/O는 백그라운드)
+    full_history_ticker_idx = 0
+    full_history_tickers: list = []
+    full_history_lock = threading.Lock()
+
+    def _history_batch_worker(bg_conn):
+        nonlocal full_history_ticker_idx, full_history_tickers
+        with full_history_lock:
+            if not full_history_tickers:
+                with bg_conn.cursor() as cur:
+                    cur.execute("SELECT ticker FROM stocks_realtime ORDER BY COALESCE(market_cap,0) DESC")
+                    full_history_tickers = [r[0] for r in cur.fetchall()]
+                full_history_ticker_idx = 0
+                log.info(f"수정주가 히스토리 배치 시작: {len(full_history_tickers)}종목 큐")
+            batch = full_history_tickers[full_history_ticker_idx:full_history_ticker_idx + 5]
+            full_history_ticker_idx += 5
+            if full_history_ticker_idx >= len(full_history_tickers):
+                full_history_ticker_idx = 0
+                log.info("수정주가 히스토리 배치 1라운드 완료")
+        for t in batch:
+            try:
+                n = fetch_full_history_ticker(bg_conn, t)
+                if n > 0:
+                    log.debug(f"  수정주가 히스토리: {t} → {n}일")
+            except Exception as e:
+                log.debug(f"  히스토리 스킵 {t}: {e}")
+
+    # ── 메인 루프 (simulate_prices 전용, 나머지는 백그라운드) ────────────
     cycle = 0
-    last_stock_list_refresh  = time.time()  # 1시간마다 종목 목록 갱신
-    last_batch_price_update  = time.time()  # 5분마다 전체 종목 일괄 가격 업데이트
-    last_ipo_check           = time.time()  # 1시간마다 IPO 확인
-    # 수정주가 전체 히스토리 배치 처리: ticker 인덱스 추적
-    full_history_ticker_idx  = 0
-    full_history_tickers     = []  # 다음 사이클에 채워짐
+    last_stock_list_refresh = time.time()
+    last_batch_price_update = time.time()
+    last_ipo_check          = time.time()
 
     while True:
         try:
             cycle += 1
             now = time.time()
 
-            # 매 1s: 브라운 운동 시뮬레이션 (장 마감 후에도 가격 변동 유지)
+            # ★ 매 1s: 브라운 운동 시뮬레이션 — 절대 블로킹 없음
             simulate_prices(conn)
 
-            # 매 10s: 네이버 금융 거래대금·거래량 순위 스크래핑
+            # 매 10s: 네이버 랭킹 (백그라운드)
             if cycle % 10 == 0:
-                fetch_naver_rankings(conn)
+                _bg_run("rankings", fetch_naver_rankings)
 
-            # 매 60s: 네이버 금융 상위 500종목 실제 가격 업데이트 (함수 자체 ~35초 소요)
+            # 매 60s: 네이버 상위 500종목 실제 가격 업데이트 (~35초, 백그라운드)
             if cycle % 60 == 0:
-                update_realtime_prices(conn)
+                _bg_run("price_update", update_realtime_prices)
 
-            # 매 120s: 글로벌 지수 업데이트
+            # 매 120s: 글로벌 지수 (백그라운드)
             if cycle % 120 == 0:
-                update_indices(conn)
+                _bg_run("indices", update_indices)
 
-            # 매 5분: 뉴스 새로고침 (AI 감성 분석 포함)
+            # 매 5분: 뉴스 (백그라운드)
             if cycle % 300 == 0:
-                refresh_all_news(conn)
+                _bg_run("news", refresh_all_news)
 
-            # 매 5분: 전체 종목 일괄 가격 업데이트 (시장목록 페이지 이용)
+            # 매 5분: 전체 종목 일괄 가격 (백그라운드)
             if now - last_batch_price_update > 300:
-                log.info("5분 경과 — 전체 종목 일괄 가격 업데이트...")
-                update_all_prices_from_listing(conn)
+                log.info("5분 경과 — 전체 종목 일괄 가격 업데이트 (백그라운드)...")
+                _bg_run("listing_prices", update_all_prices_from_listing)
                 last_batch_price_update = now
 
-            # 매 1시간: 전체 종목 목록 재갱신 + IPO 체크
+            # 매 1시간: 종목 목록 재갱신 (백그라운드)
             if now - last_stock_list_refresh > 3600:
-                log.info("1시간 경과 — 전체 종목 목록 재갱신...")
-                seed_all_stocks_dynamic(conn)
+                log.info("1시간 경과 — 전체 종목 목록 재갱신 (백그라운드)...")
+                _bg_run("stock_list", seed_all_stocks_dynamic)
                 last_stock_list_refresh = now
 
+            # 매 1시간: IPO 체크 (백그라운드)
             if now - last_ipo_check > 3600:
-                log.info("1시간 경과 — IPO 상장 예정 종목 체크...")
-                fetch_ipo_from_naver(conn)
-                promote_ipo_to_realtime(conn)
+                log.info("1시간 경과 — IPO 체크 (백그라운드)...")
+                def _ipo_worker(bg_conn):
+                    fetch_ipo_from_naver(bg_conn)
+                    promote_ipo_to_realtime(bg_conn)
+                _bg_run("ipo", _ipo_worker)
                 last_ipo_check = now
 
-            # ── 수정주가 전체 히스토리 배치 (매 50사이클=50s마다 5종목씩) ──
+            # 매 50s: 수정주가 히스토리 배치 5종목 (백그라운드)
             if cycle % 50 == 0:
-                if not full_history_tickers:
-                    # ticker 목록 갱신 (DB의 전체 종목)
-                    with conn.cursor() as cur:
-                        cur.execute("SELECT ticker FROM stocks_realtime ORDER BY COALESCE(market_cap, 0) DESC")
-                        full_history_tickers = [r[0] for r in cur.fetchall()]
-                    full_history_ticker_idx = 0
-                    log.info(f"수정주가 히스토리 배치 시작: {len(full_history_tickers)}종목 큐")
-
-                # 5종목씩 처리 (매 50s마다 → 2427종목 약 6.8시간)
-                batch = full_history_tickers[full_history_ticker_idx:full_history_ticker_idx + 5]
-                for t in batch:
-                    n = fetch_full_history_ticker(conn, t)
-                    if n > 0:
-                        log.debug(f"  수정주가 히스토리: {t} → {n}일")
-                full_history_ticker_idx += 5
-                if full_history_ticker_idx >= len(full_history_tickers):
-                    full_history_ticker_idx = 0
-                    log.info(f"수정주가 히스토리 배치 1라운드 완료")
+                _bg_run("history", _history_batch_worker)
 
             if cycle % 30 == 0:
-                log.info(f"Cycle {cycle} OK (1s 주기, 시뮬레이션 활성)")
+                alive = sum(1 for t in _bg_threads.values() if t.is_alive())
+                log.info(f"Cycle {cycle} OK (BG threads alive: {alive})")
 
         except psycopg2.Error as e:
             log.error(f"DB error: {e}")
@@ -1335,7 +1392,7 @@ def main():
             log.error(f"Cycle error: {e}")
             traceback.print_exc()
 
-        time.sleep(1)  # 1초 주기 — 매 초 가격 시뮬레이션
+        time.sleep(1)  # 1초 주기 — simulate_prices 전용
 
 
 if __name__ == "__main__":
