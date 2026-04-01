@@ -39,8 +39,12 @@ export default function StockDetail({ userId }: StockDetailProps) {
   const ticker = params?.ticker || "";
   const queryClient = useQueryClient();
 
-  const { data: stock, isLoading } = useGetStockByTicker(ticker, { query: { enabled: !!ticker } });
-  const { data: portfolio } = useGetUserPortfolio(userId);
+  const { data: stock, isLoading } = useGetStockByTicker(ticker, {
+    query: { enabled: !!ticker, refetchInterval: 1000, staleTime: 0 }
+  });
+  const { data: portfolio } = useGetUserPortfolio(userId, {
+    query: { enabled: !!userId, refetchInterval: 2000, staleTime: 0 }
+  });
 
   const { isWatched, toggleWatch } = useWatchlist();
   const { completeTrade } = useMissions();
@@ -48,15 +52,6 @@ export default function StockDetail({ userId }: StockDetailProps) {
 
   const [activeTab, setActiveTab] = useState<DetailTab>("trade");
   const [sharesStr, setSharesStr] = useState("");
-  const shares = parseInt(sharesStr) || 0;
-
-  useEffect(() => {
-    if (!ticker) return;
-    const id = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: [`/api/stocks/${ticker}`] });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [ticker, queryClient]);
 
   const tradeMutation = useExecuteTrade({
     mutation: {

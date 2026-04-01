@@ -423,28 +423,60 @@ def update_realtime_prices(conn):
 
 def simulate_prices(conn):
     """
-    Micro-simulation ON TOP of real Naver prices.
-    Tweaks current_price by ±0.15% around base_price (Naver reference).
-    Also updates change_pct = naver_change_pct + simulation_drift.
-
+    Brownian-motion simulation (random walk from current price).
+    - 장 중(09:00~15:30 KST): ±0.25% / step, base 가격 근처로 수렴
+    - 장 마감 후: ±0.40% / step, 독립 랜덤 워크 (계속 움직임)
+    - base_price 대비 ±3% 이탈 시 강제 수렴 (과도한 이탈 방지)
     NOTE: volume은 절대 건드리지 않음 — Naver 실제 거래량 유지.
     """
+    import pytz
+    from datetime import datetime as _dt
+    kr_tz = pytz.timezone("Asia/Seoul")
+    now_kr = _dt.now(kr_tz)
+    is_weekday = now_kr.weekday() < 5
+    market_open  = now_kr.replace(hour=9,  minute=0,  second=0, microsecond=0)
+    market_close = now_kr.replace(hour=15, minute=30, second=0, microsecond=0)
+    is_market_hours = is_weekday and market_open <= now_kr <= market_close
+
+    # 장 중: 작은 변동 + 실제 가격 수렴  /  장 마감: 큰 변동으로 활성 느낌 유지
+    vol       = 0.0025 if is_market_hours else 0.0040   # ±0.25% / ±0.40%
+    revert_k  = 0.08   if is_market_hours else 0.02     # 수렴 강도
+
     with conn.cursor() as cur:
-        cur.execute("SELECT ticker, base_price, naver_change_pct FROM stocks_realtime")
+        cur.execute("SELECT ticker, current_price, base_price, naver_change_pct FROM stocks_realtime")
         stocks = cur.fetchall()
 
     rows = []
-    for ticker, base_price_raw, naver_chg_raw in stocks:
-        base      = float(base_price_raw) if base_price_raw else 0
-        naver_chg = float(naver_chg_raw)  if naver_chg_raw  else 0.0
+    for ticker, curr_raw, base_raw, naver_chg_raw in stocks:
+        base      = float(base_raw)      if base_raw      else 0.0
+        curr      = float(curr_raw)      if curr_raw      else base
+        naver_chg = float(naver_chg_raw) if naver_chg_raw else 0.0
         if base <= 0:
             continue
-        noise     = (random.random() - 0.5) * 0.003   # ±0.15%
-        price     = round(base * (1 + noise))
-        sim_drift = (price - base) / base * 100 if base > 0 else 0.0
-        change_pct = round(naver_chg + sim_drift, 2)
-        change_val = round(base * naver_chg / 100 + (price - base))
-        rows.append((price, change_pct, change_val, ticker))
+
+        # 랜덤 워크 스텝
+        noise = (random.random() - 0.5) * 2 * vol
+
+        # base_price 대비 편차 → 수렴력 적용
+        drift = (base - curr) / base if base > 0 else 0.0
+        revert = drift * revert_k
+
+        # ±3% 이탈 시 강제 수렴
+        if abs(drift) > 0.03:
+            revert = drift * 0.25
+
+        new_price = max(1, round(curr * (1 + noise + revert)))
+
+        # 전일 종가 계산: base_price 를 오늘 등락률로 역산
+        prev_close = base / (1 + naver_chg / 100) if (1 + naver_chg / 100) > 0 else base
+        if prev_close > 0:
+            change_pct = round((new_price / prev_close - 1) * 100, 2)
+            change_val = round(new_price - prev_close)
+        else:
+            change_pct = naver_chg
+            change_val = round(new_price - base)
+
+        rows.append((new_price, change_pct, change_val, ticker))
 
     with conn.cursor() as cur:
         cur.executemany("""
@@ -1232,23 +1264,23 @@ def main():
             cycle += 1
             now = time.time()
 
-            # 매 5s: 미세 시뮬레이션 (실시간 순위 갱신용 - 매 사이클)
+            # 매 1s: 브라운 운동 시뮬레이션 (장 마감 후에도 가격 변동 유지)
             simulate_prices(conn)
 
-            # 매 10s: 네이버 금융 거래대금·거래량 순위 스크래핑 (2사이클마다)
-            if cycle % 2 == 0:
+            # 매 10s: 네이버 금융 거래대금·거래량 순위 스크래핑
+            if cycle % 10 == 0:
                 fetch_naver_rankings(conn)
 
-            # 매 30s: 네이버 금융 상위 500종목 실제 가격 업데이트 (6 사이클마다)
-            if cycle % 6 == 0:
+            # 매 60s: 네이버 금융 상위 500종목 실제 가격 업데이트 (함수 자체 ~35초 소요)
+            if cycle % 60 == 0:
                 update_realtime_prices(conn)
 
-            # 매 60s: 글로벌 지수 업데이트
-            if cycle % 12 == 0:
+            # 매 120s: 글로벌 지수 업데이트
+            if cycle % 120 == 0:
                 update_indices(conn)
 
             # 매 5분: 뉴스 새로고침 (AI 감성 분석 포함)
-            if cycle % 60 == 0:
+            if cycle % 300 == 0:
                 refresh_all_news(conn)
 
             # 매 5분: 전체 종목 일괄 가격 업데이트 (시장목록 페이지 이용)
@@ -1269,8 +1301,8 @@ def main():
                 promote_ipo_to_realtime(conn)
                 last_ipo_check = now
 
-            # ── 수정주가 전체 히스토리 배치 (매 10사이클=50s마다 2종목씩) ──
-            if cycle % 10 == 0:
+            # ── 수정주가 전체 히스토리 배치 (매 50사이클=50s마다 5종목씩) ──
+            if cycle % 50 == 0:
                 if not full_history_tickers:
                     # ticker 목록 갱신 (DB의 전체 종목)
                     with conn.cursor() as cur:
@@ -1290,8 +1322,8 @@ def main():
                     full_history_ticker_idx = 0
                     log.info(f"수정주가 히스토리 배치 1라운드 완료")
 
-            if cycle % 4 == 0:
-                log.info(f"Cycle {cycle} OK (5s 주기)")
+            if cycle % 30 == 0:
+                log.info(f"Cycle {cycle} OK (1s 주기, 시뮬레이션 활성)")
 
         except psycopg2.Error as e:
             log.error(f"DB error: {e}")
@@ -1303,7 +1335,7 @@ def main():
             log.error(f"Cycle error: {e}")
             traceback.print_exc()
 
-        time.sleep(5)  # 5초 주기 — 실시간 순위 갱신
+        time.sleep(1)  # 1초 주기 — 매 초 가격 시뮬레이션
 
 
 if __name__ == "__main__":
