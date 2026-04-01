@@ -52,6 +52,7 @@ export default function StockDetail({ userId }: StockDetailProps) {
 
   const [activeTab, setActiveTab] = useState<DetailTab>("trade");
   const [sharesStr, setSharesStr] = useState("");
+  const shares = parseInt(sharesStr) || 0;
 
   const tradeMutation = useExecuteTrade({
     mutation: {
