@@ -351,7 +351,7 @@ def create_tables(conn):
 # ─────────────────────────────────────────────────
 
 def fetch_naver_price(ticker: str) -> dict | None:
-    """Fetch current stock price from Naver Finance mobile API."""
+    """Fetch current stock price + volume from Naver Finance mobile API."""
     try:
         import requests
         url = f"https://m.stock.naver.com/api/stock/{ticker}/basic"
@@ -425,36 +425,31 @@ def simulate_prices(conn):
     """
     Micro-simulation ON TOP of real Naver prices.
     Tweaks current_price by ±0.15% around base_price (Naver reference).
-    Also updates change_pct = naver_change_pct + simulation_drift so the
-    급상승 ranking reflects live price movement, not just the last Naver scrape.
+    Also updates change_pct = naver_change_pct + simulation_drift.
+
+    NOTE: volume은 절대 건드리지 않음 — Naver 실제 거래량 유지.
     """
     with conn.cursor() as cur:
-        # naver_change_pct = 안정적인 네이버 기준값 (update_realtime_prices만 업데이트)
-        # change_pct = 시뮬레이션 drift 반영 라이브값 (본 함수에서 업데이트)
         cur.execute("SELECT ticker, base_price, naver_change_pct FROM stocks_realtime")
         stocks = cur.fetchall()
 
-    t    = time.time()
     rows = []
     for ticker, base_price_raw, naver_chg_raw in stocks:
-        base       = float(base_price_raw) if base_price_raw else 0
-        naver_chg  = float(naver_chg_raw)  if naver_chg_raw  else 0.0
+        base      = float(base_price_raw) if base_price_raw else 0
+        naver_chg = float(naver_chg_raw)  if naver_chg_raw  else 0.0
         if base <= 0:
             continue
-        seed  = sum(ord(c) for c in ticker)
-        noise = (random.random() - 0.5) * 0.003   # ±0.15%
-        price = round(base * (1 + noise))
-        vol   = int(((seed * 9876 + int(t / 10)) % 8_000_000) + 200_000)
-        # sim_drift: tiny extra drift on top of real Naver change
-        sim_drift   = (price - base) / base * 100 if base > 0 else 0.0
-        change_pct  = round(naver_chg + sim_drift, 2)
-        change_val  = round(base * naver_chg / 100 + (price - base))
-        rows.append((price, vol, change_pct, change_val, ticker))
+        noise     = (random.random() - 0.5) * 0.003   # ±0.15%
+        price     = round(base * (1 + noise))
+        sim_drift = (price - base) / base * 100 if base > 0 else 0.0
+        change_pct = round(naver_chg + sim_drift, 2)
+        change_val = round(base * naver_chg / 100 + (price - base))
+        rows.append((price, change_pct, change_val, ticker))
 
     with conn.cursor() as cur:
         cur.executemany("""
             UPDATE stocks_realtime
-            SET current_price=%s, volume=%s, change_pct=%s, change_val=%s, updated_at=NOW()
+            SET current_price=%s, change_pct=%s, change_val=%s, updated_at=NOW()
             WHERE ticker=%s
         """, rows)
     conn.commit()
@@ -968,29 +963,28 @@ def fetch_naver_rankings(conn):
     try:
         now = datetime.now(KST)
 
-        # ── 거래대금 상위 (네이버 스크래핑: KOSPI + KOSDAQ 각 1페이지, 합산 후 정렬) ──
+        # ── 거래대금 + 거래량: Naver sise_quant 스크래핑 (KOSPI + KOSDAQ 각 2페이지) ──
         ta_k  = _parse_quant(0, "KOSPI")
         ta_kq = _parse_quant(1, "KOSDAQ")
-        all_ta = sorted(ta_k + ta_kq, key=lambda x: x["trade_amount"], reverse=True)[:100]
+        combined = ta_k + ta_kq  # 실제 Naver 거래대금/거래량 데이터
 
-        # ── 거래량 상위 (stocks_realtime DB 정렬) ──
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT ticker, name, current_price, change_pct, volume, market
-                FROM stocks_realtime
-                WHERE volume > 0
-                ORDER BY volume DESC
-                LIMIT 100
-            """)
-            rows = cur.fetchall()
-        all_vol = [
-            {
-                "ticker": r[0], "name": r[1], "price": float(r[2]),
-                "change_pct": float(r[3]), "volume": int(r[4]),
-                "trade_amount": float(r[2]) * int(r[4]), "market": r[5],
-            }
-            for r in rows
-        ]
+        all_ta  = sorted(combined, key=lambda x: x["trade_amount"], reverse=True)[:100]
+        all_vol = sorted(combined, key=lambda x: x["volume"],       reverse=True)[:100]
+
+        # ── sise_quant에서 얻은 실제 거래량을 stocks_realtime에도 반영 ──
+        if combined:
+            with conn.cursor() as cur:
+                for s in combined:
+                    if s["volume"] > 0:
+                        cur.execute("""
+                            UPDATE stocks_realtime
+                            SET volume=%s, current_price=%s, base_price=%s,
+                                change_pct=%s, naver_change_pct=%s, updated_at=NOW()
+                            WHERE ticker=%s
+                        """, (s["volume"], s["price"], s["price"],
+                              s["change_pct"], s["change_pct"], s["ticker"]))
+            conn.commit()
+            log.info(f"거래량 DB 반영: {len(combined)}종목 (sise_quant 실데이터)")
 
         with conn.cursor() as cur:
             if all_ta:
