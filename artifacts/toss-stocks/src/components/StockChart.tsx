@@ -215,16 +215,20 @@ function genIntradayCandles(daily: OHLCPoint[], tf: TFKey): OHLCPoint[] {
   const rng = () => { seed = (seed * 16807 + 7) % 2147483647; return (seed - 1) / 2147483646; };
 
   for (const day of daily) {
-    // Guard: skip days with zero prices
     if (day.close <= 0) continue;
     let price = day.open > 0 ? day.open : day.close;
     const range = (day.high - day.low) || day.close * 0.01;
+    // 봉 크기에 비례하는 노이즈/꼬리 크기 (1분봉: 작게, 60분봉: 크게)
+    const barRange = range / bpd;
     for (let j = 0; j < bpd; j++) {
       const isLast = j === bpd - 1;
       const drift = (day.close - price) / Math.max(1, bpd - j) * (0.4 + rng() * 0.6);
+      // 노이즈: 봉 크기 비례 (TF가 클수록 봉 내 변동 큼)
+      const noise = (rng() - 0.5) * barRange * 1.2;
       const close = isLast ? day.close
-        : Math.max(day.low, Math.min(day.high, price + drift + (rng() - 0.5) * range * 0.04));
-      const wick = range * 0.015 * rng();
+        : Math.max(day.low, Math.min(day.high, price + drift + noise));
+      // 꼬리: 봉 크기 비례 (60분봉은 1분봉보다 꼬리가 훨씬 김)
+      const wick = barRange * (0.4 + rng() * 0.8);
       const high = Math.min(day.high, Math.max(price, close) + wick);
       const low  = Math.max(day.low,  Math.min(price, close) - wick);
       result.push({ date: `${day.date} ${j}`, open: price, high, low, close,
@@ -232,7 +236,7 @@ function genIntradayCandles(daily: OHLCPoint[], tf: TFKey): OHLCPoint[] {
       price = close;
     }
   }
-  return result; // 전체 반환, visibleData zoom/pan으로 제어
+  return result;
 }
 
 // ── SVG 좌표 변환 헬퍼 ────────────────────────────────────────────
@@ -425,13 +429,24 @@ function EnhancedChart({
             const color = isUp ? "#F04452" : "#3182F6";
             const hy = toY(d.high), ly = toY(d.low);
             const oy = toY(d.open), cy = toY(d.close);
-            const bodyTop = Math.min(oy, cy);
-            const bodyH = Math.max(1.5, Math.abs(cy - oy));
+            // body 범위: SVG상 위(작은 y) ~ 아래(큰 y)
+            const rawBodyTop = Math.min(oy, cy);
+            const rawBodyBot = Math.max(oy, cy);
+            // 최소 높이 적용하되 ly(저가)를 초과하지 않도록 클램핑
+            const bodyTop = Math.max(hy, rawBodyTop);
+            const bodyBot = Math.min(ly, Math.max(rawBodyBot, rawBodyTop + 1.5));
+            const bodyH   = Math.max(1, bodyBot - bodyTop);
             const cx = toX(i);
             return (
               <g key={i}>
-                <line x1={cx} y1={hy} x2={cx} y2={bodyTop} stroke={color} strokeWidth={wickW} />
-                <line x1={cx} y1={bodyTop + bodyH} x2={cx} y2={ly} stroke={color} strokeWidth={wickW} />
+                {/* 위 꼬리: 고가선 → 몸통 상단 */}
+                {hy < bodyTop && (
+                  <line x1={cx} y1={hy} x2={cx} y2={bodyTop} stroke={color} strokeWidth={wickW} />
+                )}
+                {/* 아래 꼬리: 몸통 하단 → 저가선 */}
+                {bodyBot < ly && (
+                  <line x1={cx} y1={bodyBot} x2={cx} y2={ly} stroke={color} strokeWidth={wickW} />
+                )}
                 <rect x={cx - bodyW / 2} y={bodyTop} width={bodyW} height={bodyH}
                   fill={isUp ? "#F04452" : "#3182F6"} stroke={isUp ? "#d03040" : "#2060c0"}
                   strokeWidth={0.4} rx={bodyW > 4 ? 1 : 0} />
@@ -819,6 +834,10 @@ interface StockChartProps {
 const DEFAULT_SPANS: Record<PeriodKey, number> = {
   realtime: 120, day: 60, week: 52, month: 60, year: 30,
 };
+// 분봉별 기본 표시 봉 수 (1분:120봉=2시간 / 5분:78봉=1일 / 15분:52봉=2일 / 30분:39봉=3일 / 60분:30봉=5일)
+const TF_DEFAULT_SPANS: Record<TFKey, number> = {
+  "1m": 120, "5m": 78, "15m": 52, "30m": 39, "60m": 30,
+};
 
 export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockChartProps) {
   const [period, setPeriod] = useState<PeriodKey>("day");
@@ -873,7 +892,9 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
 
   // period/tf 바뀌면 뷰 리셋
   useEffect(() => {
-    const defaultSpan = DEFAULT_SPANS[period] ?? 60;
+    const defaultSpan = period === "realtime"
+      ? TF_DEFAULT_SPANS[tf]
+      : (DEFAULT_SPANS[period] ?? 60);
     const span = Math.min(defaultSpan, chartData.length || defaultSpan);
     setViewSpan(span);
     setViewOffset(0);
