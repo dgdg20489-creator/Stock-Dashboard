@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { useAuth } from "./hooks/use-auth";
 import { useGetUser, useGetUserPortfolio } from "@workspace/api-client-react";
+import { getGenderFromAvatarId } from "./components/GameAvatar";
 import { Layout } from "./components/Layout";
 import DifficultyScreen from "./pages/DifficultyScreen";
 import Home from "./pages/Home";
@@ -185,7 +186,7 @@ function Router() {
   if (!userId) return <DifficultyScreen onComplete={login} />;
 
   const difficulty = (user?.difficulty as "beginner" | "intermediate" | "expert") ?? "beginner";
-  const avatar = (user?.avatar as "male" | "female") ?? "male";
+  const avatar: "male" | "female" = getGenderFromAvatarId(user?.avatar ?? "balanced_m");
 
   return (
     <>
