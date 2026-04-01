@@ -12,6 +12,7 @@ import { StockLogo } from "@/components/StockLogo";
 import { OrderBook } from "@/components/OrderBook";
 import { TermTooltip } from "@/components/TermTooltip";
 import { NewsSection } from "@/components/NewsSection";
+import { CommunitySection } from "@/components/CommunitySection";
 import { ArrowLeft, Star, ChevronDown, ChevronUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWatchlist } from "@/hooks/use-watchlist";
@@ -282,6 +283,9 @@ export default function StockDetail({ userId }: StockDetailProps) {
         limit={3}
         showSummary={true}
       />
+
+      {/* 커뮤니티 */}
+      <CommunitySection ticker={ticker} userId={userId} />
     </div>
   );
 }

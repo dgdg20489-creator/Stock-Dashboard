@@ -3,6 +3,7 @@ import stocksRouter from "./stocks.js";
 import usersRouter from "./users.js";
 import tradesRouter from "./trades.js";
 import rankingsRouter from "./rankings.js";
+import communityRouter from "./community.js";
 
 const router: IRouter = Router();
 
@@ -10,5 +11,6 @@ router.use(stocksRouter);
 router.use(usersRouter);
 router.use(tradesRouter);
 router.use(rankingsRouter);
+router.use(communityRouter);
 
 export default router;
