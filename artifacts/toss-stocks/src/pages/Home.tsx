@@ -26,6 +26,18 @@ interface IpoStock {
   status: "upcoming" | "listed";
 }
 
+interface RankItem {
+  rank: number;
+  ticker: string;
+  name: string;
+  price: number;
+  changePercent: number;
+  volume: number;
+  tradeAmount: number;
+  market: string | null;
+  updatedAt: string;
+}
+
 function StarButton({ ticker }: { ticker: string }) {
   const { isWatched, toggleWatch } = useWatchlist();
   const watched = isWatched(ticker);
@@ -43,7 +55,51 @@ function StarButton({ ticker }: { ticker: string }) {
   );
 }
 
-function StockRow({ stock, index, showVolume }: { stock: any; index: number; showVolume?: string }) {
+function RankRow({ item, index }: { item: RankItem; index: number }) {
+  const isPositive = item.changePercent >= 0;
+  return (
+    <div className="flex items-center border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors group">
+      <StarButton ticker={item.ticker} />
+      <Link href={`/stock/${item.ticker}`} className="flex items-center justify-between flex-1 px-3 py-4">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.02 }}
+          className="flex items-center justify-between w-full"
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-6 text-center text-sm font-bold text-muted-foreground">{item.rank}</span>
+            <div className="group-hover:scale-105 transition-transform">
+              <StockLogo ticker={item.ticker} name={item.name} size="md" />
+            </div>
+            <div>
+              <p className="font-bold text-foreground group-hover:text-primary transition-colors">{item.name}</p>
+              <p className="text-xs text-muted-foreground font-semibold">
+                {item.ticker}
+                {item.market && (
+                  <span className={cn(
+                    "ml-1.5 px-1 py-0.5 rounded text-[9px] font-bold",
+                    item.market === "KOSPI" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-600"
+                  )}>
+                    {item.market}
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="font-extrabold text-foreground">{formatCurrency(item.price)}</p>
+            <p className={cn("text-xs font-bold", getColorClass(item.changePercent))}>
+              {isPositive ? "▲" : "▼"} {formatPercent(item.changePercent)}
+            </p>
+          </div>
+        </motion.div>
+      </Link>
+    </div>
+  );
+}
+
+function StockRow({ stock, index }: { stock: any; index: number }) {
   const isPositive = stock.changePercent >= 0;
   return (
     <div className="flex items-center border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors group">
@@ -80,9 +136,6 @@ function StockRow({ stock, index, showVolume }: { stock: any; index: number; sho
             <p className={cn("text-xs font-bold", getColorClass(stock.changePercent))}>
               {isPositive ? "▲" : "▼"} {formatPercent(stock.changePercent)}
             </p>
-            {showVolume && (
-              <p className="text-xs text-muted-foreground font-medium mt-0.5">{showVolume}</p>
-            )}
           </div>
         </motion.div>
       </Link>
@@ -143,8 +196,16 @@ function IpoRow({ ipo, index }: { ipo: IpoStock; index: number }) {
   );
 }
 
+function LoadingSpinner() {
+  return (
+    <div className="p-8 flex justify-center">
+      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+}
+
 export default function Home() {
-  const { data: stocks, isLoading } = useGetStocks({
+  const { data: stocks, isLoading: stocksLoading } = useGetStocks({
     query: { refetchInterval: 1000, staleTime: 0 },
   });
   const [activeTab, setActiveTab] = useState<TabType>("volume_amount");
@@ -162,6 +223,32 @@ export default function Home() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // 거래대금 상위 — 네이버 금융 실시간, 10초마다
+  const { data: tradeAmountRank, isLoading: taLoading } = useQuery<RankItem[]>({
+    queryKey: ["market-rankings", "trade_amount"],
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/api/market/rankings?type=trade_amount&limit=50`);
+      if (!r.ok) return [];
+      return r.json();
+    },
+    refetchInterval: 10_000,
+    staleTime: 0,
+    enabled: activeTab === "volume_amount",
+  });
+
+  // 거래량 상위 — 네이버 금융 실시간, 5초마다
+  const { data: volumeRank, isLoading: volLoading } = useQuery<RankItem[]>({
+    queryKey: ["market-rankings", "volume"],
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/api/market/rankings?type=volume&limit=50`);
+      if (!r.ok) return [];
+      return r.json();
+    },
+    refetchInterval: 5_000,
+    staleTime: 0,
+    enabled: activeTab === "volume_count",
+  });
+
   const tabs = [
     { id: "volume_amount" as TabType, label: "거래대금", icon: DollarSign },
     { id: "volume_count" as TabType,  label: "거래량",   icon: TrendingUp },
@@ -174,24 +261,18 @@ export default function Home() {
   const sorted = stocks ? [...stocks] : [];
   let displayStocks = sorted;
   if (!q) {
-    if (activeTab === "volume_amount") {
-      displayStocks = sorted
-        .sort((a, b) => b.currentPrice * b.volume - a.currentPrice * a.volume)
-        .slice(0, 100);
-    } else if (activeTab === "volume_count") {
-      displayStocks = sorted
-        .sort((a, b) => b.volume - a.volume)
-        .slice(0, 100);
-    } else if (activeTab === "top_gainers") {
-      displayStocks = sorted
-        .sort((a, b) => b.changePercent - a.changePercent)
-        .slice(0, 100);
+    if (activeTab === "top_gainers") {
+      displayStocks = sorted.sort((a, b) => b.changePercent - a.changePercent).slice(0, 100);
     }
   } else {
     displayStocks = sorted.filter(
       (s) => s.name.toLowerCase().includes(q) || s.ticker.includes(q) || (s.sector ?? "").toLowerCase().includes(q)
     );
   }
+
+  const isRankingTab = activeTab === "volume_amount" || activeTab === "volume_count";
+  const rankData = activeTab === "volume_amount" ? (tradeAmountRank ?? []) : (volumeRank ?? []);
+  const rankLoading = activeTab === "volume_amount" ? taLoading : volLoading;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -212,8 +293,6 @@ export default function Home() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => {}}
-            onBlur={() => {}}
             placeholder="종목명, 종목코드, 섹터 검색..."
             className="flex-1 bg-transparent text-sm font-medium text-foreground placeholder:text-muted-foreground/60 outline-none"
           />
@@ -250,7 +329,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* 탭 선택 (검색 중에는 숨김) */}
         {!searchQuery && (
           <div className="flex gap-1 bg-muted p-1.5 rounded-2xl mb-4 overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => (
@@ -274,27 +352,20 @@ export default function Home() {
         <div className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden">
           {/* 검색 결과 */}
           {searchQuery ? (
-            isLoading ? (
-              <div className="p-8 flex justify-center">
-                <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-              </div>
-            ) : displayStocks.length === 0 ? (
+            stocksLoading ? <LoadingSpinner /> :
+            displayStocks.length === 0 ? (
               <div className="p-10 text-center text-muted-foreground">
                 <Search className="w-10 h-10 mx-auto mb-3 opacity-30" />
                 <p className="font-bold">검색 결과가 없습니다</p>
                 <p className="text-xs mt-1">다른 검색어를 입력해 보세요</p>
               </div>
             ) : (
-              displayStocks.map((stock, i) => (
-                <StockRow key={stock.ticker} stock={stock} index={i} />
-              ))
+              displayStocks.map((stock, i) => <StockRow key={stock.ticker} stock={stock} index={i} />)
             )
+
           ) : activeTab === "ipo" ? (
-            ipoLoading ? (
-              <div className="p-8 flex justify-center">
-                <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-              </div>
-            ) : !ipoData || ipoData.length === 0 ? (
+            ipoLoading ? <LoadingSpinner /> :
+            !ipoData || ipoData.length === 0 ? (
               <div className="p-10 text-center text-muted-foreground">
                 <Rocket className="w-10 h-10 mx-auto mb-3 opacity-30" />
                 <p className="font-bold">상장 예정 종목이 없습니다</p>
@@ -306,51 +377,60 @@ export default function Home() {
                   <div className="flex items-center gap-2">
                     <Rocket className="w-4 h-4 text-orange-500" />
                     <span className="text-sm font-bold text-foreground">신규 상장 예정</span>
-                    <span className="text-xs text-muted-foreground">
-                      상장일 기준 자동 반영
-                    </span>
+                    <span className="text-xs text-muted-foreground">상장일 기준 자동 반영</span>
                   </div>
                 </div>
-                {ipoData.map((ipo, i) => (
-                  <IpoRow key={ipo.ticker} ipo={ipo} index={i} />
-                ))}
+                {ipoData.map((ipo, i) => <IpoRow key={ipo.ticker} ipo={ipo} index={i} />)}
               </div>
             )
-          ) : isLoading ? (
-            <div className="p-8 flex justify-center">
-              <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-            </div>
-          ) : (
-            <>
-              <div className="px-4 py-2.5 border-b border-border/40 bg-muted/30 flex items-center justify-between">
-                <span className="text-xs font-bold text-muted-foreground">
-                  {activeTab === "volume_amount" ? "거래대금 순위" : activeTab === "volume_count" ? "거래량 순위" : "급상승 순위"} · 상위 100위
-                </span>
-                <span className="text-xs text-muted-foreground">{displayStocks.length}종목</span>
+
+          ) : isRankingTab ? (
+            rankLoading && rankData.length === 0 ? <LoadingSpinner /> :
+            rankData.length === 0 ? (
+              <div className="p-10 text-center text-muted-foreground">
+                <TrendingUp className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="font-bold">데이터 로딩 중...</p>
               </div>
-              {displayStocks.map((stock, i) => {
-                const volumeLabel =
-                  activeTab === "volume_amount"
-                    ? `거래대금 ${(stock.currentPrice * stock.volume / 100000000).toFixed(0)}억`
-                    : activeTab === "volume_count"
-                    ? `거래량 ${stock.volume.toLocaleString("ko-KR")}주`
-                    : undefined;
-                return (
-                  <StockRow key={stock.ticker} stock={stock} index={i} showVolume={volumeLabel} />
-                );
-              })}
-            </>
+            ) : (
+              <>
+                <div className="px-4 py-2.5 border-b border-border/40 bg-muted/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-muted-foreground">
+                      {activeTab === "volume_amount" ? "거래대금 상위" : "거래량 상위"} · 실시간
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  </div>
+                  <span className="text-xs text-muted-foreground">{rankData.length}종목</span>
+                </div>
+                {rankData.map((item) => (
+                  <RankRow key={item.ticker} item={item} index={item.rank - 1} />
+                ))}
+              </>
+            )
+
+          ) : (
+            /* 급상승 탭 — stocks_realtime 데이터 */
+            stocksLoading ? <LoadingSpinner /> : (
+              <>
+                <div className="px-4 py-2.5 border-b border-border/40 bg-muted/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-muted-foreground">급상승 순위 · 실시간</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  </div>
+                  <span className="text-xs text-muted-foreground">{displayStocks.length}종목</span>
+                </div>
+                {displayStocks.map((stock, i) => (
+                  <StockRow key={stock.ticker} stock={stock} index={i} />
+                ))}
+              </>
+            )
           )}
         </div>
       </section>
 
       {/* 오늘의 주요 뉴스 */}
       <section>
-        <NewsSection
-          title="오늘의 주요 뉴스"
-          limit={5}
-          showSummary={false}
-        />
+        <NewsSection title="오늘의 주요 뉴스" limit={5} showSummary={false} />
       </section>
     </div>
   );

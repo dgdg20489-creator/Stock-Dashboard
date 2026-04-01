@@ -411,6 +411,68 @@ router.get("/stocks/:ticker", async (req, res) => {
   res.json(parsed);
 });
 
+// ─── 실시간 시장 순위 (거래대금 / 거래량) ───────────────────────────────
+router.get("/market/rankings", async (req, res) => {
+  try {
+    const type = (req.query.type as string) || "trade_amount"; // trade_amount | volume
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+
+    // 1차: market_rankings 테이블에서 최신 Naver 스크래핑 결과
+    const dbResult = await pool.query<{
+      rank: string; ticker: string; name: string; price: string;
+      change_pct: string; volume: string; trade_amount: string; market: string | null;
+      updated_at: string;
+    }>(
+      `SELECT rank, ticker, name, price, change_pct, volume, trade_amount, market, updated_at
+       FROM market_rankings WHERE type = $1 ORDER BY rank LIMIT $2`,
+      [type, limit]
+    );
+
+    // 2차 fallback: market_rankings가 비어있으면 stocks_realtime에서 실시간 정렬
+    if (dbResult.rows.length === 0) {
+      const orderBy = type === "trade_amount"
+        ? "(current_price::numeric * volume::numeric) DESC"
+        : "volume DESC";
+      const fallback = await pool.query<{
+        ticker: string; name: string; current_price: string;
+        change_pct: string; volume: string; market: string | null;
+      }>(
+        `SELECT ticker, name, current_price, change_pct, volume, market
+         FROM stocks_realtime WHERE volume > 0 ORDER BY ${orderBy} LIMIT $1`,
+        [limit]
+      );
+      const rows = fallback.rows.map((r, i) => ({
+        rank: i + 1,
+        ticker: r.ticker,
+        name: r.name,
+        price: Number(r.current_price),
+        changePercent: Number(r.change_pct),
+        volume: Number(r.volume),
+        tradeAmount: Number(r.current_price) * Number(r.volume),
+        market: r.market,
+        updatedAt: new Date().toISOString(),
+      }));
+      return res.json(rows);
+    }
+
+    const rows = dbResult.rows.map((r) => ({
+      rank: Number(r.rank),
+      ticker: r.ticker,
+      name: r.name,
+      price: Number(r.price),
+      changePercent: Number(r.change_pct),
+      volume: Number(r.volume),
+      tradeAmount: Number(r.trade_amount),
+      market: r.market,
+      updatedAt: r.updated_at,
+    }));
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.get("/market/summary", async (_req, res) => {
   const indices = await getMarketIndicesFromDB();
 

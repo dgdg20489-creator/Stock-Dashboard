@@ -311,6 +311,23 @@ def create_tables(conn):
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS market_news_ticker_idx ON market_news(ticker, published_at DESC)")
 
+        # 실시간 시장 순위 테이블 (거래대금 / 거래량)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS market_rankings (
+                type        TEXT    NOT NULL,
+                rank        INT     NOT NULL,
+                ticker      TEXT    NOT NULL,
+                name        TEXT    NOT NULL,
+                price       NUMERIC NOT NULL DEFAULT 0,
+                change_pct  NUMERIC NOT NULL DEFAULT 0,
+                volume      BIGINT  NOT NULL DEFAULT 0,
+                trade_amount BIGINT NOT NULL DEFAULT 0,
+                market      TEXT,
+                updated_at  TIMESTAMPTZ DEFAULT NOW(),
+                PRIMARY KEY (type, rank)
+            )
+        """)
+
         # 공모주(IPO) 테이블
         cur.execute("""
             CREATE TABLE IF NOT EXISTS ipo_stocks (
@@ -874,6 +891,124 @@ def refresh_all_news(conn):
 
 
 # ─────────────────────────────────────────────────
+# 실시간 시장 순위 (거래대금 / 거래량)
+# ─────────────────────────────────────────────────
+
+def fetch_naver_rankings(conn):
+    """시장 순위 갱신:
+    거래대금 — 네이버 sise_quant.naver 스크래핑 (KOSPI+KOSDAQ 합산, 100위까지)
+    거래량   — stocks_realtime DB 정렬 (volume DESC, 실시간 반영)
+    """
+    import requests
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return
+
+    def _sint(s: str) -> int:
+        s = s.strip().replace(",", "").replace("+", "").replace("%", "")
+        try:
+            return int(float(s)) if s and s.replace(".", "", 1).lstrip("-").isdigit() else 0
+        except Exception:
+            return 0
+
+    def _parse_quant(sosok: int, market: str) -> list:
+        """네이버 sise_quant.naver (거래대금 상위) 스크래핑"""
+        url = f"https://finance.naver.com/sise/sise_quant.naver?sosok={sosok}&page=1"
+        try:
+            r = requests.get(url, headers=NAVER_WEB_HEADERS, timeout=8)
+            r.encoding = "euc-kr"
+            soup = BeautifulSoup(r.text, "html.parser")
+            items = []
+            for row in soup.select("table.type_2 tr"):
+                link = row.select_one('a[href*="code="]')
+                if not link:
+                    continue
+                code = link["href"].split("code=")[-1][:6]
+                if not code.isdigit() or len(code) != 6:
+                    continue
+                name = link.get_text(strip=True)
+                tds = row.select("td")
+                ct = [td.get_text(strip=True) for td in tds]
+                n = len(ct)
+                price  = _sint(ct[2]) if n > 2 else 0
+                volume = _sint(ct[5]) if n > 5 else 0
+                # ct[6] = 거래대금(백만원 단위) in sise_quant
+                ta     = _sint(ct[6]) * 1_000_000 if n > 6 else price * volume
+                chg    = 0.0
+                try:
+                    raw = ct[4].strip().replace(",", "").replace("+", "").replace("%", "") if n > 4 else ""
+                    sign = -1 if ct[4].strip().startswith("-") else 1
+                    chg  = float(raw.lstrip("-")) * sign if raw else 0.0
+                except Exception:
+                    pass
+                if price <= 0:
+                    continue
+                items.append({
+                    "ticker": code, "name": name, "price": price,
+                    "change_pct": chg, "volume": volume, "trade_amount": ta, "market": market,
+                })
+            return items
+        except Exception as e:
+            log.debug(f"_parse_quant sosok={sosok}: {e}")
+            return []
+
+    try:
+        now = datetime.now(KST)
+
+        # ── 거래대금 상위 (네이버 스크래핑: KOSPI + KOSDAQ 각 1페이지, 합산 후 정렬) ──
+        ta_k  = _parse_quant(0, "KOSPI")
+        ta_kq = _parse_quant(1, "KOSDAQ")
+        all_ta = sorted(ta_k + ta_kq, key=lambda x: x["trade_amount"], reverse=True)[:100]
+
+        # ── 거래량 상위 (stocks_realtime DB 정렬) ──
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ticker, name, current_price, change_pct, volume, market
+                FROM stocks_realtime
+                WHERE volume > 0
+                ORDER BY volume DESC
+                LIMIT 100
+            """)
+            rows = cur.fetchall()
+        all_vol = [
+            {
+                "ticker": r[0], "name": r[1], "price": float(r[2]),
+                "change_pct": float(r[3]), "volume": int(r[4]),
+                "trade_amount": float(r[2]) * int(r[4]), "market": r[5],
+            }
+            for r in rows
+        ]
+
+        with conn.cursor() as cur:
+            if all_ta:
+                cur.execute("DELETE FROM market_rankings WHERE type='trade_amount'")
+                execute_values(cur, """
+                    INSERT INTO market_rankings
+                        (type, rank, ticker, name, price, change_pct, volume, trade_amount, market, updated_at)
+                    VALUES %s
+                """, [("trade_amount", i+1, s["ticker"], s["name"], s["price"],
+                        s["change_pct"], s["volume"], s["trade_amount"], s["market"], now)
+                      for i, s in enumerate(all_ta)])
+
+            if all_vol:
+                cur.execute("DELETE FROM market_rankings WHERE type='volume'")
+                execute_values(cur, """
+                    INSERT INTO market_rankings
+                        (type, rank, ticker, name, price, change_pct, volume, trade_amount, market, updated_at)
+                    VALUES %s
+                """, [("volume", i+1, s["ticker"], s["name"], s["price"],
+                        s["change_pct"], s["volume"], s["trade_amount"], s["market"], now)
+                      for i, s in enumerate(all_vol)])
+
+        conn.commit()
+        log.info(f"Rankings OK: 거래대금 {len(all_ta)}개 거래량 {len(all_vol)}개")
+    except Exception as e:
+        log.warning(f"fetch_naver_rankings: {e}")
+        conn.rollback()
+
+
+# ─────────────────────────────────────────────────
 # IPO (공모주) 데이터
 # ─────────────────────────────────────────────────
 
@@ -1093,6 +1228,10 @@ def main():
 
             # 매 5s: 미세 시뮬레이션 (실시간 순위 갱신용 - 매 사이클)
             simulate_prices(conn)
+
+            # 매 10s: 네이버 금융 거래대금·거래량 순위 스크래핑 (2사이클마다)
+            if cycle % 2 == 0:
+                fetch_naver_rankings(conn)
 
             # 매 30s: 네이버 금융 상위 500종목 실제 가격 업데이트 (6 사이클마다)
             if cycle % 6 == 0:
