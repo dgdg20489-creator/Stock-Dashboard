@@ -8,9 +8,13 @@ export interface DailyMissionState {
   points: number;
 }
 
-const MISSIONS_KEY = "wonkwang_missions";
-const COINS_KEY = "wonkwang_coins";
-const UNLOCKED_KEY = "wonkwang_unlocked_items";
+function uidSuffix() {
+  return localStorage.getItem("toss_userId") ?? "guest";
+}
+
+function missionsKey() { return `wonkwang_missions_${uidSuffix()}`; }
+function coinsKey()    { return `wonkwang_coins_${uidSuffix()}`; }
+function unlockedKey() { return `wonkwang_unlocked_items_${uidSuffix()}`; }
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -18,7 +22,7 @@ function todayStr() {
 
 function loadMissions(): DailyMissionState {
   try {
-    const raw = localStorage.getItem(MISSIONS_KEY);
+    const raw = localStorage.getItem(missionsKey());
     if (raw) {
       const data = JSON.parse(raw) as DailyMissionState;
       if (data.date === todayStr()) return data;
@@ -29,13 +33,13 @@ function loadMissions(): DailyMissionState {
 
 function loadCoins(): number {
   try {
-    return parseInt(localStorage.getItem(COINS_KEY) || "0", 10);
+    return parseInt(localStorage.getItem(coinsKey()) || "0", 10);
   } catch { return 0; }
 }
 
 function loadUnlocked(): string[] {
   try {
-    const raw = localStorage.getItem(UNLOCKED_KEY);
+    const raw = localStorage.getItem(unlockedKey());
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
@@ -47,15 +51,15 @@ export function useMissions() {
   const [justEarnedCoin, setJustEarnedCoin] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem(MISSIONS_KEY, JSON.stringify(missions));
+    localStorage.setItem(missionsKey(), JSON.stringify(missions));
   }, [missions]);
 
   useEffect(() => {
-    localStorage.setItem(COINS_KEY, String(coins));
+    localStorage.setItem(coinsKey(), String(coins));
   }, [coins]);
 
   useEffect(() => {
-    localStorage.setItem(UNLOCKED_KEY, JSON.stringify(unlockedItems));
+    localStorage.setItem(unlockedKey(), JSON.stringify(unlockedItems));
   }, [unlockedItems]);
 
   const awardPoints = useCallback((type: "attendance" | "quiz" | "trade", pts: number) => {

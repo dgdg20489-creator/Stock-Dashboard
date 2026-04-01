@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 
-const STORAGE_KEY = "wonkwang_equipped";
-
 export interface EquippedItems {
   hat?: string;
   top?: string;
@@ -9,9 +7,14 @@ export interface EquippedItems {
   scarf?: string;
 }
 
+function storageKey() {
+  const uid = localStorage.getItem("toss_userId") ?? "guest";
+  return `wonkwang_equipped_${uid}`;
+}
+
 function load(): EquippedItems {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey());
     if (raw) return JSON.parse(raw);
   } catch {}
   return {};
@@ -21,7 +24,7 @@ export function useEquipped() {
   const [equipped, setEquipped] = useState<EquippedItems>(load);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(equipped));
+    localStorage.setItem(storageKey(), JSON.stringify(equipped));
   }, [equipped]);
 
   const equip = (slot: keyof EquippedItems, itemId: string) => {
