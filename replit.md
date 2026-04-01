@@ -28,6 +28,7 @@ Korean stock mock-trading dashboard (원광증권) with real 2026 market data.
 - **241 days of real OHLCV history** per stock from pykrx, served via `/stocks/:ticker/history`
 - **Python KRX Data Fetcher** (`python/krx_fetcher.py`) — dynamic stock list (ALL listed), real prices top 500 every 30s, batch ALL stocks every 5min via listing pages, indices every 60s; hourly stock list refresh
 - **AI 감성 분석** — 뉴스 저장 시 한국어 키워드 분석 → bullish/bearish/neutral DB 저장; SQL UPDATE로 기존 322건도 반영
+- **AI 투자 비서 (Gemini)** — `POST /api/ai-advisor/analyze` → 포트폴리오 변동성·섹터 분포·위험성향 분석 + Gemini gemini-2.5-flash AI 조언·추천 종목 3개; `AiAdvisor.tsx` 컴포넌트 in MyInfo.tsx
 - **뉴스 전용 탭** — `/news` 페이지: 전체/호재/악재 필터, 감성 통계 카드, 100건 표시
 - **거래대금/거래량/급상승 100위** — 탭별 상위 100종목 표시 + KOSPI/KOSDAQ 배지
 - **IPO(공모주) 탭** — `ipo_stocks` 테이블 + `/api/ipo` 엔드포인트; 상장일 도달 시 stocks_realtime 자동 추가

@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, LogOut, AlertTriangle } from "lucide-react";
 import { useMissions } from "@/hooks/use-missions";
+import { AiAdvisor } from "@/components/AiAdvisor";
 
 interface MyInfoProps {
   userId: number;
@@ -241,6 +242,9 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
           </div>
         </Link>
       </motion.div>
+
+      {/* AI 투자 비서 */}
+      <AiAdvisor userId={userId} />
 
       {/* 자산 현황 */}
       <motion.div
