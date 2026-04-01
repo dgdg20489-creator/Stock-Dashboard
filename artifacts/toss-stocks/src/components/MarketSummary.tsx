@@ -1,51 +1,75 @@
 import { useGetMarketSummary } from "@workspace/api-client-react";
 import { formatPercent, getColorClass } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function MarketSummary() {
   const { data: summary, isLoading } = useGetMarketSummary();
 
   if (isLoading || !summary) {
     return (
-      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
+      <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="min-w-[150px] h-28 bg-card rounded-3xl animate-pulse shadow-sm" />
+          <div key={i} className="min-w-[148px] h-[84px] bg-card rounded-xl animate-pulse border border-border/50" />
         ))}
       </div>
     );
   }
 
   const indices = [
-    summary.kospi,
-    summary.kosdaq,
-    summary.usdKrw,
-    summary.sp500,
-    summary.nasdaq,
+    { ...summary.kospi, id: "kospi" },
+    { ...summary.kosdaq, id: "kosdaq" },
+    { ...summary.usdKrw, id: "usdkrw" },
+    { ...summary.sp500, id: "sp500" },
+    { ...summary.nasdaq, id: "nasdaq" },
   ];
 
   return (
     <div className="w-full">
-      <h2 className="text-xl font-bold mb-4 px-1 text-foreground">시장 지수</h2>
-      <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide snap-x">
-        {indices.map((index, i) => (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-            key={index.name}
-            className="min-w-[150px] sm:min-w-[160px] bg-card p-5 rounded-3xl shadow-sm border border-border/50 snap-start flex-1 cursor-pointer hover:shadow-md hover:-translate-y-1 transition-all duration-300"
-          >
-            <h3 className="text-sm font-semibold text-muted-foreground">{index.name}</h3>
-            <div className="mt-3 font-bold text-xl tracking-tight text-foreground">
-              {new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 2 }).format(index.value)}
-            </div>
-            <div className={`text-sm font-bold mt-1 flex items-center gap-1 ${getColorClass(index.change)}`}>
-              <span>{index.change > 0 ? "▲" : index.change < 0 ? "▼" : "-"}</span>
-              <span>{Math.abs(index.change)}</span>
-              <span className="opacity-90 ml-0.5">({formatPercent(index.changePercent)})</span>
-            </div>
-          </motion.div>
-        ))}
+      <h2 className="text-sm font-semibold text-muted-foreground mb-2.5 px-0.5 uppercase tracking-wider">시장 지수</h2>
+      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+        {indices.map((index, i) => {
+          const up = index.change > 0;
+          const down = index.change < 0;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              key={index.id}
+              className={cn(
+                "min-w-[148px] bg-card px-4 py-3 rounded-xl border transition-all duration-200 cursor-pointer hover:shadow-sm hover:-translate-y-0.5 flex-1",
+                up ? "border-border/50 hover:border-primary/20" :
+                down ? "border-border/50 hover:border-secondary/20" :
+                "border-border/50"
+              )}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] font-semibold text-muted-foreground">{index.name}</p>
+                <div className={cn(
+                  "w-5 h-5 rounded-md flex items-center justify-center",
+                  up ? "bg-up-light" : down ? "bg-down-light" : "bg-muted"
+                )}>
+                  {up ? (
+                    <TrendingUp className="w-2.5 h-2.5 text-up" />
+                  ) : down ? (
+                    <TrendingDown className="w-2.5 h-2.5 text-down" />
+                  ) : (
+                    <Minus className="w-2.5 h-2.5 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+              <p className="font-bold text-[15px] tracking-tight text-foreground leading-none mb-1.5">
+                {new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 2 }).format(index.value)}
+              </p>
+              <p className={cn("text-[11px] font-semibold", getColorClass(index.change))}>
+                {up ? "+" : ""}{index.change > 0 ? index.change : Math.abs(index.change) > 0 ? "-" + index.change.toFixed(2) : "0"}
+                <span className="ml-1 opacity-70">({formatPercent(index.changePercent)})</span>
+              </p>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );

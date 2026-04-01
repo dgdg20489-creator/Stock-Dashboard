@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCreateUser } from "@workspace/api-client-react";
 import { GameAvatar, AVATAR_LIST, INVEST_TYPES, type AvatarId, type InvestType } from "@/components/GameAvatar";
-import { Check } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type DifficultyType = "beginner" | "intermediate" | "expert";
@@ -21,69 +21,84 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
 
   const createUserMutation = useCreateUser({
     mutation: {
-      onSuccess: (data) => {
-        onComplete(data.id);
-      }
+      onSuccess: (data) => { onComplete(data.id); }
     }
   });
 
   const handleStart = () => {
     if (!username.trim() || !difficulty) return;
-    createUserMutation.mutate({
-      data: {
-        username: username.trim(),
-        avatar,
-        difficulty,
-      }
-    });
+    createUserMutation.mutate({ data: { username: username.trim(), avatar, difficulty } });
   };
 
-  const difficulties: { id: DifficultyType; title: string; seed: string; desc: string; emoji: string; color: string }[] = [
-    { id: "beginner",     title: "초보",    seed: "1,000만 원", desc: "여유롭게 시작하는 투자", emoji: "🌱", color: "emerald" },
-    { id: "intermediate", title: "중수",    seed: "500만 원",   desc: "긴장감과 수익의 균형",   emoji: "🌿", color: "blue"    },
-    { id: "expert",       title: "고수",    seed: "100만 원",   desc: "실력으로 승부하는 챌린지", emoji: "🔥", color: "red"    },
+  const difficulties: { id: DifficultyType; title: string; sub: string; seed: string; color: string; dot: string }[] = [
+    { id: "beginner",     title: "입문",  sub: "여유롭게 시작",      seed: "1,000만원", color: "text-emerald-600", dot: "bg-emerald-500" },
+    { id: "intermediate", title: "중급",  sub: "긴장감 있는 트레이드", seed: "500만원",   color: "text-blue-600",    dot: "bg-blue-500"    },
+    { id: "expert",       title: "고수",  sub: "실력으로 승부",       seed: "100만원",   color: "text-red-600",     dot: "bg-red-500"     },
   ];
 
   const selectedInvest = INVEST_TYPES.find((t) => t.type === selectedType)!;
+  const canSubmit = username.trim().length > 0 && difficulty !== null;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-4">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-lg"
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="w-full max-w-md"
       >
-        {/* Logo */}
+        {/* 헤더 */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-white rounded-3xl mx-auto flex items-center justify-center shadow-lg mb-6 p-1">
-            <img src="/wonkwang-logo.png" alt="원광대학교 로고" className="w-full h-full object-contain" />
+          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white/10 mx-auto flex items-center justify-center mb-5">
+            <img src="/wonkwang-logo.png" alt="원광대학교 로고" className="w-10 h-10 object-contain" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">원광증권 모의투자</h1>
-          <p className="text-muted-foreground font-medium">프로필과 난이도를 설정하고 투자를 시작해보세요</p>
+          <h1 className="text-2xl font-bold text-white mb-1.5 tracking-tight">원광증권 모의투자</h1>
+          <p className="text-sm text-white/40 font-medium">프로필을 설정하고 투자를 시작하세요</p>
         </div>
 
-        <div className="bg-card p-6 rounded-[2rem] shadow-xl border border-border/50 mb-6 space-y-7">
+        {/* 폼 카드 */}
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
 
-          {/* Nickname */}
-          <div className="space-y-3">
-            <label className="block text-sm font-bold text-foreground">닉네임</label>
+          {/* 닉네임 */}
+          <div className="px-6 pt-6 pb-4">
+            <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">닉네임</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="사용할 닉네임을 입력해주세요"
-              className="w-full px-5 py-4 rounded-2xl bg-muted border-none text-foreground font-semibold placeholder:text-muted-foreground/70 focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all"
+              placeholder="사용할 닉네임 입력"
+              className="w-full px-4 py-3 rounded-xl bg-muted/60 border border-border/60 text-foreground text-sm font-medium placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 focus:border-primary/30 focus:outline-none transition-all"
               maxLength={10}
               onKeyDown={(e) => e.key === "Enter" && handleStart()}
             />
           </div>
 
-          {/* Investment Style Selection */}
-          <div className="space-y-4">
-            <label className="block text-sm font-bold text-foreground">투자 성향 선택</label>
+          <div className="h-px bg-border/50 mx-6" />
 
-            {/* 5 type cards */}
-            <div className="grid grid-cols-5 gap-2">
+          {/* 투자 성향 */}
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">투자 성향</label>
+              <div className="flex gap-1">
+                {(["남", "녀"] as const).map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setGender(g)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all",
+                      gender === g
+                        ? "bg-foreground text-background"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {g === "남" ? "남성" : "여성"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 성향 5개 버튼 */}
+            <div className="grid grid-cols-5 gap-1.5 mb-3">
               {INVEST_TYPES.map((inv) => {
                 const isSelected = selectedType === inv.type;
                 return (
@@ -91,17 +106,18 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
                     key={inv.type}
                     onClick={() => setSelectedType(inv.type)}
                     className={cn(
-                      "flex flex-col items-center gap-1.5 py-3 px-1 rounded-2xl border-2 transition-all",
+                      "flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border transition-all duration-150",
                       isSelected
-                        ? "border-primary bg-primary/8 shadow-md shadow-primary/15 scale-105"
-                        : "border-border/50 hover:border-primary/30 bg-muted/50 hover:bg-muted"
+                        ? "border-transparent shadow-sm"
+                        : "border-border/50 hover:border-border bg-muted/30 hover:bg-muted/60"
                     )}
+                    style={isSelected ? { background: `${inv.themeColor}12`, borderColor: `${inv.themeColor}60` } : {}}
                   >
-                    <span className="text-xl leading-none">{inv.emoji}</span>
-                    <span className={cn(
-                      "text-[10px] font-extrabold leading-none",
-                      isSelected ? "text-primary" : "text-muted-foreground"
-                    )}>
+                    <span className="text-base leading-none">{inv.emoji}</span>
+                    <span
+                      className="text-[9px] font-bold leading-none"
+                      style={isSelected ? { color: inv.themeColor } : {}}
+                    >
                       {inv.label}
                     </span>
                   </button>
@@ -109,91 +125,95 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
               })}
             </div>
 
-            {/* Gender toggle */}
-            <div className="flex gap-2 justify-end">
-              {(["남", "녀"] as const).map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setGender(g)}
-                  className={cn(
-                    "px-4 py-1.5 rounded-xl text-xs font-extrabold transition-all border",
-                    gender === g
-                      ? "bg-foreground text-background border-foreground"
-                      : "bg-muted text-muted-foreground border-border hover:border-foreground/30"
-                  )}
-                >
-                  {g === "남" ? "👨 남성" : "👩 여성"}
-                </button>
-              ))}
-            </div>
-
-            {/* Selected preview card */}
+            {/* 선택된 캐릭터 프리뷰 */}
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${selectedType}_${gender}`}
-                initial={{ opacity: 0, y: 6 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.2 }}
-                className="flex items-center gap-4 p-4 rounded-2xl border-2 border-primary/30 bg-primary/5"
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-3 p-3 rounded-xl border"
+                style={{ background: `${selectedInvest.themeColor}08`, borderColor: `${selectedInvest.themeColor}30` }}
               >
-                <GameAvatar avatarId={avatar} size={80} rounded="rounded-2xl" />
+                <div className="flex-shrink-0 rounded-xl overflow-hidden ring-1" style={{ ringColor: selectedInvest.themeColor }}>
+                  <GameAvatar avatarId={avatar} size={56} rounded="rounded-xl" />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xl">{selectedInvest.emoji}</span>
-                    <span className="text-base font-extrabold text-foreground">{selectedInvest.label}</span>
-                    <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="font-bold text-sm text-foreground">{selectedInvest.label}</span>
+                    <span
+                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md text-white"
+                      style={{ background: selectedInvest.themeColor }}
+                    >
                       {selectedInvest.tagline}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                  <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
                     {selectedInvest.desc}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground/60 font-semibold mt-1">
-                    {gender === "남" ? "남성 캐릭터" : "여성 캐릭터"}
                   </p>
                 </div>
               </motion.div>
             </AnimatePresence>
           </div>
 
-          {/* Difficulty Selection */}
-          <div className="space-y-3">
-            <label className="block text-sm font-bold text-foreground">난이도 선택 (초기 자산)</label>
-            <div className="grid grid-cols-3 gap-3">
+          <div className="h-px bg-border/50 mx-6" />
+
+          {/* 난이도 */}
+          <div className="px-6 py-4">
+            <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">난이도 · 초기 자산</label>
+            <div className="space-y-1.5">
               {difficulties.map((diff) => (
                 <button
                   key={diff.id}
                   onClick={() => setDifficulty(diff.id)}
                   className={cn(
-                    "p-4 rounded-2xl border-2 text-left transition-all",
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-150 text-left",
                     difficulty === diff.id
-                      ? "border-primary bg-primary/5 shadow-sm"
-                      : "border-border hover:border-primary/30 bg-card"
+                      ? "border-foreground/20 bg-foreground/4"
+                      : "border-border/50 hover:border-border/80 hover:bg-muted/40"
                   )}
                 >
-                  <div className="text-2xl mb-2">{diff.emoji}</div>
-                  <div className="font-bold text-sm text-foreground mb-1">{diff.title}</div>
-                  <div className="text-primary font-bold text-xs mb-1">{diff.seed}</div>
-                  <div className="text-[10px] text-muted-foreground font-medium leading-tight">{diff.desc}</div>
+                  <div className={cn("w-2 h-2 rounded-full flex-shrink-0", diff.dot)} />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-semibold text-foreground mr-2">{diff.title}</span>
+                    <span className="text-xs text-muted-foreground">{diff.sub}</span>
+                  </div>
+                  <span className={cn("text-xs font-bold flex-shrink-0", diff.color)}>{diff.seed}</span>
                   {difficulty === diff.id && (
-                    <div className="mt-2">
-                      <Check className="w-3.5 h-3.5 text-primary" />
-                    </div>
+                    <Check className="w-3.5 h-3.5 text-foreground/60 flex-shrink-0" />
                   )}
                 </button>
               ))}
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={handleStart}
-          disabled={!username.trim() || !difficulty || createUserMutation.isPending}
-          className="w-full py-5 rounded-2xl font-bold text-xl bg-primary text-white shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transition-all duration-200"
-        >
-          {createUserMutation.isPending ? "준비중..." : "투자 시작하기"}
-        </button>
+          {/* 시작 버튼 */}
+          <div className="px-6 pb-6">
+            <button
+              onClick={handleStart}
+              disabled={!canSubmit || createUserMutation.isPending}
+              className={cn(
+                "w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2",
+                canSubmit
+                  ? "bg-[#0f172a] text-white hover:bg-[#1e293b] active:scale-[0.99] shadow-lg"
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
+              )}
+            >
+              {createUserMutation.isPending ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>준비 중...</span>
+                </>
+              ) : (
+                <>
+                  <span>투자 시작하기</span>
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </motion.div>
     </div>
   );
