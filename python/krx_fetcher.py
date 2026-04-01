@@ -406,9 +406,11 @@ def update_realtime_prices(conn):
                 cur.execute("""
                     UPDATE stocks_realtime
                     SET current_price=%s, base_price=%s, change_val=%s, change_pct=%s,
+                        naver_change_pct=%s,
                         logo_url=COALESCE(NULLIF(%s,''), logo_url), updated_at=NOW()
                     WHERE ticker=%s
                 """, (naver["price"], naver["price"], naver["change"], naver["change_pct"],
+                      naver["change_pct"],
                       naver.get("logo_url", ""), ticker))
             updated += 1
             time.sleep(0.07)  # 70ms per stock → 500종목 약 35초
@@ -422,27 +424,37 @@ def update_realtime_prices(conn):
 def simulate_prices(conn):
     """
     Micro-simulation ON TOP of real Naver prices.
-    Only tweaks current_price by ±0.15%; preserves real change_val/change_pct from Naver.
+    Tweaks current_price by ±0.15% around base_price (Naver reference).
+    Also updates change_pct = naver_change_pct + simulation_drift so the
+    급상승 ranking reflects live price movement, not just the last Naver scrape.
     """
     with conn.cursor() as cur:
-        cur.execute("SELECT ticker, base_price FROM stocks_realtime")
+        # naver_change_pct = 안정적인 네이버 기준값 (update_realtime_prices만 업데이트)
+        # change_pct = 시뮬레이션 drift 반영 라이브값 (본 함수에서 업데이트)
+        cur.execute("SELECT ticker, base_price, naver_change_pct FROM stocks_realtime")
         stocks = cur.fetchall()
 
     t    = time.time()
     rows = []
-    for ticker, base_price_raw in stocks:
-        base = float(base_price_raw)
-        seed = sum(ord(c) for c in ticker)
+    for ticker, base_price_raw, naver_chg_raw in stocks:
+        base       = float(base_price_raw) if base_price_raw else 0
+        naver_chg  = float(naver_chg_raw)  if naver_chg_raw  else 0.0
+        if base <= 0:
+            continue
+        seed  = sum(ord(c) for c in ticker)
         noise = (random.random() - 0.5) * 0.003   # ±0.15%
         price = round(base * (1 + noise))
         vol   = int(((seed * 9876 + int(t / 10)) % 8_000_000) + 200_000)
-        rows.append((price, vol, ticker))
+        # sim_drift: tiny extra drift on top of real Naver change
+        sim_drift   = (price - base) / base * 100 if base > 0 else 0.0
+        change_pct  = round(naver_chg + sim_drift, 2)
+        change_val  = round(base * naver_chg / 100 + (price - base))
+        rows.append((price, vol, change_pct, change_val, ticker))
 
     with conn.cursor() as cur:
-        # Only update current_price + volume; change_val/change_pct from Naver are preserved
         cur.executemany("""
             UPDATE stocks_realtime
-            SET current_price=%s, volume=%s, updated_at=NOW()
+            SET current_price=%s, volume=%s, change_pct=%s, change_val=%s, updated_at=NOW()
             WHERE ticker=%s
         """, rows)
     conn.commit()

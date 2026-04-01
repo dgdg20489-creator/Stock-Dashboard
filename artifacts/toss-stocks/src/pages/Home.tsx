@@ -249,6 +249,19 @@ export default function Home() {
     enabled: activeTab === "volume_count",
   });
 
+  // 급상승 — stocks_realtime DB 정렬 (change_pct 매 5초 시뮬레이션 반영), 5초마다
+  const { data: gainersRank, isLoading: gainersLoading } = useQuery<RankItem[]>({
+    queryKey: ["market-rankings", "top_gainers"],
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/api/market/rankings?type=top_gainers&limit=100`);
+      if (!r.ok) return [];
+      return r.json();
+    },
+    refetchInterval: 5_000,
+    staleTime: 0,
+    enabled: activeTab === "top_gainers",
+  });
+
   const tabs = [
     { id: "volume_amount" as TabType, label: "거래대금", icon: DollarSign },
     { id: "volume_count" as TabType,  label: "거래량",   icon: TrendingUp },
@@ -259,20 +272,20 @@ export default function Home() {
   const q = searchQuery.trim().toLowerCase();
 
   const sorted = stocks ? [...stocks] : [];
-  let displayStocks = sorted;
-  if (!q) {
-    if (activeTab === "top_gainers") {
-      displayStocks = sorted.sort((a, b) => b.changePercent - a.changePercent).slice(0, 100);
-    }
-  } else {
-    displayStocks = sorted.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.ticker.includes(q) || (s.sector ?? "").toLowerCase().includes(q)
-    );
-  }
+  // displayStocks: 검색 결과 전용 (탭별 순위는 각 API 엔드포인트 사용)
+  const displayStocks = q
+    ? sorted.filter((s) => s.name.toLowerCase().includes(q) || s.ticker.includes(q) || (s.sector ?? "").toLowerCase().includes(q))
+    : sorted;
 
-  const isRankingTab = activeTab === "volume_amount" || activeTab === "volume_count";
-  const rankData = activeTab === "volume_amount" ? (tradeAmountRank ?? []) : (volumeRank ?? []);
-  const rankLoading = activeTab === "volume_amount" ? taLoading : volLoading;
+  const isRankingTab = activeTab === "volume_amount" || activeTab === "volume_count" || activeTab === "top_gainers";
+  const rankData =
+    activeTab === "volume_amount" ? (tradeAmountRank ?? []) :
+    activeTab === "volume_count"  ? (volumeRank ?? []) :
+    (gainersRank ?? []);
+  const rankLoading =
+    activeTab === "volume_amount" ? taLoading :
+    activeTab === "volume_count"  ? volLoading :
+    gainersLoading;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -396,7 +409,7 @@ export default function Home() {
                 <div className="px-4 py-2.5 border-b border-border/40 bg-muted/30 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-muted-foreground">
-                      {activeTab === "volume_amount" ? "거래대금 상위" : "거래량 상위"} · 실시간
+                      {activeTab === "volume_amount" ? "거래대금 상위" : activeTab === "volume_count" ? "거래량 상위" : "급상승 순위"} · 실시간
                     </span>
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                   </div>
@@ -407,24 +420,8 @@ export default function Home() {
                 ))}
               </>
             )
+          ) : null}
 
-          ) : (
-            /* 급상승 탭 — stocks_realtime 데이터 */
-            stocksLoading ? <LoadingSpinner /> : (
-              <>
-                <div className="px-4 py-2.5 border-b border-border/40 bg-muted/30 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-muted-foreground">급상승 순위 · 실시간</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  </div>
-                  <span className="text-xs text-muted-foreground">{displayStocks.length}종목</span>
-                </div>
-                {displayStocks.map((stock, i) => (
-                  <StockRow key={stock.ticker} stock={stock} index={i} />
-                ))}
-              </>
-            )
-          )}
         </div>
       </section>
 

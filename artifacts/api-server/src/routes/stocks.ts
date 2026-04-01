@@ -428,6 +428,34 @@ router.get("/market/rankings", async (req, res) => {
       [type, limit]
     );
 
+    // 급상승: stocks_realtime에서 실시간 정렬 (change_pct 5초마다 업데이트)
+    if (type === "top_gainers") {
+      const result = await pool.query<{
+        ticker: string; name: string; current_price: string;
+        change_pct: string; change_val: string; volume: string; market: string | null;
+      }>(
+        `SELECT ticker, name, current_price, change_pct, change_val, volume, market
+         FROM stocks_realtime
+         WHERE volume > 0
+         ORDER BY change_pct DESC NULLS LAST
+         LIMIT $1`,
+        [limit]
+      );
+      const rows = result.rows.map((r, i) => ({
+        rank: i + 1,
+        ticker: r.ticker,
+        name: r.name,
+        price: Number(r.current_price),
+        changePercent: Number(r.change_pct),
+        changeValue: Number(r.change_val),
+        volume: Number(r.volume),
+        tradeAmount: Number(r.current_price) * Number(r.volume),
+        market: r.market,
+        updatedAt: new Date().toISOString(),
+      }));
+      return res.json(rows);
+    }
+
     // 2차 fallback: market_rankings가 비어있으면 stocks_realtime에서 실시간 정렬
     if (dbResult.rows.length === 0) {
       const orderBy = type === "trade_amount"
