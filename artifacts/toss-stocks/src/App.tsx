@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { useAuth } from "./hooks/use-auth";
 import { useGetUser, useGetUserPortfolio } from "@workspace/api-client-react";
-import { getGenderFromAvatarId } from "./components/GameAvatar";
 import { Layout } from "./components/Layout";
 import DifficultyScreen from "./pages/DifficultyScreen";
 import Home from "./pages/Home";
@@ -186,7 +185,7 @@ function Router() {
   if (!userId) return <DifficultyScreen onComplete={login} />;
 
   const difficulty = (user?.difficulty as "beginner" | "intermediate" | "expert") ?? "beginner";
-  const avatar: "male" | "female" = getGenderFromAvatarId(user?.avatar ?? "balanced_m");
+  const avatarId = user?.avatar ?? "balanced_m";
 
   return (
     <>
@@ -197,7 +196,7 @@ function Router() {
           <Route path="/rankings" component={Rankings} />
           <Route path="/news" component={News} />
           <Route path="/watchlist" component={Watchlist} />
-          <Route path="/wardrobe">{() => <Wardrobe userId={userId} userDifficulty={difficulty} avatar={avatar} />}</Route>
+          <Route path="/wardrobe">{() => <Wardrobe userId={userId} userDifficulty={difficulty} avatarId={avatarId} />}</Route>
           <Route path="/missions">{() => <DailyMissions userId={userId} />}</Route>
           <Route path="/my-info">{() => <MyInfo userId={userId} logout={logout} />}</Route>
           <Route component={NotFound} />

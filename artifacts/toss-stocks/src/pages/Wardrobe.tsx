@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Avatar3D } from "@/components/Avatar3D";
+import { GameAvatar, getAvatarDef, getGenderFromAvatarId, INVEST_TYPES } from "@/components/GameAvatar";
 import { useEquipped } from "@/hooks/use-equipped";
 import { useMissions } from "@/hooks/use-missions";
 import { WARDROBE_ITEMS, CATEGORIES, DIFFICULTY_CONFIG, type ItemCategory, type Difficulty } from "@/data/wardrobe-items";
@@ -12,10 +13,10 @@ const DIFFICULTY_ORDER: Difficulty[] = ["beginner", "intermediate", "expert"];
 interface WardrobeProps {
   userId: number;
   userDifficulty: Difficulty;
-  avatar?: "male" | "female";
+  avatarId?: string;
 }
 
-export default function Wardrobe({ userId: _userId, userDifficulty, avatar = "male" }: WardrobeProps) {
+export default function Wardrobe({ userId: _userId, userDifficulty, avatarId = "balanced_m" }: WardrobeProps) {
   const { equipped, equip } = useEquipped();
   const { coins, spendCoins, isItemUnlocked } = useMissions();
   const [activeCategory, setActiveCategory] = useState<ItemCategory>("hat");
@@ -48,6 +49,11 @@ export default function Wardrobe({ userId: _userId, userDifficulty, avatar = "ma
     setBuyConfirm(null);
   };
 
+  // 아바타 정보 파악
+  const avatarDef = getAvatarDef(avatarId);
+  const avatarGender: "male" | "female" = getGenderFromAvatarId(avatarId);
+  const investType = INVEST_TYPES.find((t) => t.type === avatarDef.type);
+
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in duration-500">
       <div className="mb-6 px-1 flex items-center justify-between">
@@ -67,16 +73,63 @@ export default function Wardrobe({ userId: _userId, userDifficulty, avatar = "ma
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* ── 3D 아바타 뷰어 ── */}
-        <div className="lg:w-[340px] flex-shrink-0">
+        {/* ── 왼쪽: 내 캐릭터 + 3D 뷰어 ── */}
+        <div className="lg:w-[340px] flex-shrink-0 space-y-4">
+
+          {/* 내 캐릭터 아이덴티티 카드 */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden"
+          >
+            {/* 컬러 배너 */}
+            <div
+              className="h-2 w-full"
+              style={{
+                background: `linear-gradient(90deg, ${investType?.themeColor ?? "#666"}, ${investType?.themeColor ?? "#666"}88)`,
+              }}
+            />
+            <div className="p-4 flex items-center gap-4">
+              {/* 2D 초상화 */}
+              <div
+                className="flex-shrink-0 rounded-2xl overflow-hidden ring-2 ring-offset-2 shadow-lg"
+                style={{ ringColor: investType?.themeColor ?? "#666" }}
+              >
+                <GameAvatar avatarId={avatarId} size={80} rounded="rounded-2xl" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="text-lg leading-none">{investType?.emoji ?? "👤"}</span>
+                  <span className="text-base font-extrabold text-foreground">{avatarDef.label}</span>
+                  <span
+                    className="text-[10px] font-extrabold px-2 py-0.5 rounded-full text-white"
+                    style={{ background: investType?.themeColor ?? "#666" }}
+                  >
+                    {investType?.tagline}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground font-medium leading-relaxed line-clamp-2">
+                  {investType?.desc}
+                </p>
+                <p className="text-[10px] text-muted-foreground/60 font-semibold mt-1">
+                  {avatarDef.gender === "남" ? "👨 남성 캐릭터" : "👩 여성 캐릭터"}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* 3D 아바타 뷰어 */}
           <div className="bg-card rounded-3xl overflow-hidden border border-border/50 shadow-sm">
-            <div className="h-[440px] lg:h-[500px]">
-              <Avatar3D equipped={equipped} avatar={avatar} difficulty={userDifficulty} />
+            <div className="px-4 pt-3 pb-1">
+              <p className="text-xs font-bold text-muted-foreground">3D 의상 미리보기</p>
+            </div>
+            <div className="h-[380px] lg:h-[420px]">
+              <Avatar3D equipped={equipped} avatar={avatarGender} difficulty={userDifficulty} />
             </div>
           </div>
 
           {/* 현재 착용 요약 */}
-          <div className="mt-4 bg-card rounded-2xl border border-border/50 shadow-sm p-4 space-y-2">
+          <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-4 space-y-2">
             <p className="text-sm font-bold text-muted-foreground mb-3">현재 착용 아이템</p>
             {CATEGORIES.map(({ id, label }) => {
               const equippedId = equipped[id];
@@ -101,7 +154,7 @@ export default function Wardrobe({ userId: _userId, userDifficulty, avatar = "ma
           </div>
 
           {/* 등급 안내 */}
-          <div className="mt-3 p-4 bg-card rounded-2xl border border-border/50">
+          <div className="p-4 bg-card rounded-2xl border border-border/50">
             <p className="text-xs font-bold text-muted-foreground mb-2">현재 등급 현황</p>
             <div className="flex gap-2">
               {(Object.entries(DIFFICULTY_CONFIG) as [Difficulty, typeof DIFFICULTY_CONFIG[Difficulty]][]).map(([key, cfg]) => (
