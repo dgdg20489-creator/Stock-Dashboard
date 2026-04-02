@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useGetRankings, GetRankingsDifficulty } from "@workspace/api-client-react";
 import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -36,9 +37,12 @@ function TrophyIcon({ rank, size = 48 }: { rank: 1 | 2 | 3; size?: number }) {
 }
 
 export default function Rankings() {
+  const [, setLocation] = useLocation();
   const [difficulty, setDifficulty] = useState<GetRankingsDifficulty>(GetRankingsDifficulty.beginner);
   const prevRanksRef = useRef<Map<number, number>>(new Map());
   const [rankChanges, setRankChanges] = useState<Map<number, number>>(new Map());
+
+  const goToProfile = (userId: number) => setLocation(`/profile/${userId}`);
 
   const { data: rankings, isLoading } = useGetRankings(
     { difficulty },
@@ -149,7 +153,10 @@ export default function Rankings() {
                       </div>
                       <GameAvatar avatarId={rankings[0].avatar} size={52} rounded="rounded-xl" className="shadow-md ring-2 ring-amber-400" />
                       <div className="text-center">
-                        <p className={`font-black text-base ${rankings[0].userId === currentUserId ? "text-primary" : "text-foreground"}`}>
+                        <p
+                          className={`font-black text-base cursor-pointer hover:underline hover:text-primary transition-colors ${rankings[0].userId === currentUserId ? "text-primary" : "text-foreground"}`}
+                          onClick={() => goToProfile(rankings[0].userId)}
+                        >
                           {rankings[0].username}{rankings[0].userId === currentUserId ? " 👤" : ""}
                         </p>
                         <p className={`text-sm font-bold ${getColorClass(rankings[0].totalReturn)}`}>
@@ -180,7 +187,10 @@ export default function Rankings() {
                         <TrophyIcon rank={rank} size={40} />
                         <GameAvatar avatarId={entry.avatar} size={44} rounded="rounded-xl" className="shadow-sm" />
                         <div className="text-center">
-                          <p className={`font-bold text-sm ${isSelf ? "text-primary" : "text-foreground"} truncate max-w-24`}>
+                          <p
+                            className={`font-bold text-sm cursor-pointer hover:underline hover:text-primary transition-colors ${isSelf ? "text-primary" : "text-foreground"} truncate max-w-24`}
+                            onClick={() => goToProfile(entry.userId)}
+                          >
                             {entry.username}{isSelf ? " 👤" : ""}
                           </p>
                           <p className={`text-xs font-bold ${getColorClass(entry.totalReturn)}`}>
@@ -210,7 +220,8 @@ export default function Rankings() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3 }}
-                      className={`flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors ${isSelf ? "bg-primary/5" : ""}`}
+                      className={`flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer ${isSelf ? "bg-primary/5" : ""}`}
+                      onClick={() => goToProfile(entry.userId)}
                     >
                       {/* 순위 뱃지 */}
                       <div className="w-10 flex-shrink-0 flex flex-col items-center gap-0.5">

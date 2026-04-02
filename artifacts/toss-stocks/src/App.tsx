@@ -17,6 +17,7 @@ import News from "./pages/News";
 import Watchlist from "./pages/Watchlist";
 import Wardrobe from "./pages/Wardrobe";
 import DailyMissions from "./pages/DailyMissions";
+import InvestorProfile from "./pages/InvestorProfile";
 import NotFound from "./pages/not-found";
 
 const queryClient = new QueryClient({
@@ -194,6 +195,7 @@ function Router() {
           <Route path="/" component={Home} />
           <Route path="/stock/:ticker">{() => <StockDetail userId={userId} />}</Route>
           <Route path="/rankings" component={Rankings} />
+          <Route path="/profile/:userId" component={InvestorProfile} />
           <Route path="/news" component={News} />
           <Route path="/watchlist" component={Watchlist} />
           <Route path="/wardrobe">{() => <Wardrobe userId={userId} userDifficulty={difficulty} avatarId={avatarId} />}</Route>

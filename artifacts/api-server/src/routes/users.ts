@@ -231,6 +231,71 @@ router.get("/users/:userId/trades", async (req, res) => {
   }
 });
 
+router.get("/users/:userId/public-profile", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    const holdings = await db.select().from(holdingsTable).where(eq(holdingsTable.userId, userId));
+    const trades = await db
+      .select()
+      .from(tradesTable)
+      .where(eq(tradesTable.userId, userId))
+      .orderBy(desc(tradesTable.createdAt))
+      .limit(20);
+
+    let stockValue = 0;
+    const publicHoldings = holdings.map((h) => {
+      const stockMeta = getStockByTicker(h.ticker);
+      const { price } = getStockPrice(stockMeta?.basePrice ?? Number(h.avgPrice), h.ticker);
+      const shares = Number(h.shares);
+      const avgPrice = Number(h.avgPrice);
+      const evaluationAmount = price * shares;
+      const profitLossPercent = ((price - avgPrice) / avgPrice) * 100;
+      stockValue += evaluationAmount;
+      return {
+        ticker: h.ticker,
+        name: h.stockName,
+        shares,
+        returnPercent: Math.round(profitLossPercent * 100) / 100,
+      };
+    });
+
+    const cashBalance = Number(user.cashBalance);
+    const seedMoney = Number(user.seedMoney);
+    const totalAssets = cashBalance + stockValue;
+    const totalReturn = totalAssets - seedMoney;
+    const totalReturnPercent = Math.round((totalReturn / seedMoney) * 10000) / 100;
+
+    const publicTrades = trades.map((t) => ({
+      id: t.id,
+      type: t.type as "buy" | "sell",
+      ticker: t.ticker,
+      stockName: t.stockName,
+      shares: Number(t.shares),
+      returnPercent: null as number | null,
+      createdAt: t.createdAt.toISOString(),
+    }));
+
+    res.json({
+      userId: user.id,
+      username: user.username,
+      avatar: user.avatar,
+      difficulty: user.difficulty,
+      totalReturnPercent,
+      holdings: publicHoldings,
+      recentTrades: publicTrades,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.put("/users/:userId/equip", async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);

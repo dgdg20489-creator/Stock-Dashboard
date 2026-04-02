@@ -228,17 +228,27 @@ def update_all_prices_from_listing(conn):
                 s["ticker"]
             ))
         if rows:
-            with conn.cursor() as cur:
-                cur.executemany("""
-                    UPDATE stocks_realtime
-                    SET current_price=%s, base_price=%s,
-                        change_val=%s, change_pct=%s,
-                        volume=%s, market_cap=%s,
-                        updated_at=NOW()
-                    WHERE ticker=%s
-                """, rows)
-            conn.commit()
-            updated += len(rows)
+            import time as _t
+            for _att in range(3):
+                try:
+                    with conn.cursor() as cur:
+                        cur.executemany("""
+                            UPDATE stocks_realtime
+                            SET current_price=%s, base_price=%s,
+                                change_val=%s, change_pct=%s,
+                                volume=%s, market_cap=%s,
+                                updated_at=NOW()
+                            WHERE ticker=%s
+                        """, rows)
+                    conn.commit()
+                    updated += len(rows)
+                    break
+                except Exception as _e:
+                    conn.rollback()
+                    if _att < 2:
+                        _t.sleep(0.2 * (2 ** _att))
+                    else:
+                        log.warning(f"update_all_prices batch failed after retries: {_e}")
     log.info(f"일괄 가격 업데이트 완료: {updated}종목")
 
 
@@ -478,13 +488,23 @@ def simulate_prices(conn):
 
         rows.append((new_price, change_pct, change_val, ticker))
 
-    with conn.cursor() as cur:
-        cur.executemany("""
-            UPDATE stocks_realtime
-            SET current_price=%s, change_pct=%s, change_val=%s, updated_at=NOW()
-            WHERE ticker=%s
-        """, rows)
-    conn.commit()
+    import time as _time
+    for _attempt in range(3):
+        try:
+            with conn.cursor() as cur:
+                cur.executemany("""
+                    UPDATE stocks_realtime
+                    SET current_price=%s, change_pct=%s, change_val=%s, updated_at=NOW()
+                    WHERE ticker=%s
+                """, rows)
+            conn.commit()
+            break
+        except Exception as _e:
+            conn.rollback()
+            if _attempt < 2:
+                _time.sleep(0.1 * (2 ** _attempt))
+            else:
+                logging.warning("simulate_prices: max retries exceeded, skipping cycle")
 
 
 # ─────────────────────────────────────────────────
