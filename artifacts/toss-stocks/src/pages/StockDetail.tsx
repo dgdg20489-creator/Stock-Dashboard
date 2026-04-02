@@ -58,8 +58,8 @@ export default function StockDetail({ userId }: StockDetailProps) {
     mutation: {
       onSuccess: () => {
         setSharesStr("");
-        completeTrade();
-        alert("주문이 체결되었습니다. (+30P 미션 달성!)");
+        const missionAwarded = completeTrade();
+        alert(missionAwarded ? "주문이 체결되었습니다. (+30P 미션 달성!)" : "주문이 체결되었습니다.");
         queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       },
       onError: (err: any) => {

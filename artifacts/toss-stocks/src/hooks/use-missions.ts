@@ -62,9 +62,11 @@ export function useMissions() {
     localStorage.setItem(unlockedKey(), JSON.stringify(unlockedItems));
   }, [unlockedItems]);
 
-  const awardPoints = useCallback((type: "attendance" | "quiz" | "trade", pts: number) => {
+  const awardPoints = useCallback((type: "attendance" | "quiz" | "trade", pts: number): boolean => {
+    let awarded = false;
     setMissions((prev) => {
       if (prev[type]) return prev;
+      awarded = true;
       const newPoints = prev.points + pts;
       const newState = { ...prev, [type]: true, points: newPoints };
 
@@ -75,18 +77,19 @@ export function useMissions() {
       }
       return newState;
     });
+    return awarded;
   }, []);
 
   const checkAttendance = useCallback(() => {
-    awardPoints("attendance", 30);
+    return awardPoints("attendance", 30);
   }, [awardPoints]);
 
   const completeQuiz = useCallback(() => {
-    awardPoints("quiz", 40);
+    return awardPoints("quiz", 40);
   }, [awardPoints]);
 
   const completeTrade = useCallback(() => {
-    awardPoints("trade", 30);
+    return awardPoints("trade", 30);
   }, [awardPoints]);
 
   const spendCoins = useCallback((itemId: string, cost: number): boolean => {
