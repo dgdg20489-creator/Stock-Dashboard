@@ -286,6 +286,7 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
           <PieChart className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-extrabold text-foreground">보유 주식</h3>
           <span className="ml-auto text-sm font-semibold text-muted-foreground">{portfolio.holdings.length}종목</span>
+          <span className="text-sm font-bold text-foreground">{formatCurrency(stockValue)}</span>
         </div>
 
         {portfolio.holdings.length === 0 ? (
