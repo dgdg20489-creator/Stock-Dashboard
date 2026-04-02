@@ -59,6 +59,25 @@ async function getCurrentPriceFromDB(pool: pg.Pool, ticker: string): Promise<num
   }
 }
 
+/** stocks_realtime DB에서 현재가 + 등락률을 한 번에 조회 */
+async function getStockRealtimeData(pool: pg.Pool, ticker: string): Promise<{ price: number | null; changePercent: number }> {
+  try {
+    const res = await pool.query(
+      "SELECT current_price, change_pct FROM stocks_realtime WHERE ticker = $1 LIMIT 1",
+      [ticker]
+    );
+    if (res.rows.length > 0 && res.rows[0].current_price) {
+      return {
+        price: Number(res.rows[0].current_price),
+        changePercent: Math.round(Number(res.rows[0].change_pct || 0) * 100) / 100,
+      };
+    }
+    return { price: null, changePercent: 0 };
+  } catch {
+    return { price: null, changePercent: 0 };
+  }
+}
+
 router.post("/users", async (req, res) => {
   try {
     const { username, avatar, difficulty, phone, password } = req.body;
@@ -203,9 +222,9 @@ router.get("/users/:userId/portfolio", async (req, res) => {
 
     let stockValue = 0;
     const holdingItems = await Promise.all(holdings.map(async (h) => {
-      const dbPrice = await getCurrentPriceFromDB(pool, h.ticker);
+      const realtimeData = await getStockRealtimeData(pool, h.ticker);
       const stockMeta = getStockByTicker(h.ticker);
-      const price = dbPrice ?? stockMeta?.basePrice ?? Number(h.avgPrice);
+      const price = realtimeData.price ?? stockMeta?.basePrice ?? Number(h.avgPrice);
       const shares = Number(h.shares);
       const avgPrice = Number(h.avgPrice);
       const evaluationAmount = price * shares;
@@ -221,6 +240,7 @@ router.get("/users/:userId/portfolio", async (req, res) => {
         evaluationAmount,
         profitLoss,
         profitLossPercent: Math.round(profitLossPercent * 100) / 100,
+        changePercent: realtimeData.changePercent,
       };
     }));
 

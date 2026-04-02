@@ -189,6 +189,7 @@ export const GetUserPortfolioResponse = zod.object({
       evaluationAmount: zod.number(),
       profitLoss: zod.number(),
       profitLossPercent: zod.number(),
+      changePercent: zod.number(),
     }),
   ),
   promoted: zod.boolean().optional(),

@@ -223,26 +223,46 @@ function genIntradayCandles(daily: OHLCPoint[], tf: TFKey): OHLCPoint[] {
   const result: OHLCPoint[] = [];
   let seed = 42;
   const rng = () => { seed = (seed * 16807 + 7) % 2147483647; return (seed - 1) / 2147483646; };
+  // Box-Muller 정규분포 (현실적인 가격 변동 시뮬레이션)
+  const randn = () => {
+    const u1 = Math.max(1e-10, rng()), u2 = rng();
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  };
 
   for (const day of daily) {
     if (day.close <= 0) continue;
     let price = day.open > 0 ? day.open : day.close;
-    const range = (day.high - day.low) || day.close * 0.01;
-    // 봉 크기에 비례하는 노이즈/꼬리 크기 (1분봉: 작게, 60분봉: 크게)
-    const barRange = range / bpd;
+    const dailyRange = (day.high - day.low) || day.close * 0.015;
+    // 봉당 변동성: 랜덤워크 기준 sqrt(bpd)로 나눔 → 각 봉의 변동 폭이 bpd에 맞게 스케일됨
+    const barVol = (dailyRange / Math.sqrt(bpd)) * 0.6;
+
     for (let j = 0; j < bpd; j++) {
       const isLast = j === bpd - 1;
-      const drift = (day.close - price) / Math.max(1, bpd - j) * (0.4 + rng() * 0.6);
-      // 노이즈: 봉 크기 비례 (TF가 클수록 봉 내 변동 큼)
-      const noise = (rng() - 0.5) * barRange * 1.2;
-      const close = isLast ? day.close
-        : Math.max(day.low, Math.min(day.high, price + drift + noise));
-      // 꼬리: 봉 크기 비례 (60분봉은 1분봉보다 꼬리가 훨씬 김)
-      const wick = barRange * (0.4 + rng() * 0.8);
-      const high = Math.min(day.high, Math.max(price, close) + wick);
-      const low  = Math.max(day.low,  Math.min(price, close) - wick);
-      result.push({ date: `${day.date} ${j}`, open: price, high, low, close,
-        volume: Math.round(day.volume / bpd * (0.4 + rng() * 1.2)) });
+      const open = price;
+      // 종가 방향으로의 드리프트 (남은 봉 수에 비례)
+      const remaining = bpd - j;
+      const drift = (day.close - price) / remaining * (0.4 + rng() * 0.6);
+      // 정규분포 노이즈로 현실적인 가격 움직임
+      const noise = randn() * barVol;
+      const close = isLast
+        ? day.close
+        : Math.max(day.low * 0.998, Math.min(day.high * 1.002, open + drift + noise));
+
+      // 꼬리: 봉 크기에 비례 (body 범위의 30~80%)
+      const bodyHigh = Math.max(open, close);
+      const bodyLow  = Math.min(open, close);
+      const wickSize = Math.abs(noise) * (0.3 + rng() * 0.5);
+      const high = Math.min(day.high, bodyHigh + wickSize);
+      const low  = Math.max(day.low,  bodyLow  - wickSize);
+
+      result.push({
+        date: `${day.date} ${String(j).padStart(4, "0")}`,
+        open,
+        high: Math.max(high, bodyHigh),
+        low:  Math.min(low,  bodyLow),
+        close,
+        volume: Math.round(day.volume / bpd * (0.3 + rng() * 1.4)),
+      });
       price = close;
     }
   }

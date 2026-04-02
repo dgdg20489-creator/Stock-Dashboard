@@ -72,7 +72,9 @@ function LogoutConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; on
 
 export default function MyInfo({ userId, logout }: MyInfoProps) {
   const { data: user, isLoading: userLoading } = useGetUser(userId);
-  const { data: portfolio, isLoading: portLoading } = useGetUserPortfolio(userId);
+  const { data: portfolio, isLoading: portLoading } = useGetUserPortfolio(userId, {
+    query: { refetchInterval: 2000, staleTime: 0 },
+  });
   const { data: trades, isLoading: tradesLoading } = useGetUserTrades(userId);
   const { missions, coins } = useMissions();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -320,9 +322,12 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-extrabold text-foreground">{formatCurrency(holding.evaluationAmount)}</p>
-                  <p className={cn("text-xs font-bold", getColorClass(holding.profitLoss))}>
-                    {holding.profitLoss > 0 ? "+" : ""}{formatCurrency(holding.profitLoss)} ({formatPercent(holding.profitLossPercent)})
+                  <p className="font-extrabold text-foreground">{formatCurrency(holding.currentPrice)}</p>
+                  <p className={cn("text-xs font-bold", getColorClass(holding.changePercent ?? 0))}>
+                    {(holding.changePercent ?? 0) > 0 ? "+" : ""}{(holding.changePercent ?? 0).toFixed(2)}%
+                  </p>
+                  <p className={cn("text-xs font-semibold", getColorClass(holding.profitLoss))}>
+                    {holding.profitLoss >= 0 ? "+" : ""}{formatCurrency(Math.abs(holding.profitLoss))} ({formatPercent(holding.profitLossPercent)})
                   </p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground ml-2 opacity-50 group-hover:opacity-100 transition-opacity" />

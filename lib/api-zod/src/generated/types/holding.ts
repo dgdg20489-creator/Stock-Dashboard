@@ -15,4 +15,5 @@ export interface Holding {
   evaluationAmount: number;
   profitLoss: number;
   profitLossPercent: number;
+  changePercent: number;
 }
