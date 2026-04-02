@@ -313,6 +313,9 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
           <h3 className="text-lg font-extrabold text-foreground">보유 주식</h3>
           <span className="ml-auto text-sm font-semibold text-muted-foreground">내 투자</span>
           <span className="text-sm font-bold text-foreground">{formatCurrency(stockValue)}</span>
+          <span className={cn("text-xs font-bold", getColorClass(portfolio.totalReturnPercent))}>
+            ({formatPercent(portfolio.totalReturnPercent)})
+          </span>
         </div>
 
         {portfolio.holdings.length === 0 ? (
