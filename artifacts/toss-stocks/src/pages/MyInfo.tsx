@@ -270,9 +270,8 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <StatCard label="보유 현금 (예수금)" value={formatCurrency(portfolio.cashBalance)} sub="주문가능 금액" />
-          <StatCard label="주식 평가액" value={formatCurrency(stockValue)} sub={`${portfolio.holdings.length}개 종목`} />
         </div>
       </motion.div>
 
