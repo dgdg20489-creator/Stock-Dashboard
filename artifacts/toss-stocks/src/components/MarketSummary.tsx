@@ -1,7 +1,6 @@
 import { useGetMarketSummary } from "@workspace/api-client-react";
 import { formatPercent } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const INDEX_META: Record<string, { label: string; emoji: string }> = {
@@ -67,21 +66,9 @@ export function MarketSummary() {
               )} />
 
               {/* 헤더 */}
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm leading-none">{meta.emoji}</span>
-                  <span className="text-[11px] font-bold text-muted-foreground tracking-wide">{meta.label}</span>
-                </div>
-                <div className={cn(
-                  "flex items-center justify-center w-5 h-5 rounded-full",
-                  up   ? "bg-red-500/10"
-                       : down ? "bg-blue-500/10"
-                       : "bg-muted/50"
-                )}>
-                  {up   ? <TrendingUp  className="w-2.5 h-2.5 text-up"   strokeWidth={2.5} />
-                        : down ? <TrendingDown className="w-2.5 h-2.5 text-down" strokeWidth={2.5} />
-                        : <Minus className="w-2.5 h-2.5 text-muted-foreground" strokeWidth={2.5} />}
-                </div>
+              <div className="flex items-center gap-1.5 mb-2.5">
+                <span className="text-sm leading-none">{meta.emoji}</span>
+                <span className="text-[11px] font-bold text-muted-foreground tracking-wide">{meta.label}</span>
               </div>
 
               {/* 현재값 */}
