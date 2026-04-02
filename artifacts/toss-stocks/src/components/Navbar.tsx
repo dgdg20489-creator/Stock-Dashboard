@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { BarChart2, Trophy, Newspaper, User, Star, Zap, Coins } from "lucide-react";
+import { BarChart2, Trophy, Newspaper, User, Star, Zap, Coins, Lightbulb } from "lucide-react";
 import { useMissions } from "@/hooks/use-missions";
 
 export function Navbar() {
@@ -12,7 +12,8 @@ export function Navbar() {
     { label: "관심", path: "/watchlist", icon: Star },
     { label: "랭킹", path: "/rankings", icon: Trophy },
     { label: "뉴스", path: "/news", icon: Newspaper },
-    { label: "내 정보", path: "/my-info", icon: User },
+    { label: "팁·퀴즈", path: "/tips", icon: Lightbulb },
+    { label: "내정보", path: "/my-info", icon: User },
   ];
 
   const isActive = (path: string) =>
