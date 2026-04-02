@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { usersTable, holdingsTable, tradesTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import {
@@ -8,7 +8,7 @@ import {
   GetUserTradesResponse,
   EquipItemsResponse,
 } from "@workspace/api-zod";
-import { getStockPrice, getStockByTicker } from "./stocksData.js";
+import { getStockByTicker } from "./stocksData.js";
 
 const router: IRouter = Router();
 
@@ -43,18 +43,47 @@ function buildUserResponse(user: typeof usersTable.$inferSelect, totalAssets: nu
   };
 }
 
+/** stocks_realtime DB에서 현재가를 직접 조회 */
+async function getCurrentPriceFromDB(pool: pg.Pool, ticker: string): Promise<number | null> {
+  try {
+    const res = await pool.query(
+      "SELECT current_price FROM stocks_realtime WHERE ticker = $1 LIMIT 1",
+      [ticker]
+    );
+    if (res.rows.length > 0 && res.rows[0].current_price) {
+      return Number(res.rows[0].current_price);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 router.post("/users", async (req, res) => {
   try {
-    const { username, avatar, difficulty } = req.body;
-    if (!username || !avatar || !difficulty) {
-      res.status(400).json({ message: "username, avatar, difficulty are required" });
+    const { username, avatar, difficulty, phone, password } = req.body;
+    if (!username || !avatar || !difficulty || !phone || !password) {
+      res.status(400).json({ message: "username, avatar, difficulty, phone, password are required" });
       return;
     }
+
+    // 전화번호 중복 체크
+    const existing = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.phone, phone));
+    if (existing.length > 0) {
+      res.status(409).json({ message: "이미 가입된 전화번호입니다." });
+      return;
+    }
+
     const seed = SEED_MONEY[difficulty] ?? 10_000_000;
     const [user] = await db
       .insert(usersTable)
       .values({
         username,
+        phone,
+        password,
         avatar,
         difficulty,
         seedMoney: String(seed),
@@ -67,6 +96,48 @@ router.post("/users", async (req, res) => {
     const cashNum = Number(user.cashBalance);
     const result = GetUserResponse.parse(buildUserResponse(user, cashNum, 0, 0));
     res.status(201).json(result);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.post("/users/login", async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    if (!phone || !password) {
+      res.status(400).json({ message: "phone, password are required" });
+      return;
+    }
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.phone, phone));
+
+    if (!user) {
+      res.status(401).json({ message: "전화번호가 등록되지 않았습니다." });
+      return;
+    }
+    if (user.password !== password) {
+      res.status(401).json({ message: "비밀번호가 올바르지 않습니다." });
+      return;
+    }
+
+    const holdings = await db.select().from(holdingsTable).where(eq(holdingsTable.userId, user.id));
+    let stockValue = 0;
+    for (const h of holdings) {
+      const dbPrice = await getCurrentPriceFromDB(pool, h.ticker);
+      const price = dbPrice ?? Number(h.avgPrice);
+      stockValue += price * Number(h.shares);
+    }
+    const cashBalance = Number(user.cashBalance);
+    const seedMoney = Number(user.seedMoney);
+    const totalAssets = cashBalance + stockValue;
+    const totalReturn = totalAssets - seedMoney;
+    const totalReturnPercent = (totalReturn / seedMoney) * 100;
+
+    const result = GetUserResponse.parse(buildUserResponse(user, totalAssets, totalReturn, totalReturnPercent));
+    res.json(result);
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Internal server error" });
@@ -93,8 +164,8 @@ router.get("/users/:userId", async (req, res) => {
 
     let stockValue = 0;
     for (const h of holdings) {
-      const stockMeta = getStockByTicker(h.ticker);
-      const { price } = getStockPrice(stockMeta?.basePrice ?? Number(h.avgPrice), h.ticker);
+      const dbPrice = await getCurrentPriceFromDB(pool, h.ticker);
+      const price = dbPrice ?? Number(h.avgPrice);
       stockValue += price * Number(h.shares);
     }
 
@@ -131,14 +202,15 @@ router.get("/users/:userId/portfolio", async (req, res) => {
       .where(eq(holdingsTable.userId, userId));
 
     let stockValue = 0;
-    const holdingItems = holdings.map((h) => {
+    const holdingItems = await Promise.all(holdings.map(async (h) => {
+      const dbPrice = await getCurrentPriceFromDB(pool, h.ticker);
       const stockMeta = getStockByTicker(h.ticker);
-      const { price } = getStockPrice(stockMeta?.basePrice ?? Number(h.avgPrice), h.ticker);
+      const price = dbPrice ?? stockMeta?.basePrice ?? Number(h.avgPrice);
       const shares = Number(h.shares);
       const avgPrice = Number(h.avgPrice);
       const evaluationAmount = price * shares;
       const profitLoss = (price - avgPrice) * shares;
-      const profitLossPercent = ((price - avgPrice) / avgPrice) * 100;
+      const profitLossPercent = avgPrice > 0 ? ((price - avgPrice) / avgPrice) * 100 : 0;
       stockValue += evaluationAmount;
       return {
         ticker: h.ticker,
@@ -150,7 +222,7 @@ router.get("/users/:userId/portfolio", async (req, res) => {
         profitLoss,
         profitLossPercent: Math.round(profitLossPercent * 100) / 100,
       };
-    });
+    }));
 
     const cashBalance = Number(user.cashBalance);
     const seedMoney = Number(user.seedMoney);
@@ -163,7 +235,6 @@ router.get("/users/:userId/portfolio", async (req, res) => {
     let demoted = false;
     let newDifficulty: string | undefined;
 
-    // 승격 조건
     if (user.difficulty === "beginner" && totalReturnPercent >= 20) {
       await db.update(usersTable).set({ difficulty: "intermediate" }).where(eq(usersTable.id, userId));
       promoted = true;
@@ -172,9 +243,7 @@ router.get("/users/:userId/portfolio", async (req, res) => {
       await db.update(usersTable).set({ difficulty: "expert" }).where(eq(usersTable.id, userId));
       promoted = true;
       newDifficulty = "expert";
-    }
-    // 강등 조건 (수익률 -20% 이하)
-    else if (user.difficulty === "expert" && totalReturnPercent <= -20) {
+    } else if (user.difficulty === "expert" && totalReturnPercent <= -20) {
       await db.update(usersTable).set({ difficulty: "intermediate" }).where(eq(usersTable.id, userId));
       demoted = true;
       newDifficulty = "intermediate";
@@ -249,13 +318,14 @@ router.get("/users/:userId/public-profile", async (req, res) => {
       .limit(20);
 
     let stockValue = 0;
-    const publicHoldings = holdings.map((h) => {
+    const publicHoldings = await Promise.all(holdings.map(async (h) => {
+      const dbPrice = await getCurrentPriceFromDB(pool, h.ticker);
       const stockMeta = getStockByTicker(h.ticker);
-      const { price } = getStockPrice(stockMeta?.basePrice ?? Number(h.avgPrice), h.ticker);
+      const price = dbPrice ?? stockMeta?.basePrice ?? Number(h.avgPrice);
       const shares = Number(h.shares);
       const avgPrice = Number(h.avgPrice);
       const evaluationAmount = price * shares;
-      const profitLossPercent = ((price - avgPrice) / avgPrice) * 100;
+      const profitLossPercent = avgPrice > 0 ? ((price - avgPrice) / avgPrice) * 100 : 0;
       stockValue += evaluationAmount;
       return {
         ticker: h.ticker,
@@ -263,7 +333,7 @@ router.get("/users/:userId/public-profile", async (req, res) => {
         shares,
         returnPercent: Math.round(profitLossPercent * 100) / 100,
       };
-    });
+    }));
 
     const cashBalance = Number(user.cashBalance);
     const seedMoney = Number(user.seedMoney);

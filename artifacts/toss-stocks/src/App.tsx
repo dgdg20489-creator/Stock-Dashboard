@@ -165,10 +165,17 @@ function DifficultyNotifModal({
 function Router() {
   const { userId, login, logout } = useAuth();
   const qc = useQueryClient();
-  const { data: user } = useGetUser(userId ?? 0, { query: { enabled: !!userId } });
+  const { data: user, error: userError } = useGetUser(userId ?? 0, { query: { enabled: !!userId } });
   const { data: portfolio } = useGetUserPortfolio(userId ?? 0, {
     query: { enabled: !!userId, refetchInterval: 20000 },
   });
+
+  // 유저가 DB에서 삭제된 경우 자동 로그아웃
+  useEffect(() => {
+    if (userError && (userError as any)?.status === 404) {
+      logout();
+    }
+  }, [userError]);
 
   const [notif, setNotif] = useState<{ type: NotifType; newDifficulty: string } | null>(null);
 
