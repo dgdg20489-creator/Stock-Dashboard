@@ -233,8 +233,9 @@ function genIntradayCandles(daily: OHLCPoint[], tf: TFKey): OHLCPoint[] {
     if (day.close <= 0) continue;
     let price = day.open > 0 ? day.open : day.close;
     const dailyRange = (day.high - day.low) || day.close * 0.015;
-    // 봉당 변동성: 랜덤워크 기준 sqrt(bpd)로 나눔 → 각 봉의 변동 폭이 bpd에 맞게 스케일됨
-    const barVol = (dailyRange / Math.sqrt(bpd)) * 0.6;
+    // TF별 변동성 계수: 큰 TF(30m·60m)는 봉당 노이즈가 너무 커지지 않도록 축소
+    const volFactor = ({ "1m": 0.60, "5m": 0.60, "15m": 0.55, "30m": 0.28, "60m": 0.18 } as Record<TFKey, number>)[tf] ?? 0.50;
+    const barVol = (dailyRange / Math.sqrt(bpd)) * volFactor;
 
     for (let j = 0; j < bpd; j++) {
       const isLast = j === bpd - 1;
