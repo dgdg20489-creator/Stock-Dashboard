@@ -1317,6 +1317,61 @@ export type BuyItemMutationError = ErrorType<TradeError>;
 /**
  * @summary Purchase a shop item
  */
+// ── IPO ────────────────────────────────────────────────────────────────────
+export interface IpoStock {
+  ticker: string;
+  name: string;
+  market: string;
+  ipoPrice: number | null;
+  listingDate: string;
+  status: "today" | "upcoming" | "listed";
+  dDay: number;
+}
+
+export const getGetIpoStocksUrl = () => `/api/ipo`;
+
+export const getIpoStocks = async (
+  options?: RequestInit,
+): Promise<IpoStock[]> => {
+  return customFetch<IpoStock[]>(getGetIpoStocksUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetIpoStocksQueryKey = () => [`/api/stocks/ipo`] as const;
+
+export const getGetIpoStocksQueryOptions = <
+  TData = Awaited<ReturnType<typeof getIpoStocks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getIpoStocks>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetIpoStocksQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getIpoStocks>>> = ({ signal }) =>
+    getIpoStocks({ signal, ...requestOptions });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getIpoStocks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export function useGetIpoStocks<
+  TData = Awaited<ReturnType<typeof getIpoStocks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getIpoStocks>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetIpoStocksQueryOptions(options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  query.queryKey = queryOptions.queryKey;
+  return query;
+}
+
 export const useBuyItem = <
   TError = ErrorType<TradeError>,
   TContext = unknown,

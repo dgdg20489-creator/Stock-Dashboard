@@ -19,6 +19,7 @@ import Wardrobe from "./pages/Wardrobe";
 import DailyMissions from "./pages/DailyMissions";
 import InvestorProfile from "./pages/InvestorProfile";
 import Tips from "./pages/Tips";
+import Ipo from "./pages/Ipo";
 import NotFound from "./pages/not-found";
 
 const queryClient = new QueryClient({
@@ -209,6 +210,7 @@ function Router() {
           <Route path="/wardrobe">{() => <Wardrobe userId={userId} userDifficulty={difficulty} avatarId={avatarId} />}</Route>
           <Route path="/missions">{() => <DailyMissions userId={userId} />}</Route>
           <Route path="/tips" component={Tips} />
+          <Route path="/ipo" component={Ipo} />
           <Route path="/my-info">{() => <MyInfo userId={userId} logout={logout} />}</Route>
           <Route component={NotFound} />
         </Switch>

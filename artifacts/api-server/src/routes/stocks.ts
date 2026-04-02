@@ -334,26 +334,34 @@ router.get("/news", async (req, res) => {
 
 router.get("/ipo", async (_req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT ticker, name, market, ipo_price, listing_date,
-             subscription_start, subscription_end,
-             CASE WHEN listing_date <= CURRENT_DATE THEN 'listed' ELSE 'upcoming' END as status
+    const { rows } = await pool.query<{
+      ticker: string; name: string; market: string;
+      ipo_price: string | null; listing_date: string;
+    }>(`
+      SELECT ticker, name, market, ipo_price, listing_date::text
       FROM ipo_stocks
-      ORDER BY listing_date ASC
-      LIMIT 50
+      ORDER BY listing_date
     `);
-    const ipos = result.rows.map((r) => ({
-      ticker:            r.ticker,
-      name:              r.name,
-      market:            r.market,
-      ipoPrice:          r.ipo_price ? parseFloat(r.ipo_price) : null,
-      listingDate:       r.listing_date ? new Date(r.listing_date).toISOString().split("T")[0] : "",
-      subscriptionStart: r.subscription_start ? new Date(r.subscription_start).toISOString().split("T")[0] : null,
-      subscriptionEnd:   r.subscription_end   ? new Date(r.subscription_end).toISOString().split("T")[0]   : null,
-      status:            r.status,
-    }));
-    res.json(ipos);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const items = rows.map((r) => {
+      const listing = new Date(r.listing_date);
+      listing.setHours(0, 0, 0, 0);
+      const diff = Math.round((listing.getTime() - today.getTime()) / 86400000);
+      const status = diff === 0 ? "today" : diff > 0 ? "upcoming" : "listed";
+      return {
+        ticker: r.ticker,
+        name: r.name,
+        market: r.market,
+        ipoPrice: r.ipo_price ? Number(r.ipo_price) : null,
+        listingDate: r.listing_date,
+        status,
+        dDay: diff,
+      };
+    });
+    res.json(items);
   } catch (e) {
+    console.error("IPO route error:", e);
     res.json([]);
   }
 });

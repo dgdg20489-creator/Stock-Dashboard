@@ -306,6 +306,20 @@ export const GetShopItemsResponseItem = zod.object({
 export const GetShopItemsResponse = zod.array(GetShopItemsResponseItem);
 
 /**
+ * @summary Get IPO stocks list
+ */
+export const GetIpoStocksResponseItem = zod.object({
+  ticker: zod.string(),
+  name: zod.string(),
+  market: zod.string(),
+  ipoPrice: zod.number().nullable(),
+  listingDate: zod.string(),
+  status: zod.enum(["today", "upcoming", "listed"]),
+  dDay: zod.number(),
+});
+export const GetIpoStocksResponse = zod.array(GetIpoStocksResponseItem);
+
+/**
  * @summary Purchase a shop item
  */
 export const BuyItemBody = zod.object({
