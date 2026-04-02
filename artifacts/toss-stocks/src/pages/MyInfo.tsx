@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useGetUser, useGetUserPortfolio, useGetUserTrades } from "@workspace/api-client-react";
 import { formatCurrency, formatPercent, getColorClass, cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -91,6 +91,32 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
 
   const stockValue = portfolio.totalAssets - portfolio.cashBalance;
   const isProfit = portfolio.totalReturn >= 0;
+
+  // 실현 손익: 매도 체결 기준으로만 계산 (현재가 무관)
+  const realizedPnL = useMemo(() => {
+    if (!trades || trades.length === 0) return 0;
+    const sorted = [...trades].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    const basis: Record<string, { shares: number; totalCost: number }> = {};
+    let realized = 0;
+    for (const t of sorted) {
+      if (!basis[t.ticker]) basis[t.ticker] = { shares: 0, totalCost: 0 };
+      if (t.type === "buy") {
+        basis[t.ticker].shares += t.shares;
+        basis[t.ticker].totalCost += t.totalAmount;
+      } else {
+        const avgCost =
+          basis[t.ticker].shares > 0
+            ? basis[t.ticker].totalCost / basis[t.ticker].shares
+            : 0;
+        realized += (t.price - avgCost) * t.shares;
+        const remaining = Math.max(0, basis[t.ticker].shares - t.shares);
+        basis[t.ticker] = { shares: remaining, totalCost: remaining * avgCost };
+      }
+    }
+    return realized;
+  }, [trades]);
 
   const difficultyLabel =
     user.difficulty === "beginner" ? "🌱 초보" :
@@ -341,15 +367,10 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         </div>
 
         <div className="flex items-center justify-between bg-muted/40 rounded-2xl px-4 py-3 mb-4 border border-border/40">
-          <span className="text-sm font-semibold text-muted-foreground">총 수익/손실</span>
-          <div className="flex items-baseline gap-1.5">
-            <span className={cn("text-base font-extrabold", getColorClass(portfolio.totalReturn))}>
-              {portfolio.totalReturn >= 0 ? "+" : ""}{formatCurrency(portfolio.totalReturn)}
-            </span>
-            <span className={cn("text-xs font-bold", getColorClass(portfolio.totalReturn))}>
-              ({formatPercent(portfolio.totalReturnPercent)})
-            </span>
-          </div>
+          <span className="text-sm font-semibold text-muted-foreground">총 수익 (실현)</span>
+          <span className={cn("text-base font-extrabold", getColorClass(realizedPnL))}>
+            {realizedPnL >= 0 ? "+" : ""}{formatCurrency(realizedPnL)}
+          </span>
         </div>
 
         {tradesLoading ? (
