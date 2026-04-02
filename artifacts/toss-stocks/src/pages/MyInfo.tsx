@@ -273,13 +273,6 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         <div className="grid grid-cols-2 gap-3">
           <StatCard label="보유 현금 (예수금)" value={formatCurrency(portfolio.cashBalance)} sub="주문가능 금액" />
           <StatCard label="주식 평가액" value={formatCurrency(stockValue)} sub={`${portfolio.holdings.length}개 종목`} />
-          <StatCard label="시드 머니" value={formatCurrency(user.seedMoney)} sub="최초 투자 원금" />
-          <StatCard
-            label="총 수익/손실"
-            value={formatCurrency(portfolio.totalReturn)}
-            sub={formatPercent(portfolio.totalReturnPercent)}
-            subColor={getColorClass(portfolio.totalReturn)}
-          />
         </div>
       </motion.div>
 
@@ -341,10 +334,22 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         transition={{ delay: 0.2 }}
         className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm"
       >
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-3">
           <ClipboardList className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-extrabold text-foreground">매매 기록</h3>
           {trades && <span className="ml-auto text-sm font-semibold text-muted-foreground">총 {trades.length}건</span>}
+        </div>
+
+        <div className="flex items-center justify-between bg-muted/40 rounded-2xl px-4 py-3 mb-4 border border-border/40">
+          <span className="text-sm font-semibold text-muted-foreground">총 수익/손실</span>
+          <div className="flex items-baseline gap-1.5">
+            <span className={cn("text-base font-extrabold", getColorClass(portfolio.totalReturn))}>
+              {portfolio.totalReturn >= 0 ? "+" : ""}{formatCurrency(portfolio.totalReturn)}
+            </span>
+            <span className={cn("text-xs font-bold", getColorClass(portfolio.totalReturn))}>
+              ({formatPercent(portfolio.totalReturnPercent)})
+            </span>
+          </div>
         </div>
 
         {tradesLoading ? (
