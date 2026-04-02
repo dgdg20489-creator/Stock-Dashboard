@@ -140,11 +140,11 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
   const missionsCompleted = [missions.attendance, missions.quiz, missions.trade].filter(Boolean).length;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-500">
+    <div className="max-w-2xl mx-auto space-y-3 animate-in fade-in duration-500">
       <div className="flex items-start justify-between px-1">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">내 정보</h1>
-          <p className="text-muted-foreground font-medium mt-1">자산 현황과 투자 기록을 확인하세요.</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">내 정보</h1>
+          <p className="text-muted-foreground font-medium mt-0.5 text-sm">자산 현황과 투자 기록을 확인하세요.</p>
         </div>
         <button
           onClick={() => setShowLogoutModal(true)}
@@ -186,10 +186,10 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm"
+        className="bg-card rounded-3xl p-4 border border-border/50 shadow-sm"
       >
-        <div className="flex items-center gap-5">
-          <GameAvatar avatarId={user.avatar} size={80} rounded="rounded-3xl" className="shadow-inner flex-shrink-0" />
+        <div className="flex items-center gap-4">
+          <GameAvatar avatarId={user.avatar} size={64} rounded="rounded-2xl" className="shadow-inner flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <h2 className="text-2xl font-extrabold text-foreground">{user.username}</h2>
             <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-bold bg-red-50 text-red-600 mt-1">
@@ -245,27 +245,27 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         className="grid grid-cols-2 gap-4"
       >
         <Link href="/missions">
-          <div className="bg-gradient-to-br from-red-600 to-red-500 rounded-3xl p-5 text-white cursor-pointer hover:shadow-lg hover:shadow-red-500/20 hover:-translate-y-0.5 transition-all">
-            <div className="flex items-center gap-2 mb-3">
-              <Zap className="w-5 h-5 text-red-100" />
+          <div className="bg-gradient-to-br from-red-600 to-red-500 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-red-500/20 hover:-translate-y-0.5 transition-all">
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="w-4 h-4 text-red-100" />
               <span className="font-bold text-sm text-red-100">일일 미션</span>
             </div>
-            <p className="text-3xl font-extrabold">{missions.points}<span className="text-lg text-red-200">P</span></p>
+            <p className="text-2xl font-extrabold">{missions.points}<span className="text-base text-red-200">P</span></p>
             <div className="mt-2 h-1.5 bg-red-400/40 rounded-full overflow-hidden">
               <div className="h-full bg-white rounded-full transition-all" style={{ width: `${Math.min(100, missions.points)}%` }} />
             </div>
-            <p className="text-xs text-red-200 font-semibold mt-2">{missionsCompleted}/3 미션 완료</p>
+            <p className="text-xs text-red-200 font-semibold mt-1.5">{missionsCompleted}/3 미션 완료</p>
           </div>
         </Link>
 
         <Link href="/wardrobe">
-          <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-3xl p-5 text-white cursor-pointer hover:shadow-lg hover:shadow-blue-500/20 hover:-translate-y-0.5 transition-all">
-            <div className="flex items-center gap-2 mb-3">
-              <Shirt className="w-5 h-5 text-blue-100" />
+          <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-blue-500/20 hover:-translate-y-0.5 transition-all">
+            <div className="flex items-center gap-2 mb-2">
+              <Shirt className="w-4 h-4 text-blue-100" />
               <span className="font-bold text-sm text-blue-100">아바타 옷장</span>
             </div>
-            <p className="text-3xl font-extrabold">🪙 {coins}</p>
-            <p className="text-xs text-blue-200 font-semibold mt-3">보유 아바타 코인</p>
+            <p className="text-2xl font-extrabold">🪙 {coins}</p>
+            <p className="text-xs text-blue-200 font-semibold mt-2">보유 아바타 코인</p>
             <p className="text-xs text-blue-200 font-medium mt-0.5">아이템 잠금 해제 가능</p>
           </div>
         </Link>
@@ -279,16 +279,16 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.08 }}
-        className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm"
+        className="bg-card rounded-3xl p-4 border border-border/50 shadow-sm"
       >
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-3">
           <Wallet className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-extrabold text-foreground">자산 현황</h3>
         </div>
 
-        <div className="bg-gradient-to-r from-red-50 to-blue-50 rounded-2xl p-5 mb-4 border border-border/30">
+        <div className="bg-gradient-to-r from-red-50 to-blue-50 rounded-2xl p-4 mb-3 border border-border/30">
           <p className="text-sm font-semibold text-muted-foreground mb-1">전체 평가 금액</p>
-          <p className="text-3xl font-extrabold text-foreground">{formatCurrency(portfolio.totalAssets)}</p>
+          <p className="text-2xl font-extrabold text-foreground">{formatCurrency(portfolio.totalAssets)}</p>
           <div className={cn("flex items-center gap-1.5 mt-1.5 font-bold", getColorClass(portfolio.totalReturn))}>
             <span>{isProfit ? "▲" : "▼"}</span>
             <span>{formatCurrency(Math.abs(portfolio.totalReturn))}</span>
@@ -306,12 +306,12 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.14 }}
-        className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm"
+        className="bg-card rounded-3xl p-4 border border-border/50 shadow-sm"
       >
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-3">
           <PieChart className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-extrabold text-foreground">보유 주식</h3>
-          <span className="ml-auto text-sm font-semibold text-muted-foreground">{portfolio.holdings.length}종목</span>
+          <span className="ml-auto text-sm font-semibold text-muted-foreground">내 투자</span>
           <span className="text-sm font-bold text-foreground">{formatCurrency(stockValue)}</span>
         </div>
 
@@ -358,7 +358,7 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm"
+        className="bg-card rounded-3xl p-4 border border-border/50 shadow-sm"
       >
         <div className="flex items-center gap-2 mb-3">
           <ClipboardList className="w-5 h-5 text-primary" />
