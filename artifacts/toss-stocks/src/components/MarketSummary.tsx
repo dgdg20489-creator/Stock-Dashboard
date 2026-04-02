@@ -59,12 +59,6 @@ export function MarketSummary() {
                      : "bg-gradient-to-br from-card to-muted/20 border-border/50 hover:shadow-sm"
               )}
             >
-              {/* 배경 장식 */}
-              <div className={cn(
-                "absolute -right-4 -top-4 w-20 h-20 rounded-full opacity-[0.06]",
-                up ? "bg-red-500" : down ? "bg-blue-500" : "bg-muted-foreground"
-              )} />
-
               {/* 헤더 */}
               <div className="flex items-center gap-1.5 mb-2.5">
                 <span className="text-sm leading-none">{meta.emoji}</span>
