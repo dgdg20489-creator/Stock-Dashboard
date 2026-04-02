@@ -352,7 +352,7 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-extrabold text-foreground">{formatCurrency(holding.currentPrice)}</p>
+                  <p className="font-extrabold text-foreground">{formatCurrency(holding.currentPrice * holding.shares)}</p>
                   <p className={cn("text-xs font-bold", getColorClass(holding.profitLoss))}>
                     {holding.profitLoss >= 0 ? "+" : ""}{formatCurrency(Math.abs(holding.profitLoss))} ({formatPercent(holding.profitLossPercent)})
                   </p>
