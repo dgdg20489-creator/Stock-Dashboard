@@ -1,9 +1,22 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { usersTable, holdingsTable, tradesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { ExecuteTradeResponse } from "@workspace/api-zod";
 import { getStockByTicker, getStockPrice } from "./stocksData.js";
+
+async function getRealTimePrice(ticker: string): Promise<number | null> {
+  try {
+    const res = await pool.query<{ current_price: string }>(
+      "SELECT current_price FROM stocks_realtime WHERE ticker=$1 LIMIT 1",
+      [ticker]
+    );
+    if (res.rows.length > 0 && res.rows[0].current_price) {
+      return Math.round(parseFloat(res.rows[0].current_price));
+    }
+  } catch {}
+  return null;
+}
 
 const router: IRouter = Router();
 
@@ -27,7 +40,8 @@ router.post("/trades", async (req, res) => {
       return;
     }
 
-    const { price } = getStockPrice(stockMeta.basePrice, ticker);
+    const dbPrice = await getRealTimePrice(ticker);
+    const price = dbPrice ?? getStockPrice(stockMeta.basePrice, ticker).price;
     const totalAmount = price * shares;
     const cashBalance = Number(user.cashBalance);
 

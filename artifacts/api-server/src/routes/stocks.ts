@@ -417,14 +417,20 @@ router.get("/market/rankings", async (req, res) => {
     const type = (req.query.type as string) || "trade_amount"; // trade_amount | volume
     const limit = Math.min(Number(req.query.limit) || 50, 100);
 
-    // 1차: market_rankings 테이블에서 최신 Naver 스크래핑 결과
+    // 1차: market_rankings + stocks_realtime JOIN → 실시간 change_pct & price 반영
     const dbResult = await pool.query<{
       rank: string; ticker: string; name: string; price: string;
       change_pct: string; volume: string; trade_amount: string; market: string | null;
       updated_at: string;
     }>(
-      `SELECT rank, ticker, name, price, change_pct, volume, trade_amount, market, updated_at
-       FROM market_rankings WHERE type = $1 ORDER BY rank LIMIT $2`,
+      `SELECT mr.rank, mr.ticker, mr.name,
+              COALESCE(sr.current_price::text, mr.price) AS price,
+              COALESCE(sr.change_pct::text, mr.change_pct) AS change_pct,
+              mr.volume, mr.trade_amount, mr.market, mr.updated_at
+       FROM market_rankings mr
+       LEFT JOIN stocks_realtime sr ON mr.ticker = sr.ticker
+       WHERE mr.type = $1
+       ORDER BY mr.rank LIMIT $2`,
       [type, limit]
     );
 
