@@ -1,11 +1,9 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { BarChart2, Trophy, Newspaper, User, Star, Zap, Coins, Lightbulb } from "lucide-react";
-import { useMissions } from "@/hooks/use-missions";
+import { BarChart2, Trophy, Newspaper, User, Star, Lightbulb } from "lucide-react";
 
 export function Navbar() {
   const [location] = useLocation();
-  const { missions, coins } = useMissions();
 
   const navItems = [
     { label: "주식", path: "/", icon: BarChart2 },
@@ -57,22 +55,6 @@ export function Navbar() {
                 );
               })}
             </nav>
-          </div>
-
-          {/* 오른쪽: 미션 / 코인 */}
-          <div className="flex items-center gap-1.5">
-            <Link href="/missions">
-              <button className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/8">
-                <Zap className="w-3 h-3 text-amber-400" />
-                <span className="text-[11px] font-semibold text-white/70">{missions.points}P</span>
-              </button>
-            </Link>
-            <Link href="/missions">
-              <button className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/8">
-                <Coins className="w-3 h-3 text-yellow-400" />
-                <span className="text-[11px] font-semibold text-white/70">{coins}</span>
-              </button>
-            </Link>
           </div>
         </div>
       </header>
