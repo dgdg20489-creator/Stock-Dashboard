@@ -92,6 +92,14 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
   const stockValue = portfolio.totalAssets - portfolio.cashBalance;
   const isProfit = portfolio.totalReturn >= 0;
 
+  // 현재 보유 주식만 기준: 평단 대비 수익률
+  const holdingCostBasis = portfolio.holdings.reduce(
+    (sum, h) => sum + h.avgPrice * h.shares, 0
+  );
+  const holdingReturnPct = holdingCostBasis > 0
+    ? ((stockValue - holdingCostBasis) / holdingCostBasis) * 100
+    : 0;
+
   // 실현 손익: 매도 체결 기준으로만 계산 (현재가 무관)
   const realizedPnL = useMemo(() => {
     if (!trades || trades.length === 0) return 0;
@@ -313,8 +321,8 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
           <h3 className="text-lg font-extrabold text-foreground">보유 주식</h3>
           <span className="ml-auto text-sm font-semibold text-muted-foreground">내 투자</span>
           <span className="text-sm font-bold text-foreground">{formatCurrency(stockValue)}</span>
-          <span className={cn("text-xs font-bold", getColorClass(portfolio.totalReturnPercent))}>
-            ({formatPercent(portfolio.totalReturnPercent)})
+          <span className={cn("text-xs font-bold", getColorClass(holdingReturnPct))}>
+            ({formatPercent(holdingReturnPct)})
           </span>
         </div>
 
