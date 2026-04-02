@@ -424,8 +424,8 @@ router.get("/market/rankings", async (req, res) => {
       updated_at: string;
     }>(
       `SELECT mr.rank, mr.ticker, mr.name,
-              COALESCE(sr.current_price::text, mr.price) AS price,
-              COALESCE(sr.change_pct::text, mr.change_pct) AS change_pct,
+              COALESCE(sr.current_price, mr.price)::text AS price,
+              COALESCE(sr.change_pct, mr.change_pct)::text AS change_pct,
               mr.volume, mr.trade_amount, mr.market, mr.updated_at
        FROM market_rankings mr
        LEFT JOIN stocks_realtime sr ON mr.ticker = sr.ticker
