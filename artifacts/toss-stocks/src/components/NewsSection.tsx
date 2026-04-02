@@ -69,12 +69,12 @@ export function timeAgo(iso: string): string {
 function SentimentBadge({ sentiment }: { sentiment: "positive" | "negative" | null }) {
   if (!sentiment) return null;
   return sentiment === "positive" ? (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-red-50 text-up border border-red-100 flex-shrink-0">
-      호재
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-red-50 text-up border border-red-100 flex-shrink-0">
+      😊 호재
     </span>
   ) : (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-50 text-down border border-blue-100 flex-shrink-0">
-      악재
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-50 text-down border border-blue-100 flex-shrink-0">
+      😢 악재
     </span>
   );
 }
