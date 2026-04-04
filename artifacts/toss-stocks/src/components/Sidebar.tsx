@@ -3,7 +3,7 @@ import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { BarChart2, Trophy, Lightbulb, User, TrendingUp, TrendingDown } from "lucide-react";
+import { BarChart2, Trophy, Lightbulb, User, TrendingUp, TrendingDown, PlayCircle } from "lucide-react";
 import { GameAvatar, getAvatarDef, INVEST_TYPES } from "@/components/GameAvatar";
 
 interface SidebarProps {
@@ -25,6 +25,7 @@ export function Sidebar({ userId }: SidebarProps) {
     { label: "주식", path: "/", icon: BarChart2 },
     { label: "랭킹", path: "/rankings", icon: Trophy },
     { label: "주식 팁", path: "/tips", icon: Lightbulb },
+    { label: "주식 가이드", path: "/guide", icon: PlayCircle },
     { label: "내 정보", path: "/my-info", icon: User },
   ];
 
