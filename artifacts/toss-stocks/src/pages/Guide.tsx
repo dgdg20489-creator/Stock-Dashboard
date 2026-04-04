@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PlayCircle, ExternalLink, GraduationCap, BookOpen, TrendingUp, Zap, Star } from "lucide-react";
+import { PlayCircle, ExternalLink, GraduationCap, BookOpen, TrendingUp, Zap, Star, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Level = "basic" | "mid" | "advanced" | "bonus";
@@ -14,6 +14,8 @@ interface VideoCard {
   tags: string[];
   url: string;
   color: string;
+  videoId?: string;
+  views?: string;
 }
 
 const LEVELS: { id: Level; label: string; emoji: string; subtitle: string; color: string; bg: string; border: string; icon: typeof BookOpen }[] = [
@@ -62,89 +64,116 @@ const LEVELS: { id: Level; label: string; emoji: string; subtitle: string; color
 const VIDEOS: Record<Level, VideoCard[]> = {
   basic: [
     {
-      title: "주식 왕초보 완전기초 강의",
+      title: "ETF 하나면 충분합니다 (1편)",
       channel: "박곰희TV",
       channelBadge: "🐻",
-      description: "전직 PB 출신의 박곰희가 주식 계좌 개설부터 첫 매수까지, 10분 내외로 쉽게 설명합니다.",
-      duration: "10분 내외",
-      tags: ["계좌개설", "주식 기초", "초보 필수"],
-      url: "https://www.youtube.com/@박곰희TV",
+      description: "전직 PB 출신 박곰희가 초보자도 이해할 수 있게 ETF를 처음부터 설명합니다. 분산투자의 핵심, 실제 매수 방법까지 10분 내외로 정리.",
+      duration: "약 10분",
+      tags: ["ETF", "분산투자", "초보 필수", "54만 조회"],
+      url: "https://www.youtube.com/watch?v=okrUVN8l3zk",
+      videoId: "okrUVN8l3zk",
+      views: "54만 조회",
       color: "from-emerald-500/20 to-teal-500/10",
     },
     {
-      title: "주식이란 무엇인가? 경제 왕기초",
+      title: "IRP가 노후준비용으로 최강인 이유 (vs.연금저축펀드)",
+      channel: "박곰희TV",
+      channelBadge: "🐻",
+      description: "IRP와 연금저축펀드의 차이, 세액공제 혜택, 어디에 넣어야 할지 — 100만 뷰가 증명하는 인기 강의.",
+      duration: "약 15분",
+      tags: ["IRP", "연금저축", "세액공제", "100만 조회"],
+      url: "https://www.youtube.com/watch?v=xqXD9R_3TOI",
+      videoId: "xqXD9R_3TOI",
+      views: "100만 조회",
+      color: "from-teal-500/20 to-green-500/10",
+    },
+    {
+      title: "지금은 어떤 투자를 해야 하는가",
       channel: "슈카월드",
       channelBadge: "📈",
-      description: "311만 구독자 슈카가 주식·경제 개념을 유머와 함께 쉽고 재미있게 풀어냅니다.",
-      duration: "15~20분",
-      tags: ["주식 개념", "경제 기초", "유머 설명"],
-      url: "https://www.youtube.com/@ShukaWorld",
+      description: "311만 구독자 슈카가 현 시장 상황에서 어떤 투자 선택을 해야 하는지 거시경제 관점으로 쉽게 풀어냅니다.",
+      duration: "약 20분",
+      tags: ["투자전략", "거시경제", "시장분석"],
+      url: "https://www.youtube.com/watch?v=rt-RI-uQeGg",
+      videoId: "rt-RI-uQeGg",
       color: "from-blue-500/20 to-cyan-500/10",
     },
     {
-      title: "주식 기초 A-Z 입문 특강",
-      channel: "삼프로TV",
-      channelBadge: "3️⃣",
-      description: "대한민국 대표 경제 전문 채널 삼프로TV의 초보자 맞춤 주식 입문 콘텐츠 모음입니다.",
-      duration: "10~30분",
-      tags: ["입문 강의", "용어 정리", "장기투자"],
-      url: "https://www.youtube.com/@3protv",
-      color: "from-red-500/20 to-orange-500/10",
-    },
-    {
-      title: "ETF 기초 — 처음 투자자 필수 시청",
+      title: "미국주식·ETF 입문 채널",
       channel: "소수몽키",
       channelBadge: "🐵",
-      description: "미국·한국 ETF 개념부터 실제 매수 방법까지. 분산 투자의 핵심을 평범한 직장인 눈높이로 설명합니다.",
-      duration: "12분 내외",
-      tags: ["ETF", "분산투자", "미국주식"],
-      url: "https://www.youtube.com/results?search_query=소수몽키+ETF+기초+초보",
+      description: "평범한 직장인 눈높이로 미국주식·ETF 투자를 설명하는 소수몽키 채널. S&P500·나스닥·배당 ETF 핵심 콘텐츠 추천.",
+      duration: "영상별 상이",
+      tags: ["미국주식", "ETF", "S&P500", "채널 이동"],
+      url: "https://www.youtube.com/@sosumongkey",
       color: "from-yellow-500/20 to-amber-500/10",
     },
   ],
   mid: [
     {
-      title: "재무제표 5분 만에 읽는 법",
-      channel: "박곰희TV",
-      channelBadge: "🐻",
-      description: "PER·PBR·ROE·부채비율을 한눈에 파악하는 방법. 좋은 기업 고르는 기준을 수치로 배웁니다.",
-      duration: "15분 내외",
-      tags: ["재무제표", "PER", "ROE", "기업분석"],
-      url: "https://www.youtube.com/results?search_query=박곰희TV+재무제표+읽는법+주식",
+      title: "주식 차트의 악랄함",
+      channel: "슈카월드",
+      channelBadge: "📈",
+      description: "차트를 믿으면 안 되는 이유와, 그럼에도 불구하고 기술적 분석을 어떻게 활용해야 하는지 슈카 특유의 날카로운 시각으로 분석합니다.",
+      duration: "약 20분",
+      tags: ["기술적분석", "차트", "심리", "함정"],
+      url: "https://www.youtube.com/watch?v=Zs0Fpq51LF8",
+      videoId: "Zs0Fpq51LF8",
       color: "from-blue-500/20 to-indigo-500/10",
     },
     {
-      title: "기술적 분석 완벽 정리 — 이동평균선 MACD RSI",
-      channel: "유튜브 검색",
-      channelBadge: "📉",
-      description: "차트를 보는 눈을 키우는 강의. 이동평균선의 의미, 골든크로스·데드크로스, 보조지표 활용법까지.",
-      duration: "20~30분",
-      tags: ["차트", "이동평균선", "MACD", "RSI"],
-      url: "https://www.youtube.com/results?search_query=주식+기술적분석+이동평균선+MACD+RSI+기초",
+      title: "재무제표·PER·ROE 읽는 법",
+      channel: "박곰희TV",
+      channelBadge: "🐻",
+      description: "PER·PBR·ROE·부채비율을 한눈에 파악하는 방법. 좋은 기업 고르는 기준을 수치로 배웁니다.",
+      duration: "약 15분",
+      tags: ["재무제표", "PER", "ROE", "기업분석"],
+      url: "https://www.youtube.com/results?search_query=박곰희TV+재무제표+기업분석+주식",
       color: "from-purple-500/20 to-violet-500/10",
     },
     {
       title: "배당주 투자 전략 — 월세처럼 받는 배당금",
       channel: "소수몽키",
       channelBadge: "🐵",
-      description: "배당주·배당ETF로 현금 흐름 만드는 법. '잠든 사이 월급 버는' 배당 투자 철학을 담은 시리즈입니다.",
-      duration: "15분 내외",
-      tags: ["배당주", "현금흐름", "장기투자"],
+      description: "배당주·배당ETF로 현금 흐름 만드는 법. '잠든 사이 월급 버는' 배당 투자 철학을 담은 핵심 시리즈.",
+      duration: "약 15분",
+      tags: ["배당주", "현금흐름", "장기투자", "배당ETF"],
       url: "https://www.youtube.com/results?search_query=소수몽키+배당주+배당ETF+투자전략",
       color: "from-green-500/20 to-emerald-500/10",
     },
     {
-      title: "가치투자란? PER·PBR로 저평가 주식 고르기",
-      channel: "유튜브 검색",
-      channelBadge: "💎",
-      description: "워런 버핏 스타일의 가치투자 원칙. 저평가된 우량주를 발굴하는 재무 지표 활용법을 다룹니다.",
-      duration: "20분 내외",
-      tags: ["가치투자", "저평가주", "PER", "버핏"],
-      url: "https://www.youtube.com/results?search_query=가치투자+PER+PBR+저평가주+주식+기초",
-      color: "from-cyan-500/20 to-teal-500/10",
+      title: "경제 기초 — 금리·환율·물가 완전정복",
+      channel: "삼프로TV",
+      channelBadge: "3️⃣",
+      description: "대한민국 대표 경제 전문 채널 삼프로TV. 미국 금리가 왜 한국 주식에 영향을 주는지, 거시경제의 연결고리를 이해하는 핵심 채널.",
+      duration: "영상별 상이",
+      tags: ["거시경제", "금리", "환율", "채널 이동"],
+      url: "https://www.youtube.com/@3protv",
+      color: "from-red-500/20 to-orange-500/10",
     },
   ],
   advanced: [
+    {
+      title: "주식 시장을 충격에 빠트린 '터보 퀀트'는 무엇인가",
+      channel: "슈카월드",
+      channelBadge: "📈",
+      description: "알고리즘 트레이딩과 퀀트 투자가 시장에 미치는 영향. 개인투자자가 퀀트의 시대에 살아남는 방법을 분석합니다.",
+      duration: "약 25분",
+      tags: ["퀀트", "알고리즘", "시장구조", "시스템매매"],
+      url: "https://www.youtube.com/watch?v=nMjBFs6Uoc8",
+      videoId: "nMjBFs6Uoc8",
+      color: "from-orange-500/20 to-red-500/10",
+    },
+    {
+      title: "공매도 완전 정복 — 개념부터 활용까지",
+      channel: "유튜브 검색",
+      channelBadge: "📉",
+      description: "개인투자자가 반드시 알아야 할 공매도 메커니즘. 시장에 미치는 영향과 대응 전략을 분석합니다.",
+      duration: "약 20분",
+      tags: ["공매도", "시장구조", "리스크관리"],
+      url: "https://www.youtube.com/results?search_query=공매도+개념+이해+주식+시장+분석",
+      color: "from-red-500/20 to-rose-500/10",
+    },
     {
       title: "퀀트 투자 전략 — 데이터로 돈 버는 법",
       channel: "강환국",
@@ -153,37 +182,17 @@ const VIDEOS: Record<Level, VideoCard[]> = {
       duration: "25~40분",
       tags: ["퀀트", "팩터투자", "데이터분석", "시스템매매"],
       url: "https://www.youtube.com/results?search_query=강환국+퀀트투자+팩터+전략",
-      color: "from-orange-500/20 to-red-500/10",
+      color: "from-violet-500/20 to-purple-500/10",
     },
     {
-      title: "공매도 완전 정복 — 개념부터 활용까지",
-      channel: "유튜브 검색",
-      channelBadge: "📉",
-      description: "개인투자자가 반드시 알아야 할 공매도 메커니즘. 시장에 미치는 영향과 대응 전략을 분석합니다.",
-      duration: "20분 내외",
-      tags: ["공매도", "시장구조", "리스크관리"],
-      url: "https://www.youtube.com/results?search_query=공매도+개념+이해+주식+시장+분석",
-      color: "from-red-500/20 to-rose-500/10",
-    },
-    {
-      title: "거시경제와 주식시장 — 금리·환율·물가 연결고리",
-      channel: "삼프로TV",
-      channelBadge: "🌍",
-      description: "미국 금리 결정이 왜 한국 주식에 영향을 주는가? 글로벌 거시경제 분석의 기본 틀을 배웁니다.",
-      duration: "30~60분",
-      tags: ["거시경제", "금리", "환율", "글로벌시장"],
-      url: "https://www.youtube.com/results?search_query=삼프로TV+거시경제+금리+주식시장",
-      color: "from-indigo-500/20 to-blue-500/10",
-    },
-    {
-      title: "포트폴리오 분산 — 자산배분 고급 전략",
+      title: "포트폴리오 자산배분 — 올웨더·리밸런싱",
       channel: "박곰희TV",
       channelBadge: "🐻",
       description: "주식·채권·금·현금의 최적 비율 설정. 리밸런싱 전략과 올웨더 포트폴리오 구성법을 다룹니다.",
-      duration: "20분 내외",
+      duration: "약 20분",
       tags: ["자산배분", "리밸런싱", "올웨더", "포트폴리오"],
       url: "https://www.youtube.com/results?search_query=박곰희TV+자산배분+포트폴리오+리밸런싱",
-      color: "from-violet-500/20 to-purple-500/10",
+      color: "from-indigo-500/20 to-blue-500/10",
     },
   ],
   bonus: [
@@ -191,9 +200,9 @@ const VIDEOS: Record<Level, VideoCard[]> = {
       title: "주식은 지금 — 매주 월요일 시장 분석",
       channel: "머니코믹스",
       channelBadge: "💰",
-      description: "알상무·니니와 함께 이번 주 주목해야 할 종목과 시장 흐름을 예능 형식으로 풀어냅니다.",
+      description: "알상무·니니와 함께 이번 주 주목해야 할 종목과 시장 흐름을 예능 형식으로 풀어냅니다. 매주 월요일 라이브.",
       duration: "1~2시간 (라이브)",
-      tags: ["시장분석", "종목추천", "라이브"],
+      tags: ["시장분석", "라이브", "월요일"],
       url: "https://www.youtube.com/@moneycomics",
       color: "from-purple-500/20 to-pink-500/10",
     },
@@ -203,7 +212,7 @@ const VIDEOS: Record<Level, VideoCard[]> = {
       channelBadge: "🐜",
       description: "개인투자자 관점에서 시장을 바라보는 시리즈. 실전 매매 경험과 투자 전략을 솔직하게 공유합니다.",
       duration: "1~2시간 (라이브)",
-      tags: ["개인투자", "실전매매", "매주 화요일"],
+      tags: ["개인투자", "실전매매", "화요일"],
       url: "https://www.youtube.com/results?search_query=머니코믹스+개미는지금",
       color: "from-pink-500/20 to-rose-500/10",
     },
@@ -213,7 +222,7 @@ const VIDEOS: Record<Level, VideoCard[]> = {
       channelBadge: "🇺🇸",
       description: "미국 나스닥·S&P500 주요 이슈와 빅테크 분석. 글로벌 시장 흐름을 빠르게 파악할 수 있습니다.",
       duration: "1~2시간 (라이브)",
-      tags: ["미국주식", "나스닥", "빅테크", "매주 수요일"],
+      tags: ["미국주식", "나스닥", "빅테크", "수요일"],
       url: "https://www.youtube.com/results?search_query=머니코믹스+미장은지금",
       color: "from-blue-500/20 to-cyan-500/10",
     },
@@ -223,7 +232,7 @@ const VIDEOS: Record<Level, VideoCard[]> = {
       channelBadge: "🎉",
       description: "시청자와 함께하는 공개 투자 토론. 다양한 투자 시각과 시장 해석을 들을 수 있는 코너입니다.",
       duration: "1~2시간 (라이브)",
-      tags: ["공개토론", "시청자참여", "매주 목요일"],
+      tags: ["공개토론", "시청자참여", "목요일"],
       url: "https://www.youtube.com/results?search_query=머니코믹스+해피떨스데이",
       color: "from-amber-500/20 to-yellow-500/10",
     },
@@ -251,7 +260,6 @@ export default function Guide() {
       {/* 레벨 탭 */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {LEVELS.map((lv) => {
-          const Icon = lv.icon;
           const active = activeLevel === lv.id;
           return (
             <button
@@ -315,14 +323,34 @@ export default function Guide() {
               {/* 상단 그라디언트 띠 */}
               <div className={cn("h-1 w-full bg-gradient-to-r", v.color)} />
 
-              <div className="flex items-start gap-4 px-4 py-4">
-                {/* 채널 아이콘 */}
-                <div className={cn(
-                  "w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl",
-                  "bg-gradient-to-br", v.color
-                )}>
-                  {v.channelBadge}
-                </div>
+              <div className="flex items-start gap-3 px-4 py-4">
+                {/* 썸네일 또는 채널 아이콘 */}
+                {v.videoId ? (
+                  <div className="relative w-24 h-[54px] rounded-lg overflow-hidden flex-shrink-0 bg-black/40">
+                    <img
+                      src={`https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`}
+                      alt={v.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+                      <div className="w-7 h-7 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+                        <Play className="w-3 h-3 text-white fill-white ml-0.5" />
+                      </div>
+                    </div>
+                    {v.views && (
+                      <div className="absolute bottom-0.5 right-0.5 bg-black/70 rounded px-1 py-0.5 text-[9px] text-white font-medium">
+                        {v.views}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl",
+                    "bg-gradient-to-br", v.color
+                  )}>
+                    {v.channelBadge}
+                  </div>
+                )}
 
                 {/* 내용 */}
                 <div className="flex-1 min-w-0">
@@ -333,18 +361,18 @@ export default function Guide() {
                     <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/50 flex-shrink-0 mt-0.5 group-hover:text-blue-400 transition-colors" />
                   </div>
 
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs font-medium text-muted-foreground">{v.channel}</span>
                     <span className="text-muted-foreground/30">·</span>
                     <span className="text-xs text-muted-foreground">{v.duration}</span>
                   </div>
 
-                  <p className="text-xs text-muted-foreground/80 mt-1.5 leading-relaxed line-clamp-2">
+                  <p className="text-xs text-muted-foreground/80 mt-1 leading-relaxed line-clamp-2">
                     {v.description}
                   </p>
 
                   {/* 태그 */}
-                  <div className="flex flex-wrap gap-1 mt-2">
+                  <div className="flex flex-wrap gap-1 mt-1.5">
                     {v.tags.map((tag) => (
                       <span
                         key={tag}
