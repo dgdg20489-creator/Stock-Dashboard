@@ -1924,7 +1924,8 @@ function QuizSection() {
           </div>
 
           <AnimatePresence>
-            {phase !== "question" && (
+            {/* 마지막 문제 오답 시 피드백 없이 즉시 완료 처리 */}
+            {phase !== "question" && !(isLast && phase === "wrong") && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -1939,9 +1940,7 @@ function QuizSection() {
                     {phase === "correct" ? (
                       <>
                         <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <p className="font-extrabold text-green-700">
-                          정답! {isLast && results.filter(Boolean).length + (phase === "correct" ? 0 : 0) >= 2 ? "+40P 획득" : ""}
-                        </p>
+                        <p className="font-extrabold text-green-700">정답!</p>
                       </>
                     ) : (
                       <>
