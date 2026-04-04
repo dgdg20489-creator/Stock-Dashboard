@@ -79,28 +79,7 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
   const { missions, coins } = useMissions();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  if (userLoading || portLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user || !portfolio) return null;
-
-  const stockValue = portfolio.totalAssets - portfolio.cashBalance;
-  const isProfit = portfolio.totalReturn >= 0;
-
-  // 현재 보유 주식만 기준: 평단 대비 수익률
-  const holdingCostBasis = portfolio.holdings.reduce(
-    (sum, h) => sum + h.avgPrice * h.shares, 0
-  );
-  const holdingReturnPct = holdingCostBasis > 0
-    ? ((stockValue - holdingCostBasis) / holdingCostBasis) * 100
-    : 0;
-
-  // 실현 손익: 매도 체결 기준으로만 계산 (현재가 무관)
+  // 실현 손익: 매도 체결 기준으로만 계산 — 훅은 항상 조기 반환 이전에 호출해야 함
   const realizedPnL = useMemo(() => {
     if (!trades || trades.length === 0) return 0;
     const sorted = [...trades].sort(
@@ -125,6 +104,27 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
     }
     return realized;
   }, [trades]);
+
+  if (userLoading || portLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user || !portfolio) return null;
+
+  const stockValue = portfolio.totalAssets - portfolio.cashBalance;
+  const isProfit = portfolio.totalReturn >= 0;
+
+  // 현재 보유 주식만 기준: 평단 대비 수익률
+  const holdingCostBasis = portfolio.holdings.reduce(
+    (sum, h) => sum + h.avgPrice * h.shares, 0
+  );
+  const holdingReturnPct = holdingCostBasis > 0
+    ? ((stockValue - holdingCostBasis) / holdingCostBasis) * 100
+    : 0;
 
   const difficultyLabel =
     user.difficulty === "beginner" ? "🌱 초보" :
