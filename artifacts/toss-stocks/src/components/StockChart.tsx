@@ -354,11 +354,11 @@ function EnhancedChart({
     setHover({ idx, sx, sy });
   };
 
-  // Y-axis ticks: 5개 균등 간격, 한국식 숫자 포맷
+  // Y-axis ticks: 5개 균등 간격, 한국식 숫자 포맷 (단위: 원)
   const fmt = (v: number) => {
-    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-    if (v >= 10_000)    return `${Math.round(v / 1000)}K`;
-    return new Intl.NumberFormat("ko-KR").format(Math.round(v));
+    if (v >= 100_000_000) return `${(v / 100_000_000).toFixed(1)}억`;
+    if (v >= 10_000)      return `${Math.round(v / 10_000)}만원`;
+    return `${new Intl.NumberFormat("ko-KR").format(Math.round(v))}원`;
   };
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map(pct => ({
     y:     pct * MAIN_H,
@@ -514,13 +514,14 @@ function EnhancedChart({
         {maPoints(ma60v).map((s, i) => <g key={`ma60-${i}`}>{polyline(s, MA_COLORS.ma60, 1)}</g>)}
         {maPoints(ma120v).map((s, i) => <g key={`ma120-${i}`}>{polyline(s, MA_COLORS.ma120, 1)}</g>)}
 
-        {/* 평균 매수가 */}
+        {/* 평균 매수가 — 회색 점선, 차트 위에 옅게 표시 */}
         {avgCost && isFinite(avgCost) && avgCost >= minP && avgCost <= maxP && (
           <>
             <line x1={PAD_L} y1={toY(avgCost)} x2={containerWidth - PAD_R} y2={toY(avgCost)}
-              stroke="#F97316" strokeWidth={1.2} strokeDasharray="5 4" />
-            <rect x={containerWidth - PAD_R - 68} y={toY(avgCost) - 9} width={66} height={16} rx={4} fill="#F97316" />
-            <text x={containerWidth - PAD_R - 35} y={toY(avgCost) + 4} fontSize={9} fill="white" textAnchor="middle" fontWeight="bold">
+              stroke="#94A3B8" strokeWidth={1} strokeDasharray="4 4" opacity={0.7} />
+            <rect x={PAD_L + 4} y={toY(avgCost) - 9} width={70} height={16} rx={3}
+              fill="#F8FAFC" stroke="#CBD5E1" strokeWidth={0.8} opacity={0.9} />
+            <text x={PAD_L + 39} y={toY(avgCost) + 4} fontSize={8.5} fill="#64748B" textAnchor="middle" fontWeight="600">
               평균 {fmt(avgCost)}
             </text>
           </>

@@ -1697,30 +1697,86 @@ function TipCard({ tip, index }: { tip: TipItem; index: number }) {
 }
 
 /* ─────────────────────────────────────────────────
-   QuizSection 컴포넌트
+   QuizSection 컴포넌트 — 일일 랜덤 3문제
 ───────────────────────────────────────────────── */
 type QuizPhase = "question" | "correct" | "wrong";
 
+/** 날짜 문자열(YYYY-MM-DD)을 시드로 Seeded PRNG로 QUIZ_DATA 인덱스 3개 뽑기 */
+function getDailyQuizSet(): QuizItem[] {
+  const today = new Date().toISOString().split("T")[0]; // "2026-04-04"
+  // 이전에 사용한 ID 목록 (최근 N일 겹치지 않도록)
+  const historyKey = "daily_quiz_history";
+  const rawHistory: string[] = JSON.parse(localStorage.getItem(historyKey) || "[]");
+
+  // Simple seeded pseudo-random (mulberry32)
+  let seed = today.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const rand = () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+
+  // 최근 사용된 ID를 제외하고 후보 추리기 (단, 전체가 너무 적으면 필터 해제)
+  const usedIds = new Set(rawHistory.slice(-30));
+  let pool = QUIZ_DATA.filter(q => !usedIds.has(q.id));
+  if (pool.length < 3) pool = [...QUIZ_DATA];
+
+  // 시드 기반으로 3문제 선택 (shuffle 후 앞 3개)
+  const shuffled = [...pool];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const selected = shuffled.slice(0, 3);
+
+  // 오늘 날짜와 선택된 ID 저장
+  const newHistory = [...rawHistory, ...selected.map(q => q.id)];
+  localStorage.setItem(historyKey, JSON.stringify(newHistory.slice(-60)));
+
+  return selected;
+}
+
+const DAILY_QUIZ_STORAGE_KEY = "daily_quiz_done_";
+
 function QuizSection() {
   const { missions, completeQuiz } = useMissions();
+
+  // 오늘 날짜 기반 일일 퀴즈 세트 (mount 시 한 번만 생성)
+  const [dailyQuizzes] = useState<QuizItem[]>(() => getDailyQuizSet());
+  const DAILY_COUNT = dailyQuizzes.length; // 3
+
+  const today = new Date().toISOString().split("T")[0];
+  const doneKey = DAILY_QUIZ_STORAGE_KEY + today;
+
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [phase, setPhase] = useState<QuizPhase>("question");
-  const [totalCorrect, setTotalCorrect] = useState(0);
+  const [results, setResults] = useState<boolean[]>([]); // 각 문제 정오표
+  const [finished, setFinished] = useState(() => localStorage.getItem(doneKey) === "1");
+  const [rewardGiven, setRewardGiven] = useState(false);
 
-  const quiz = QUIZ_DATA[currentIdx];
-  const isLast = currentIdx === QUIZ_DATA.length - 1;
-  const alreadyDone = missions.quiz;
+  const quiz = dailyQuizzes[currentIdx];
+  const isLast = currentIdx === DAILY_COUNT - 1;
+  const alreadyDone = missions.quiz || finished;
 
   const handleSelect = (idx: number) => {
     if (phase !== "question") return;
     setSelected(idx);
     const correct = idx === quiz.answerIndex;
     setPhase(correct ? "correct" : "wrong");
-    if (correct) {
-      const newCount = totalCorrect + 1;
-      setTotalCorrect(newCount);
-      if (!alreadyDone) completeQuiz();
+    const newResults = [...results, correct];
+    setResults(newResults);
+
+    // 마지막 문제 완료 시
+    if (isLast) {
+      const correctCount = newResults.filter(Boolean).length;
+      if (correctCount >= 2 && !alreadyDone) {
+        completeQuiz(); // +40P 지급
+        setRewardGiven(true);
+      }
+      localStorage.setItem(doneKey, "1");
+      setFinished(true);
     }
   };
 
@@ -1743,142 +1799,183 @@ function QuizSection() {
     "어려움": "bg-red-50 text-red-600 border-red-200",
   };
 
+  const correctCount = results.filter(Boolean).length;
+
   return (
     <div className="space-y-4">
+      {/* 일일 퀴즈 진행 헤더 */}
+      <div className="flex items-center justify-between px-1">
+        <div>
+          <p className="text-sm font-bold text-foreground">오늘의 퀴즈</p>
+          <p className="text-xs text-muted-foreground">랜덤 3문제 · 2개 이상 정답 시 +40P</p>
+        </div>
+        <div className="flex gap-1.5">
+          {dailyQuizzes.map((_, i) => (
+            <div key={i} className={cn(
+              "w-7 h-2 rounded-full transition-colors",
+              i < results.length
+                ? results[i] ? "bg-green-400" : "bg-red-400"
+                : i === currentIdx ? "bg-primary/60" : "bg-muted"
+            )} />
+          ))}
+        </div>
+      </div>
+
       <AnimatePresence>
-        {alreadyDone && (
+        {(alreadyDone || finished) && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-2xl px-5 py-3.5"
+            className={cn(
+              "flex items-center gap-3 rounded-2xl px-5 py-3.5 border",
+              rewardGiven || correctCount >= 2
+                ? "bg-green-50 border-green-200"
+                : "bg-amber-50 border-amber-200"
+            )}
           >
-            <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+            <CheckCircle2 className={cn(
+              "w-5 h-5 flex-shrink-0",
+              rewardGiven || correctCount >= 2 ? "text-green-500" : "text-amber-500"
+            )} />
             <div>
-              <p className="font-bold text-green-700 text-sm">오늘의 퀴즈 미션 완료! +40P 획득</p>
-              <p className="text-xs text-green-600 font-medium">내일 새로운 퀴즈가 준비됩니다.</p>
+              {rewardGiven || (finished && correctCount >= 2) ? (
+                <>
+                  <p className="font-bold text-green-700 text-sm">오늘의 퀴즈 미션 완료! +40P 획득 🎉</p>
+                  <p className="text-xs text-green-600 font-medium">{correctCount}/{DAILY_COUNT}문제 정답 · 내일 새로운 퀴즈가 준비됩니다.</p>
+                </>
+              ) : alreadyDone && !finished ? (
+                <>
+                  <p className="font-bold text-green-700 text-sm">이미 완료한 퀴즈입니다!</p>
+                  <p className="text-xs text-green-600 font-medium">내일 새로운 퀴즈가 준비됩니다.</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-bold text-amber-700 text-sm">오늘 퀴즈 완료 — {correctCount}/{DAILY_COUNT}문제 정답</p>
+                  <p className="text-xs text-amber-600 font-medium">2개 이상 정답 시 포인트 지급 · 내일 다시 도전해보세요!</p>
+                </>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <motion.div
-        key={currentIdx}
-        initial={{ opacity: 0, x: 12 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden"
-      >
-        <div className="px-6 pt-6 pb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className={cn("text-[11px] font-bold px-2.5 py-1 rounded-full border", difficultyColor[quiz.difficulty])}>
-              {quiz.difficulty}
-            </span>
-            <span className="text-[11px] font-semibold text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-              {quiz.category}
-            </span>
-            <span className="ml-auto text-xs font-bold text-muted-foreground">
-              {currentIdx + 1} / {QUIZ_DATA.length}
-            </span>
+      {!alreadyDone && (
+        <motion.div
+          key={currentIdx}
+          initial={{ opacity: 0, x: 12 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden"
+        >
+          <div className="px-6 pt-6 pb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className={cn("text-[11px] font-bold px-2.5 py-1 rounded-full border", difficultyColor[quiz.difficulty])}>
+                {quiz.difficulty}
+              </span>
+              <span className="text-[11px] font-semibold text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                {quiz.category}
+              </span>
+              <span className="ml-auto text-xs font-bold text-muted-foreground">
+                {currentIdx + 1} / {DAILY_COUNT}
+              </span>
+            </div>
+            <p className="text-base font-bold text-foreground leading-snug">{quiz.question}</p>
           </div>
-          <p className="text-base font-bold text-foreground leading-snug">{quiz.question}</p>
-        </div>
 
-        <div className="px-6 pb-4 space-y-2.5">
-          {quiz.options.map((opt, i) => {
-            const isAnswer = i === quiz.answerIndex;
-            const isSelected = i === selected;
-            let style = "border-border/60 bg-muted/30 text-foreground hover:border-primary/40 hover:bg-primary/5";
-            if (phase !== "question") {
-              if (isAnswer) style = "border-green-400 bg-green-50 text-green-700";
-              else if (isSelected && !isAnswer) style = "border-red-300 bg-red-50 text-red-600";
-              else style = "border-border/30 bg-muted/20 text-muted-foreground";
-            }
-            return (
-              <button
-                key={i}
-                onClick={() => handleSelect(i)}
-                disabled={phase !== "question"}
-                className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border-2 text-left text-sm font-semibold transition-all duration-150",
-                  style,
-                  phase === "question" && "cursor-pointer active:scale-[0.99]",
-                  phase !== "question" && "cursor-default"
-                )}
+          <div className="px-6 pb-4 space-y-2.5">
+            {quiz.options.map((opt, i) => {
+              const isAnswer = i === quiz.answerIndex;
+              const isSelected = i === selected;
+              let style = "border-border/60 bg-muted/30 text-foreground hover:border-primary/40 hover:bg-primary/5";
+              if (phase !== "question") {
+                if (isAnswer) style = "border-green-400 bg-green-50 text-green-700";
+                else if (isSelected && !isAnswer) style = "border-red-300 bg-red-50 text-red-600";
+                else style = "border-border/30 bg-muted/20 text-muted-foreground";
+              }
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleSelect(i)}
+                  disabled={phase !== "question"}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border-2 text-left text-sm font-semibold transition-all duration-150",
+                    style,
+                    phase === "question" && "cursor-pointer active:scale-[0.99]",
+                    phase !== "question" && "cursor-default"
+                  )}
+                >
+                  <span className={cn(
+                    "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 border",
+                    phase !== "question" && isAnswer ? "bg-green-500 text-white border-green-500" :
+                    phase !== "question" && isSelected ? "bg-red-400 text-white border-red-400" :
+                    "border-current"
+                  )}>
+                    {String.fromCharCode(65 + i)}
+                  </span>
+                  {opt}
+                  {phase !== "question" && isAnswer && (
+                    <CheckCircle2 className="w-4 h-4 text-green-500 ml-auto flex-shrink-0" />
+                  )}
+                  {phase !== "question" && isSelected && !isAnswer && (
+                    <XCircle className="w-4 h-4 text-red-400 ml-auto flex-shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <AnimatePresence>
+            {phase !== "question" && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
               >
-                <span className={cn(
-                  "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 border",
-                  phase !== "question" && isAnswer ? "bg-green-500 text-white border-green-500" :
-                  phase !== "question" && isSelected ? "bg-red-400 text-white border-red-400" :
-                  "border-current"
+                <div className={cn(
+                  "mx-6 mb-6 p-4 rounded-2xl border",
+                  phase === "correct" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
                 )}>
-                  {String.fromCharCode(65 + i)}
-                </span>
-                {opt}
-                {phase !== "question" && isAnswer && (
-                  <CheckCircle2 className="w-4 h-4 text-green-500 ml-auto flex-shrink-0" />
-                )}
-                {phase !== "question" && isSelected && !isAnswer && (
-                  <XCircle className="w-4 h-4 text-red-400 ml-auto flex-shrink-0" />
-                )}
-              </button>
-            );
-          })}
-        </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    {phase === "correct" ? (
+                      <>
+                        <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+                        <p className="font-extrabold text-green-700">
+                          정답! {isLast && results.filter(Boolean).length + (phase === "correct" ? 0 : 0) >= 2 ? "+40P 획득" : ""}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                        <p className="font-extrabold text-red-600">오답</p>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground font-medium leading-relaxed">{quiz.explanation}</p>
 
-        <AnimatePresence>
-          {phase !== "question" && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className={cn(
-                "mx-6 mb-6 p-4 rounded-2xl border",
-                phase === "correct" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
-              )}>
-                <div className="flex items-center gap-2 mb-2">
-                  {phase === "correct" ? (
-                    <>
-                      <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                      <p className="font-extrabold text-green-700">정답입니다! {!alreadyDone && "+40P 획득"}</p>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                      <p className="font-extrabold text-red-600">오답입니다</p>
-                    </>
-                  )}
+                  <div className="flex gap-2 mt-3">
+                    {phase === "wrong" && !isLast && (
+                      <button
+                        onClick={handleRetry}
+                        className="flex-1 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 font-bold text-sm hover:bg-red-50 transition-colors"
+                      >
+                        다시 풀기
+                      </button>
+                    )}
+                    {!isLast && (
+                      <button
+                        onClick={handleNext}
+                        className="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
+                      >
+                        다음 문제 <ChevronRight className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground font-medium leading-relaxed">{quiz.explanation}</p>
-
-                <div className="flex gap-2 mt-3">
-                  {phase === "wrong" && (
-                    <button
-                      onClick={handleRetry}
-                      className="flex-1 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 font-bold text-sm hover:bg-red-50 transition-colors"
-                    >
-                      다시 풀기
-                    </button>
-                  )}
-                  {!isLast && (
-                    <button
-                      onClick={handleNext}
-                      className="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
-                    >
-                      다음 문제 <ChevronRight className="w-4 h-4" />
-                    </button>
-                  )}
-                  {isLast && (
-                    <div className="flex-1 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm text-center">
-                      🎉 모든 문제 완료! 총 {totalCorrect}문제 정답
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
     </div>
   );
 }
@@ -1902,7 +1999,7 @@ export default function Tips() {
     <div className="max-w-3xl mx-auto space-y-5 animate-in fade-in duration-500">
       <div className="px-1">
         <h1 className="text-3xl font-extrabold tracking-tight text-foreground">팁 &amp; 퀴즈</h1>
-        <p className="text-muted-foreground font-medium mt-1">주식 용어 {TIPS_DATA.length}개 · 퀴즈 {QUIZ_DATA.length}문제</p>
+        <p className="text-muted-foreground font-medium mt-1">주식 용어 {TIPS_DATA.length}개 · 일일 퀴즈 3문제</p>
       </div>
 
       {/* 탭 */}

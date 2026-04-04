@@ -448,9 +448,13 @@ def simulate_prices(conn):
     market_close = now_kr.replace(hour=15, minute=30, second=0, microsecond=0)
     is_market_hours = is_weekday and market_open <= now_kr <= market_close
 
-    # 장 중: 작은 변동 + 실제 가격 수렴  /  장 마감: 큰 변동으로 활성 느낌 유지
-    vol       = 0.0025 if is_market_hours else 0.0040   # ±0.25% / ±0.40%
-    revert_k  = 0.08   if is_market_hours else 0.02     # 수렴 강도
+    # 장 마감 / 주말 → 시뮬레이션 완전 중단 (실제 시장과 동일하게 가격 고정)
+    if not is_market_hours:
+        return
+
+    # 장 중: ±0.25% 변동 + base 가격 수렴
+    vol      = 0.0025
+    revert_k = 0.08
 
     with conn.cursor() as cur:
         cur.execute("SELECT ticker, current_price, base_price, naver_change_pct FROM stocks_realtime")
@@ -1066,6 +1070,80 @@ def fetch_naver_rankings(conn):
         conn.rollback()
 
 
+def simulate_rankings_dynamic(conn):
+    """
+    단기 거래량/거래대금 시뮬레이션 — 10초마다 호출.
+    현재 stocks_realtime에서 상위 150종목 추출 후,
+    ±40% 랜덤 노이즈를 곱해 단기 순위를 매 사이클마다 변동시킴.
+    장 중(09:00~15:30 KST 평일)에만 실행.
+    """
+    import pytz
+    from datetime import datetime as _dt
+    kr_tz = pytz.timezone("Asia/Seoul")
+    now_kr = _dt.now(kr_tz)
+    is_weekday = now_kr.weekday() < 5
+    market_open  = now_kr.replace(hour=9,  minute=0,  second=0, microsecond=0)
+    market_close = now_kr.replace(hour=15, minute=30, second=0, microsecond=0)
+    if not (is_weekday and market_open <= now_kr <= market_close):
+        return  # 장 마감 / 주말 → 순위 변동 없음
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ticker, name, current_price, change_pct, volume, market
+                FROM stocks_realtime
+                WHERE volume > 0 AND current_price > 0
+                ORDER BY volume DESC
+                LIMIT 150
+            """)
+            rows = cur.fetchall()
+
+        if not rows:
+            return
+
+        now = datetime.now(KST)
+        # 단기 가중치: 기본 volume에 ±40% 랜덤 노이즈 적용
+        candidates = []
+        for ticker, name, price, chg_pct, volume, market in rows:
+            p = float(price) if price else 0
+            v = int(volume) if volume else 0
+            c = float(chg_pct) if chg_pct else 0.0
+            weight = random.uniform(0.60, 1.40)
+            recent_vol = int(v * weight)
+            recent_ta  = int(p * recent_vol)
+            candidates.append({
+                "ticker": ticker, "name": name, "price": p,
+                "change_pct": c, "volume": recent_vol,
+                "trade_amount": recent_ta, "market": market or "KOSPI",
+            })
+
+        all_ta  = sorted(candidates, key=lambda x: x["trade_amount"], reverse=True)[:100]
+        all_vol = sorted(candidates, key=lambda x: x["volume"],       reverse=True)[:100]
+
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM market_rankings WHERE type='trade_amount'")
+            execute_values(cur, """
+                INSERT INTO market_rankings
+                    (type, rank, ticker, name, price, change_pct, volume, trade_amount, market, updated_at)
+                VALUES %s
+            """, [("trade_amount", i+1, s["ticker"], s["name"], s["price"],
+                    s["change_pct"], s["volume"], s["trade_amount"], s["market"], now)
+                  for i, s in enumerate(all_ta)])
+
+            cur.execute("DELETE FROM market_rankings WHERE type='volume'")
+            execute_values(cur, """
+                INSERT INTO market_rankings
+                    (type, rank, ticker, name, price, change_pct, volume, trade_amount, market, updated_at)
+                VALUES %s
+            """, [("volume", i+1, s["ticker"], s["name"], s["price"],
+                    s["change_pct"], s["volume"], s["trade_amount"], s["market"], now)
+                  for i, s in enumerate(all_vol)])
+        conn.commit()
+    except Exception as e:
+        log.warning(f"simulate_rankings_dynamic: {e}")
+        conn.rollback()
+
+
 # ─────────────────────────────────────────────────
 # IPO (공모주) 데이터
 # ─────────────────────────────────────────────────
@@ -1357,9 +1435,13 @@ def main():
             # ★ 매 1s: 브라운 운동 시뮬레이션 — 절대 블로킹 없음
             simulate_prices(conn)
 
-            # 매 10s: 네이버 랭킹 (백그라운드)
+            # 매 10s: 단기 동적 순위 시뮬레이션 (장 중에만 변동)
             if cycle % 10 == 0:
-                _bg_run("rankings", fetch_naver_rankings)
+                _bg_run("rankings", simulate_rankings_dynamic)
+
+            # 매 60s: 네이버 실제 랭킹 동기화 (백그라운드)
+            if cycle % 60 == 0:
+                _bg_run("naver_rankings", fetch_naver_rankings)
 
             # 매 60s: 네이버 상위 500종목 실제 가격 업데이트 (~35초, 백그라운드)
             if cycle % 60 == 0:
