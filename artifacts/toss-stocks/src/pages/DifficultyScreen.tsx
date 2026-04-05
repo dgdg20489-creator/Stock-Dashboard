@@ -24,7 +24,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [selectedType, setSelectedType] = useState<InvestType>("balanced");
-  const [gender, setGender] = useState<"남" | "녀">("남");
+  const [gender, setGender] = useState<"남" | "녀" | "기타">("남");
   const [difficulty, setDifficulty] = useState<DifficultyType | null>(null);
 
   const [phoneStep, setPhoneStep] = useState<PhoneStep>("idle");
@@ -40,7 +40,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
-  const avatar: AvatarId = `${selectedType}_${gender === "남" ? "m" : "f"}` as AvatarId;
+  const avatar: AvatarId = `${selectedType}_${gender === "녀" ? "f" : "m"}` as AvatarId;
 
   const difficulties: { id: DifficultyType; title: string; sub: string; seed: string; color: string; dot: string }[] = [
     { id: "beginner",     title: "입문",  sub: "여유롭게 시작",       seed: "1,000만원", color: "text-emerald-600", dot: "bg-emerald-500" },
@@ -326,24 +326,33 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
 
               <div className="h-px bg-border/50 mx-6" />
 
+              {/* 성별 선택 */}
+              <div className="px-6 py-4">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-3">성별</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["남", "녀", "기타"] as const).map((g) => (
+                    <button
+                      key={g}
+                      onClick={() => setGender(g)}
+                      className={cn(
+                        "py-2 rounded-xl text-sm font-semibold border transition-all duration-150",
+                        gender === g
+                          ? "bg-foreground text-background border-transparent"
+                          : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground bg-muted/30"
+                      )}
+                    >
+                      {g === "남" ? "남성" : g === "녀" ? "여성" : "기타"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-px bg-border/50 mx-6" />
+
               {/* 투자 성향 */}
               <div className="px-6 py-4">
                 <div className="flex items-center justify-between mb-3">
                   <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">투자 성향</label>
-                  <div className="flex gap-1">
-                    {(["남", "녀"] as const).map((g) => (
-                      <button
-                        key={g}
-                        onClick={() => setGender(g)}
-                        className={cn(
-                          "px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all",
-                          gender === g ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        {g === "남" ? "남성" : "여성"}
-                      </button>
-                    ))}
-                  </div>
                 </div>
                 <div className="grid grid-cols-5 gap-1.5 mb-3">
                   {INVEST_TYPES.map((inv) => {
