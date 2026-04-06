@@ -7,9 +7,12 @@ import { GameAvatar } from "@/components/GameAvatar";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, LogOut, AlertTriangle } from "lucide-react";
+import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, LogOut, AlertTriangle, Pencil, Trash2, X, Check } from "lucide-react";
 import { useMissions } from "@/hooks/use-missions";
 import { AiAdvisor } from "@/components/AiAdvisor";
+import { useQueryClient } from "@tanstack/react-query";
+
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface MyInfoProps {
   userId: number;
@@ -70,7 +73,67 @@ function LogoutConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; on
   );
 }
 
+function WithdrawConfirmModal({ username, onConfirm, onCancel, isLoading }: {
+  username: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}) {
+  const [confirm, setConfirm] = useState("");
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ type: "spring", damping: 22, stiffness: 320 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-3xl shadow-2xl p-8 max-w-xs w-full text-center"
+      >
+        <div className="w-16 h-16 bg-red-100 rounded-full mx-auto flex items-center justify-center mb-4">
+          <Trash2 className="w-7 h-7 text-red-600" />
+        </div>
+        <h3 className="text-xl font-extrabold text-foreground mb-2">회원 탈퇴</h3>
+        <p className="text-sm text-muted-foreground font-medium mb-2 leading-relaxed">
+          탈퇴하면 <span className="font-extrabold text-foreground">{username}</span> 계정의<br />
+          모든 투자 기록과 자산이 <span className="text-red-600 font-extrabold">영구 삭제</span>됩니다.
+        </p>
+        <p className="text-xs text-muted-foreground mb-3">확인하려면 아래에 <strong>탈퇴합니다</strong> 를 입력하세요.</p>
+        <input
+          type="text"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          placeholder="탈퇴합니다"
+          className="w-full border-2 border-border rounded-2xl px-4 py-2.5 text-sm font-semibold text-center mb-5 outline-none focus:border-red-400 transition-colors"
+        />
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3 rounded-2xl bg-muted font-bold text-muted-foreground hover:bg-muted/70 transition-colors"
+          >
+            취소
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={confirm !== "탈퇴합니다" || isLoading}
+            className="flex-1 py-3 rounded-2xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {isLoading ? "처리 중..." : "탈퇴하기"}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function MyInfo({ userId, logout }: MyInfoProps) {
+  const queryClient = useQueryClient();
   const { data: user, isLoading: userLoading } = useGetUser(userId);
   const { data: portfolio, isLoading: portLoading } = useGetUserPortfolio(userId, {
     query: { refetchInterval: 2000, staleTime: 0 },
@@ -78,8 +141,14 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
   const { data: trades, isLoading: tradesLoading } = useGetUserTrades(userId);
   const { missions, coins } = useMissions();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
 
-  // 실현 손익: 매도 체결 기준으로만 계산 — 훅은 항상 조기 반환 이전에 호출해야 함
+  const [editingNick, setEditingNick] = useState(false);
+  const [nickValue, setNickValue] = useState("");
+  const [nickLoading, setNickLoading] = useState(false);
+  const [nickError, setNickError] = useState("");
+
   const realizedPnL = useMemo(() => {
     if (!trades || trades.length === 0) return 0;
     const sorted = [...trades].sort(
@@ -105,6 +174,43 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
     return realized;
   }, [trades]);
 
+  const handleNickSave = async () => {
+    if (!nickValue.trim() || nickValue.trim().length < 2) {
+      setNickError("닉네임은 2자 이상이어야 합니다.");
+      return;
+    }
+    setNickLoading(true);
+    setNickError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/users/${userId}/username`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: nickValue.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setNickError(err.message ?? "변경 실패");
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["users", userId] });
+      setEditingNick(false);
+    } catch {
+      setNickError("서버 오류가 발생했습니다.");
+    } finally {
+      setNickLoading(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    setWithdrawLoading(true);
+    try {
+      await fetch(`${API_BASE}/api/users/${userId}`, { method: "DELETE" });
+      logout();
+    } catch {
+      setWithdrawLoading(false);
+    }
+  };
+
   if (userLoading || portLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -118,7 +224,6 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
   const stockValue = portfolio.totalAssets - portfolio.cashBalance;
   const isProfit = portfolio.totalReturn >= 0;
 
-  // 현재 보유 주식만 기준: 평단 대비 수익률
   const holdingCostBasis = portfolio.holdings.reduce(
     (sum, h) => sum + h.avgPrice * h.shares, 0
   );
@@ -130,12 +235,10 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
     user.difficulty === "beginner" ? "🌱 초보" :
     user.difficulty === "intermediate" ? "🌿 중수" : "🔥 고수";
 
-  // 승격 임계값
   const promoteThreshold =
     user.difficulty === "beginner" ? 20 :
     user.difficulty === "intermediate" ? 50 : null;
 
-  // 강등 임계값 (-20%)
   const demoteThreshold = user.difficulty !== "beginner" ? -20 : null;
 
   const isAtDemoteRisk = demoteThreshold !== null && portfolio.totalReturnPercent < -15;
@@ -163,7 +266,6 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         </button>
       </div>
 
-      {/* 강등 위험 경고 배너 */}
       <AnimatePresence>
         {isAtDemoteRisk && (
           <motion.div
@@ -199,12 +301,49 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         <div className="flex items-center gap-4">
           <GameAvatar avatarId={user.avatar} size={64} rounded="rounded-2xl" className="shadow-inner flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <h2 className="text-2xl font-extrabold text-foreground">{user.username}</h2>
+            {editingNick ? (
+              <div className="flex items-center gap-2 mb-1">
+                <input
+                  autoFocus
+                  type="text"
+                  value={nickValue}
+                  onChange={(e) => { setNickValue(e.target.value); setNickError(""); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleNickSave(); if (e.key === "Escape") setEditingNick(false); }}
+                  maxLength={16}
+                  className="text-lg font-extrabold border-b-2 border-primary outline-none bg-transparent w-full"
+                  placeholder="새 닉네임 입력"
+                />
+                <button
+                  onClick={handleNickSave}
+                  disabled={nickLoading}
+                  className="p-1.5 rounded-xl bg-primary text-white hover:bg-primary/80 transition-colors disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => { setEditingNick(false); setNickError(""); }}
+                  className="p-1.5 rounded-xl bg-muted text-muted-foreground hover:bg-muted/70 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 mb-0.5">
+                <h2 className="text-2xl font-extrabold text-foreground">{user.username}</h2>
+                <button
+                  onClick={() => { setNickValue(user.username); setEditingNick(true); setNickError(""); }}
+                  className="p-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                  title="닉네임 변경"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            {nickError && <p className="text-xs text-red-500 font-semibold mb-1">{nickError}</p>}
             <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-bold bg-red-50 text-red-600 mt-1">
               {difficultyLabel}
             </span>
 
-            {/* 승격 프로그레스 */}
             {promoteThreshold && (
               <div className="mt-3">
                 <div className="flex justify-between text-xs font-semibold text-muted-foreground mb-1">
@@ -228,7 +367,6 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
               </div>
             )}
 
-            {/* 강등 프로그레스 (고수·중수만) */}
             {demoteThreshold !== null && (
               <div className="mt-2">
                 <div className="flex justify-between text-[11px] font-semibold text-muted-foreground mb-1">
@@ -279,7 +417,6 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         </Link>
       </motion.div>
 
-      {/* AI 투자 비서 */}
       <AiAdvisor userId={userId} />
 
       {/* 자산 현황 */}
@@ -426,31 +563,58 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         )}
       </motion.div>
 
-      {/* 로그아웃 버튼 (하단) */}
+      {/* 계정 관리 */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.25 }}
-        className="pb-4"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.22 }}
+        className="bg-card rounded-3xl p-4 border border-border/50 shadow-sm"
       >
-        <button
-          onClick={() => setShowLogoutModal(true)}
-          className="w-full flex items-center justify-center gap-2 py-4 rounded-3xl border-2 border-red-100 text-red-500 font-extrabold hover:bg-red-50 transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-          로그아웃
-        </button>
-        <p className="text-center text-xs text-muted-foreground mt-2 font-medium">
-          로그아웃해도 투자 기록과 자산은 유지됩니다.
-        </p>
+        <h3 className="text-base font-extrabold text-foreground mb-3">계정 관리</h3>
+        <div className="space-y-2">
+          <button
+            onClick={() => setShowLogoutModal(true)}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-border/50 hover:bg-muted/50 transition-colors text-left"
+          >
+            <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
+              <LogOut className="w-4 h-4 text-orange-500" />
+            </div>
+            <div>
+              <p className="font-bold text-foreground text-sm">로그아웃</p>
+              <p className="text-xs text-muted-foreground">투자 기록과 자산은 유지됩니다.</p>
+            </div>
+          </button>
+          <button
+            onClick={() => setShowWithdrawModal(true)}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-red-100 hover:bg-red-50 transition-colors text-left"
+          >
+            <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+              <Trash2 className="w-4 h-4 text-red-500" />
+            </div>
+            <div>
+              <p className="font-bold text-red-600 text-sm">회원 탈퇴</p>
+              <p className="text-xs text-muted-foreground">계정과 모든 데이터가 영구 삭제됩니다.</p>
+            </div>
+          </button>
+        </div>
       </motion.div>
 
-      {/* 로그아웃 확인 모달 */}
       <AnimatePresence>
         {showLogoutModal && (
           <LogoutConfirmModal
             onConfirm={() => { setShowLogoutModal(false); logout(); }}
             onCancel={() => setShowLogoutModal(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showWithdrawModal && (
+          <WithdrawConfirmModal
+            username={user.username}
+            onConfirm={handleWithdraw}
+            onCancel={() => setShowWithdrawModal(false)}
+            isLoading={withdrawLoading}
           />
         )}
       </AnimatePresence>

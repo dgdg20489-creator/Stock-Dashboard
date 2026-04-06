@@ -386,6 +386,60 @@ router.get("/users/:userId/public-profile", async (req, res) => {
   }
 });
 
+router.patch("/users/:userId/username", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const { username } = req.body as { username?: string };
+
+    if (!username || typeof username !== "string" || username.trim().length < 2) {
+      res.status(400).json({ message: "닉네임은 2자 이상이어야 합니다." });
+      return;
+    }
+
+    const trimmed = username.trim();
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(usersTable)
+      .set({ username: trimmed })
+      .where(eq(usersTable.id, userId))
+      .returning();
+
+    const cashNum = Number(updated.cashBalance);
+    const result = GetUserResponse.parse(buildUserResponse(updated, cashNum, 0, 0));
+    res.json(result);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.delete("/users/:userId", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    await db.delete(tradesTable).where(eq(tradesTable.userId, userId));
+    await db.delete(holdingsTable).where(eq(holdingsTable.userId, userId));
+    await db.delete(usersTable).where(eq(usersTable.id, userId));
+
+    res.json({ success: true, message: "계정이 삭제되었습니다." });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.put("/users/:userId/equip", async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
