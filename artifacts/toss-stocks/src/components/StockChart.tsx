@@ -270,6 +270,25 @@ function genIntradayCandles(daily: OHLCPoint[], tf: TFKey): OHLCPoint[] {
   return result;
 }
 
+// ── 1분봉 → N분봉 집계 ────────────────────────────────────────────
+function aggregateMinutes(candles1m: OHLCPoint[], minutes: number): OHLCPoint[] {
+  if (!candles1m.length || minutes <= 1) return candles1m;
+  const result: OHLCPoint[] = [];
+  for (let i = 0; i < candles1m.length; i += minutes) {
+    const group = candles1m.slice(i, i + minutes);
+    if (!group.length) continue;
+    result.push({
+      date:   group[0].date,
+      open:   group[0].open,
+      high:   Math.max(...group.map(g => g.high)),
+      low:    Math.min(...group.map(g => g.low)),
+      close:  group[group.length - 1].close,
+      volume: group.reduce((s, g) => s + g.volume, 0),
+    });
+  }
+  return result;
+}
+
 // ── SVG 좌표 변환 헬퍼 ────────────────────────────────────────────
 function polyline(pts: [number, number][], stroke: string, sw: number, dash?: string) {
   if (pts.length < 2) return null;
@@ -898,34 +917,78 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
     return () => ro.disconnect();
   }, []);
 
-  // realtime → "1m" (최근 30일로 분봉 시뮬레이션)
-  // 나머지 → "all" (상장일 ~ 오늘 수정주가 전체)
-  const apiPeriod = useMemo(() => {
-    if (period === "realtime") return GetStockHistoryPeriod["1m"];
-    return GetStockHistoryPeriod["all"];
-  }, [period]);
+  // ── KIS 실시간 분봉 fetch ─────────────────────────────────────
+  const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const [kisCandles1m,  setKisCandles1m]  = useState<OHLCPoint[]>([]);
+  const [kisLoading,    setKisLoading]    = useState(false);
+  const [kisError,      setKisError]      = useState(false);
 
-  const { data: history, isLoading } = useGetStockHistory(ticker, { period: apiPeriod });
+  useEffect(() => {
+    if (period !== "realtime") return;
+    let alive = true;
+    setKisLoading(true);
+    setKisError(false);
+
+    async function load() {
+      try {
+        const res = await fetch(`${API_BASE}/api/stocks/${ticker}/minute-candles?pages=6`);
+        if (!res.ok) { if (alive) setKisError(true); return; }
+        const raw = await res.json() as { time: string; open: number; high: number; low: number; close: number; volume: number }[];
+        if (!alive) return;
+        const points: OHLCPoint[] = raw.map(c => ({
+          date:   c.time,
+          open:   c.open,
+          high:   c.high,
+          low:    c.low,
+          close:  c.close,
+          volume: c.volume,
+        })).filter(c => c.close > 0);
+        setKisCandles1m(points);
+      } catch {
+        if (alive) setKisError(true);
+      } finally {
+        if (alive) setKisLoading(false);
+      }
+    }
+
+    load();
+    const interval = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(interval); };
+  }, [ticker, period, API_BASE]);
+
+  // 나머지 기간 → "all" (상장일 ~ 오늘 수정주가 전체)
+  const apiPeriod = useMemo(() => {
+    return GetStockHistoryPeriod["all"];
+  }, []);
+
+  const { data: history, isLoading: histLoading } = useGetStockHistory(ticker, { period: apiPeriod });
+  const isLoading = period === "realtime" ? kisLoading : histLoading;
 
   // ── 핵심 수정: 모든 값을 숫자로 강제 변환 + 0값 필터링 ──
   const rawData: OHLCPoint[] = useMemo(() => {
     return normalizeOHLC(history ? (history as any[]) : [], currentPrice);
   }, [history, currentPrice]);
 
-  // 주봉/월봉/년봉 집계 or 분봉 생성
+  // 주봉/월봉/년봉 집계 or KIS 실시간 분봉
   const chartData = useMemo(() => {
-    if (!rawData.length) return rawData;
     if (period === "realtime") {
-      // 분봉 생성: TF에 맞춰 충분한 일봉 사용 (120봉 확보)
-      const bpd = TF_BARS[tf];
-      const daysNeeded = Math.ceil(120 / bpd) + 5;
-      return genIntradayCandles(rawData.slice(-daysNeeded), tf);
+      // KIS 실시간 분봉 (1m 원본 → TF 집계)
+      if (kisError || !kisCandles1m.length) {
+        // KIS 실패 시 시뮬레이션 폴백
+        if (!rawData.length) return rawData;
+        const bpd = TF_BARS[tf];
+        const daysNeeded = Math.ceil(120 / bpd) + 5;
+        return genIntradayCandles(rawData.slice(-daysNeeded), tf);
+      }
+      const mins: Record<TFKey, number> = { "1m": 1, "5m": 5, "15m": 15, "30m": 30, "60m": 60 };
+      return aggregateMinutes(kisCandles1m, mins[tf]);
     }
+    if (!rawData.length) return rawData;
     if (period === "week")  return aggregateWeekly(rawData);
     if (period === "month") return aggregateMonthly(rawData);
     if (period === "year")  return aggregateYearly(rawData);
     return rawData; // "day"
-  }, [rawData, period, tf]);
+  }, [rawData, period, tf, kisCandles1m, kisError]);
 
   // period/tf 바뀌면 뷰 리셋
   useEffect(() => {

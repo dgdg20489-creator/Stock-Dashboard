@@ -13,6 +13,7 @@ import {
   getVolume,
   getNews,
 } from "./stocksData.js";
+import { fetchMinuteCandles, fetchOrderbook } from "../kis.js";
 
 const router: IRouter = Router();
 
@@ -538,6 +539,37 @@ router.get("/market/summary", async (_req, res) => {
   };
   const parsed = GetMarketSummaryResponse.parse(summary);
   res.json(parsed);
+});
+
+// ── KIS 실시간: 당일 분봉 ────────────────────────────────────────
+router.get("/stocks/:ticker/minute-candles", async (req, res) => {
+  const { ticker } = req.params;
+  const pages = Math.min(8, Math.max(1, parseInt(String(req.query.pages ?? "4")) || 4));
+  try {
+    const candles = await fetchMinuteCandles(ticker, pages);
+    if (!candles.length) {
+      return res.status(503).json({ message: "분봉 데이터를 가져올 수 없습니다 (장 시간 외 또는 API 오류)" });
+    }
+    res.json(candles);
+  } catch (e) {
+    console.error("[KIS] minute-candles error:", e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// ── KIS 실시간: 호가창 ───────────────────────────────────────────
+router.get("/stocks/:ticker/orderbook", async (req, res) => {
+  const { ticker } = req.params;
+  try {
+    const book = await fetchOrderbook(ticker);
+    if (!book) {
+      return res.status(503).json({ message: "호가 데이터를 가져올 수 없습니다" });
+    }
+    res.json(book);
+  } catch (e) {
+    console.error("[KIS] orderbook error:", e);
+    res.status(500).json({ message: "Internal server error" });
+  }
 });
 
 export default router;
