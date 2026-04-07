@@ -122,7 +122,7 @@ const VIDEOS: Record<Level, VideoCard[]> = {
       color: "from-blue-500/20 to-indigo-500/10",
     },
     {
-      title: "재무제표 읽는법 — PER·ROE 완전정복",
+      title: "재무제표 읽는법",
       channel: "박곰희TV",
       channelBadge: "🐻",
       description: "PER·PBR·ROE·부채비율을 한눈에 파악하는 방법. 좋은 기업 고르는 기준을 수치로 배웁니다.",
@@ -144,7 +144,7 @@ const VIDEOS: Record<Level, VideoCard[]> = {
       color: "from-green-500/20 to-emerald-500/10",
     },
     {
-      title: "경제 기초 — 금리·환율·물가 완전정복",
+      title: "주식 입문자들을 위한 20분 압축특강",
       channel: "삼프로TV",
       channelBadge: "3️⃣",
       description: "대한민국 대표 경제 전문 채널 삼프로TV. 미국 금리가 왜 한국 주식에 영향을 주는지, 거시경제의 연결고리를 이해하는 핵심 채널.",
@@ -168,7 +168,7 @@ const VIDEOS: Record<Level, VideoCard[]> = {
       color: "from-orange-500/20 to-red-500/10",
     },
     {
-      title: "공매도 완전 정복 — 개념부터 활용까지",
+      title: "공매도 완전 정복",
       channel: "슈카월드",
       channelBadge: "📉",
       description: "개인투자자가 반드시 알아야 할 공매도 메커니즘. 시장에 미치는 영향과 대응 전략을 분석합니다.",
