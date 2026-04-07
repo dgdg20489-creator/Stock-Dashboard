@@ -3,12 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, TrendingUp, BarChart2, DollarSign, ShieldCheck,
   Brain, Building2, GraduationCap, CheckCircle2, XCircle,
-  ChevronRight, Search, Tv, Play,
+  ChevronRight, Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMissions } from "@/hooks/use-missions";
 
-type TabType = "tips" | "quiz" | "shorts";
+type TabType = "tips" | "quiz";
 
 /* ─────────────────────────────────────────────────
    주식 용어 데이터 (주식용어DB.xlsx 기반 111개)
@@ -1697,124 +1697,6 @@ function TipCard({ tip, index }: { tip: TipItem; index: number }) {
 }
 
 /* ─────────────────────────────────────────────────
-   YouTube 숏츠 데이터
-───────────────────────────────────────────────── */
-interface ShortsItem {
-  id: string;
-  videoId: string;
-  title: string;
-  description: string;
-  tag: string;
-  tagColor: string;
-}
-
-const SHORTS_DATA: ShortsItem[] = [
-  {
-    id: "s1",
-    videoId: "LBrRzO23v9M",
-    title: "주식 초보를 위한 핵심 투자 팁",
-    description: "주식 투자를 처음 시작하는 분들을 위한 핵심 개념과 실전 팁을 쇼츠로 만나보세요.",
-    tag: "기초",
-    tagColor: "bg-blue-100 text-blue-600",
-  },
-];
-
-function ShortsSection() {
-  const [activeId, setActiveId] = useState<string | null>(null);
-
-  return (
-    <div className="space-y-5">
-      {/* 헤더 */}
-      <div className="flex items-center gap-2 px-1">
-        <Tv className="w-4 h-4 text-red-500" />
-        <div>
-          <p className="text-sm font-extrabold text-foreground">투자 숏츠</p>
-          <p className="text-xs text-muted-foreground font-medium">짧은 영상으로 배우는 주식 투자 핵심</p>
-        </div>
-      </div>
-
-      {/* 숏츠 카드 목록 */}
-      {SHORTS_DATA.map((item) => (
-        <motion.div
-          key={item.id}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden"
-        >
-          {/* 썸네일 / 재생 버튼 */}
-          {activeId === item.id ? (
-            <div className="w-full aspect-[9/16] max-h-[540px]">
-              <iframe
-                src={`https://www.youtube.com/embed/${item.videoId}?autoplay=1&rel=0&playsinline=1`}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                title={item.title}
-              />
-            </div>
-          ) : (
-            <button
-              onClick={() => setActiveId(item.id)}
-              className="relative w-full aspect-[9/16] max-h-[540px] overflow-hidden group bg-black"
-            >
-              <img
-                src={`https://img.youtube.com/vi/${item.videoId}/maxresdefault.jpg`}
-                alt={item.title}
-                className="w-full h-full object-cover opacity-90 group-hover:opacity-75 transition-opacity"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${item.videoId}/hqdefault.jpg`;
-                }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
-                  <Play className="w-7 h-7 text-red-500 ml-0.5 fill-red-500" />
-                </div>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-4">
-                <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", item.tagColor)}>
-                  {item.tag}
-                </span>
-                <p className="text-white font-extrabold text-sm mt-1 leading-snug line-clamp-2">
-                  {item.title}
-                </p>
-              </div>
-            </button>
-          )}
-
-          {/* 메타 정보 */}
-          <div className="p-4">
-            {activeId === item.id && (
-              <div className="flex items-center gap-2 mb-2">
-                <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", item.tagColor)}>
-                  {item.tag}
-                </span>
-                <p className="font-extrabold text-sm text-foreground line-clamp-1">{item.title}</p>
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground font-medium leading-relaxed">{item.description}</p>
-            {activeId === item.id && (
-              <button
-                onClick={() => setActiveId(null)}
-                className="mt-3 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
-              >
-                영상 닫기
-              </button>
-            )}
-          </div>
-        </motion.div>
-      ))}
-
-      {/* 추후 숏츠 업데이트 예고 */}
-      <div className="bg-muted/40 border border-dashed border-border/60 rounded-2xl p-5 text-center">
-        <Tv className="w-6 h-6 text-muted-foreground/50 mx-auto mb-2" />
-        <p className="text-sm font-bold text-muted-foreground">더 많은 투자 숏츠 준비 중</p>
-        <p className="text-xs text-muted-foreground/70 font-medium mt-1">매주 새로운 투자 영상이 추가됩니다</p>
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────
    QuizSection 컴포넌트 — 일일 랜덤 3문제
 ───────────────────────────────────────────────── */
 type QuizPhase = "question" | "correct" | "wrong";
@@ -2129,8 +2011,7 @@ export default function Tips() {
           )}
         >
           <BookOpen className="w-4 h-4" />
-          <span className="hidden sm:inline">주식 용어</span>
-          <span className="sm:hidden">용어</span>
+          주식 용어
           <span className={cn(
             "text-[10px] font-extrabold px-1.5 py-0.5 rounded-full",
             tab === "tips" ? "bg-primary/10 text-primary" : "bg-background/60"
@@ -2146,7 +2027,7 @@ export default function Tips() {
           )}
         >
           <GraduationCap className="w-4 h-4" />
-          퀴즈
+          투자 퀴즈
           {missions.quiz ? (
             <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-green-100 text-green-600">완료</span>
           ) : (
@@ -2156,35 +2037,11 @@ export default function Tips() {
             )}>+40P</span>
           )}
         </button>
-        <button
-          onClick={() => setTab("shorts")}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all duration-200",
-            tab === "shorts" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Tv className="w-4 h-4" />
-          숏츠
-          <span className={cn(
-            "text-[10px] font-extrabold px-1.5 py-0.5 rounded-full",
-            tab === "shorts" ? "bg-red-100 text-red-600" : "bg-background/60 text-muted-foreground"
-          )}>NEW</span>
-        </button>
       </div>
 
       {/* 탭 콘텐츠 */}
       <AnimatePresence mode="wait">
-        {tab === "shorts" ? (
-          <motion.div
-            key="shorts"
-            initial={{ opacity: 0, x: 8 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -8 }}
-            transition={{ duration: 0.18 }}
-          >
-            <ShortsSection />
-          </motion.div>
-        ) : tab === "tips" ? (
+        {tab === "tips" ? (
           <motion.div
             key="tips"
             initial={{ opacity: 0, x: -8 }}

@@ -261,6 +261,14 @@ const VIDEOS: Record<Level, VideoCard[]> = {
 
 const BONUS_SHORTS: ShortCard[] = [
   {
+    title: "주식 투자 핵심 팁",
+    channel: "투자 숏츠",
+    videoId: "LBrRzO23v9M",
+    url: "https://www.youtube.com/shorts/LBrRzO23v9M",
+    tags: ["숏츠"],
+    color: "from-red-500/20 to-rose-500/10",
+  },
+  {
     title: "숏츠 1",
     channel: "투자 숏츠",
     videoId: "CUTR6_ZJPRU",
