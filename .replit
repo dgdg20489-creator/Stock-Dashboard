@@ -30,10 +30,6 @@ args = "python: KRX Data Fetcher"
 task = "workflow.run"
 args = "API Server"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
 [[workflows.workflow]]
 name = "python: KRX Data Fetcher"
 author = "agent"
@@ -56,18 +52,6 @@ outputType = "console"
 task = "shell.exec"
 args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
 waitForPort = 8080
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=26236 BASE_PATH=/ pnpm --filter @workspace/toss-stocks run dev"
-waitForPort = 26236
 
 [agent]
 stack = "PNPM_WORKSPACE"
