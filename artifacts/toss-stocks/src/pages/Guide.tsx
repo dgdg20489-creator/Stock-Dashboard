@@ -4,6 +4,7 @@ import { PlayCircle, ExternalLink, GraduationCap, BookOpen, TrendingUp, Zap, Sta
 import { cn } from "@/lib/utils";
 
 type Level = "basic" | "mid" | "advanced" | "bonus";
+type BonusTab = "videos" | "shorts";
 
 interface VideoCard {
   title: string;
@@ -16,6 +17,15 @@ interface VideoCard {
   color: string;
   videoId?: string;
   views?: string;
+}
+
+interface ShortCard {
+  title: string;
+  channel: string;
+  videoId: string;
+  url: string;
+  tags: string[];
+  color: string;
 }
 
 const LEVELS: { id: Level; label: string; emoji: string; subtitle: string; color: string; bg: string; border: string; icon: typeof BookOpen }[] = [
@@ -249,8 +259,52 @@ const VIDEOS: Record<Level, VideoCard[]> = {
   ],
 };
 
+const BONUS_SHORTS: ShortCard[] = [
+  {
+    title: "숏츠 1",
+    channel: "투자 숏츠",
+    videoId: "CUTR6_ZJPRU",
+    url: "https://www.youtube.com/shorts/CUTR6_ZJPRU",
+    tags: ["숏츠"],
+    color: "from-pink-500/20 to-rose-500/10",
+  },
+  {
+    title: "숏츠 2",
+    channel: "투자 숏츠",
+    videoId: "kG5sQoRoWEA",
+    url: "https://www.youtube.com/shorts/kG5sQoRoWEA",
+    tags: ["숏츠"],
+    color: "from-purple-500/20 to-violet-500/10",
+  },
+  {
+    title: "숏츠 3",
+    channel: "투자 숏츠",
+    videoId: "2Gda55I54m8",
+    url: "https://www.youtube.com/shorts/2Gda55I54m8",
+    tags: ["숏츠"],
+    color: "from-orange-500/20 to-amber-500/10",
+  },
+  {
+    title: "숏츠 4",
+    channel: "투자 숏츠",
+    videoId: "5OUAW99lvBs",
+    url: "https://www.youtube.com/shorts/5OUAW99lvBs",
+    tags: ["숏츠"],
+    color: "from-blue-500/20 to-cyan-500/10",
+  },
+  {
+    title: "숏츠 5",
+    channel: "투자 숏츠",
+    videoId: "uHuffKvdzF8",
+    url: "https://www.youtube.com/shorts/uHuffKvdzF8",
+    tags: ["숏츠"],
+    color: "from-emerald-500/20 to-teal-500/10",
+  },
+];
+
 export default function Guide() {
   const [activeLevel, setActiveLevel] = useState<Level>("basic");
+  const [bonusTab, setBonusTab] = useState<BonusTab>("videos");
   const level = LEVELS.find((l) => l.id === activeLevel)!;
   const videos = VIDEOS[activeLevel];
 
@@ -309,94 +363,173 @@ export default function Guide() {
         </motion.div>
       </AnimatePresence>
 
-      {/* 영상 카드 그리드 */}
+      {/* 번외 전용: 영상 / 숏츠 서브탭 */}
+      {activeLevel === "bonus" && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setBonusTab("videos")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-semibold transition-all duration-150",
+              bonusTab === "videos"
+                ? "bg-purple-500/15 border-purple-500/40 text-purple-400 shadow-sm"
+                : "border-border bg-card text-muted-foreground hover:bg-muted/40"
+            )}
+          >
+            <Play className="w-3.5 h-3.5" />
+            영상
+          </button>
+          <button
+            onClick={() => setBonusTab("shorts")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-semibold transition-all duration-150",
+              bonusTab === "shorts"
+                ? "bg-red-500/15 border-red-500/40 text-red-400 shadow-sm"
+                : "border-border bg-card text-muted-foreground hover:bg-muted/40"
+            )}
+          >
+            <span className="text-base leading-none">⚡</span>
+            숏츠
+          </button>
+        </div>
+      )}
+
+      {/* 콘텐츠 영역 */}
       <AnimatePresence mode="wait">
-        <motion.div
-          key={activeLevel + "-cards"}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="space-y-3"
-        >
-          {videos.map((v, i) => (
-            <motion.a
-              key={v.title}
-              href={v.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06 }}
-              className="block rounded-xl border border-border bg-card hover:bg-muted/30 transition-colors overflow-hidden group"
-            >
-              {/* 상단 그라디언트 띠 */}
-              <div className={cn("h-1 w-full bg-gradient-to-r", v.color)} />
-
-              <div className="flex items-start gap-3 px-4 py-4">
-                {/* 썸네일 또는 채널 아이콘 */}
-                {v.videoId ? (
-                  <div className="relative w-24 h-[54px] rounded-lg overflow-hidden flex-shrink-0 bg-black/40">
-                    <img
-                      src={`https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`}
-                      alt={v.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
-                      <div className="w-7 h-7 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
-                        <Play className="w-3 h-3 text-white fill-white ml-0.5" />
-                      </div>
+        {/* 숏츠 그리드 (번외 + 숏츠 탭) */}
+        {activeLevel === "bonus" && bonusTab === "shorts" ? (
+          <motion.div
+            key="shorts-grid"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+          >
+            {BONUS_SHORTS.map((s, i) => (
+              <motion.a
+                key={s.videoId}
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+                className="block rounded-xl border border-border bg-card hover:bg-muted/30 transition-colors overflow-hidden group"
+              >
+                {/* 세로형 썸네일 */}
+                <div className="relative w-full aspect-[9/16] bg-black overflow-hidden">
+                  <img
+                    src={`https://img.youtube.com/vi/${s.videoId}/hqdefault.jpg`}
+                    alt={s.title}
+                    className="w-full h-full object-cover"
+                  />
+                  {/* 숏츠 배지 */}
+                  <div className="absolute top-2 left-2 bg-red-600 rounded-md px-1.5 py-0.5 flex items-center gap-0.5">
+                    <span className="text-[9px] font-bold text-white tracking-wide">Shorts</span>
+                  </div>
+                  {/* 플레이 오버레이 */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/5 transition-colors">
+                    <div className="w-9 h-9 rounded-full bg-red-600/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                      <Play className="w-4 h-4 text-white fill-white ml-0.5" />
                     </div>
-                    {v.views && (
-                      <div className="absolute bottom-0.5 right-0.5 bg-black/70 rounded px-1 py-0.5 text-[9px] text-white font-medium">
-                        {v.views}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className={cn(
-                    "w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl",
-                    "bg-gradient-to-br", v.color
-                  )}>
-                    {v.channelBadge}
-                  </div>
-                )}
-
-                {/* 내용 */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-blue-400 transition-colors">
-                      {v.title}
-                    </h3>
-                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/50 flex-shrink-0 mt-0.5 group-hover:text-blue-400 transition-colors" />
-                  </div>
-
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs font-medium text-muted-foreground">{v.channel}</span>
-                    <span className="text-muted-foreground/30">·</span>
-                    <span className="text-xs text-muted-foreground">{v.duration}</span>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground/80 mt-1 leading-relaxed line-clamp-2">
-                    {v.description}
-                  </p>
-
-                  {/* 태그 */}
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    {v.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-muted/60 text-muted-foreground"
-                      >
-                        {tag}
-                      </span>
-                    ))}
                   </div>
                 </div>
-              </div>
-            </motion.a>
-          ))}
-        </motion.div>
+                {/* 채널명 */}
+                <div className="px-2.5 py-2">
+                  <p className="text-[11px] text-muted-foreground font-medium truncate">{s.channel}</p>
+                </div>
+              </motion.a>
+            ))}
+          </motion.div>
+        ) : (
+          /* 일반 영상 카드 */
+          <motion.div
+            key={activeLevel + (activeLevel === "bonus" ? "-videos" : "") + "-cards"}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-3"
+          >
+            {videos.map((v, i) => (
+              <motion.a
+                key={v.title}
+                href={v.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+                className="block rounded-xl border border-border bg-card hover:bg-muted/30 transition-colors overflow-hidden group"
+              >
+                {/* 상단 그라디언트 띠 */}
+                <div className={cn("h-1 w-full bg-gradient-to-r", v.color)} />
+
+                <div className="flex items-start gap-3 px-4 py-4">
+                  {/* 썸네일 또는 채널 아이콘 */}
+                  {v.videoId ? (
+                    <div className="relative w-24 h-[54px] rounded-lg overflow-hidden flex-shrink-0 bg-black/40">
+                      <img
+                        src={`https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`}
+                        alt={v.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+                        <div className="w-7 h-7 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+                          <Play className="w-3 h-3 text-white fill-white ml-0.5" />
+                        </div>
+                      </div>
+                      {v.views && (
+                        <div className="absolute bottom-0.5 right-0.5 bg-black/70 rounded px-1 py-0.5 text-[9px] text-white font-medium">
+                          {v.views}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className={cn(
+                      "w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl",
+                      "bg-gradient-to-br", v.color
+                    )}>
+                      {v.channelBadge}
+                    </div>
+                  )}
+
+                  {/* 내용 */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-blue-400 transition-colors">
+                        {v.title}
+                      </h3>
+                      <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/50 flex-shrink-0 mt-0.5 group-hover:text-blue-400 transition-colors" />
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs font-medium text-muted-foreground">{v.channel}</span>
+                      <span className="text-muted-foreground/30">·</span>
+                      <span className="text-xs text-muted-foreground">{v.duration}</span>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground/80 mt-1 leading-relaxed line-clamp-2">
+                      {v.description}
+                    </p>
+
+                    {/* 태그 */}
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {v.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-muted/60 text-muted-foreground"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.a>
+            ))}
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* 안내 배너 */}
