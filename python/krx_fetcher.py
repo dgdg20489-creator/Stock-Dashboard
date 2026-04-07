@@ -321,6 +321,12 @@ def create_tables(conn):
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS market_news_ticker_idx ON market_news(ticker, published_at DESC)")
 
+        # stocks_realtime 누락 컬럼 추가 (기존 DB 호환)
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS market TEXT DEFAULT 'KOSPI'")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS per NUMERIC DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS naver_change_pct NUMERIC DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT ''")
+
         # 실시간 시장 순위 테이블 (거래대금 / 거래량)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS market_rankings (
