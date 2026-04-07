@@ -122,7 +122,7 @@ router.post("/ai-advisor/analyze", async (req, res) => {
     const holdingsRes = await pool.query(
       `SELECT h.ticker, h.shares, h.avg_price,
               COALESCE(sr.current_price, h.avg_price) AS current_price,
-              sr.name, sr.sector
+              sr.name
        FROM holdings h
        LEFT JOIN stocks_realtime sr ON sr.ticker = h.ticker
        WHERE h.user_id = $1`,
