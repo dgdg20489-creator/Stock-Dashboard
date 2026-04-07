@@ -1,16 +1,33 @@
 #!/usr/bin/env python3
 """
 원광증권 실시간 데이터 서비스
-- 네이버 금융 API: 실시간 주가 (2026년 현재)
-- 네이버 금융 API: 종목별·시장 뉴스 (실제 발행 시간 KST) + AI 감성 분석
+- 한국투자증권 Open API: 실시간 주가 (1차 소스) — 시세 조회 전용, 실제 거래 없음
+- 네이버 금융 API: 실시간 주가 fallback + 뉴스 + 종목 목록
 - Yahoo Finance: 글로벌 지수
 - 동적 주식 목록: KOSPI 전체 + KOSDAQ 전체 (~2300종목)
 - 공모주(IPO): 상장 예정 종목 자동 수집 및 상장일 자동 반영
+- 모의투자: 매수/매도/잔고는 내부 PostgreSQL DB에서 처리 (실제 계좌 연동 없음)
 """
 import os, time, math, random, logging, traceback, threading
 import psycopg2
 from psycopg2.extras import execute_values
 from datetime import datetime, timedelta, timezone
+
+# 한국투자증권 Open API 모듈 (시세 데이터 소스)
+try:
+    from kis_api import (
+        fetch_price as kis_fetch_price,
+        fetch_price_batch as kis_fetch_price_batch,
+        fetch_volume_ranking as kis_fetch_volume_ranking,
+        fetch_fluctuation_ranking as kis_fetch_fluctuation_ranking,
+        fetch_daily_ohlcv as kis_fetch_daily_ohlcv,
+        is_available as kis_is_available,
+    )
+    KIS_ENABLED = True
+except ImportError:
+    KIS_ENABLED = False
+    log_tmp = logging.getLogger(__name__)
+    log_tmp.warning("kis_api 모듈 없음 — 네이버 fallback 사용")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -407,13 +424,62 @@ def seed_realtime(conn):
 
 
 def update_realtime_prices(conn):
-    """상위 500종목의 실시간 가격을 네이버 금융 개별 API로 업데이트."""
-    tickers = get_all_tickers_from_db(conn)[:500]  # 상위 500종목만 빠르게
+    """
+    상위 종목 실시간 가격 업데이트.
+    1차: 한국투자증권 Open API (실제 시세, 시세 조회 전용)
+    2차 fallback: 네이버 금융 개별 API
+    """
+    tickers = get_all_tickers_from_db(conn)[:500]
     if not tickers:
         log.warning("DB에 종목이 없음 — 가격 업데이트 스킵")
         return
-    updated = 0
-    for ticker in tickers:
+
+    updated_kis    = 0
+    updated_naver  = 0
+    updated_failed = 0
+
+    # ── 1차: 한투 Open API (시세 조회 전용, 모의투자 데이터 소스) ─────────
+    kis_ok = KIS_ENABLED and kis_is_available()
+    if kis_ok:
+        log.info("[KIS] 실시간 시세 업데이트 시작 (한국투자증권 Open API)")
+        # 상위 200종목은 한투 API로 (rate limit 고려, 50ms 간격)
+        kis_tickers = tickers[:200]
+        for ticker in kis_tickers:
+            try:
+                d = kis_fetch_price(ticker)
+                if not d:
+                    updated_failed += 1
+                    continue
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE stocks_realtime
+                        SET current_price=%s, base_price=%s,
+                            change_val=%s, change_pct=%s, naver_change_pct=%s,
+                            volume=%s, updated_at=NOW()
+                        WHERE ticker=%s
+                    """, (
+                        d["price"], d.get("base", d["price"]),
+                        d["change"], d["change_pct"], d["change_pct"],
+                        d.get("volume", 0) or 0,
+                        ticker,
+                    ))
+                updated_kis += 1
+                time.sleep(0.05)  # 50ms — KIS rate limit 준수
+            except Exception as e:
+                log.debug(f"[KIS] price update {ticker}: {e}")
+                updated_failed += 1
+        conn.commit()
+        log.info(f"[KIS] 시세 업데이트: {updated_kis}종목 성공, {updated_failed}종목 실패")
+
+        # 200위 이후는 네이버로 보충
+        remaining = tickers[200:]
+    else:
+        if KIS_ENABLED:
+            log.warning("[KIS] API 사용 불가 — 네이버 fallback으로 전환")
+        remaining = tickers
+
+    # ── 2차: 네이버 금융 (fallback or 200위 이후 종목) ────────────────────
+    for ticker in remaining:
         try:
             naver = fetch_naver_price(ticker)
             if not naver:
@@ -428,13 +494,12 @@ def update_realtime_prices(conn):
                 """, (naver["price"], naver["price"], naver["change"], naver["change_pct"],
                       naver["change_pct"],
                       naver.get("logo_url", ""), ticker))
-            updated += 1
-            time.sleep(0.07)  # 70ms per stock → 500종목 약 35초
+            updated_naver += 1
+            time.sleep(0.07)
         except Exception as e:
-            log.debug(f"Price update {ticker}: {e}")
+            log.debug(f"Naver price update {ticker}: {e}")
     conn.commit()
-    if updated > 0:
-        log.info(f"네이버 실시간 가격 업데이트: {updated}종목")
+    log.info(f"실시간 가격 업데이트 완료 — KIS: {updated_kis}종목, 네이버: {updated_naver}종목")
 
 
 def simulate_prices(conn):
@@ -965,9 +1030,58 @@ def refresh_all_news(conn):
 
 def fetch_naver_rankings(conn):
     """시장 순위 갱신:
-    거래대금 — 네이버 sise_quant.naver 스크래핑 (KOSPI+KOSDAQ 합산, 100위까지)
-    거래량   — stocks_realtime DB 정렬 (volume DESC, 실시간 반영)
+    1차: 한국투자증권 Open API (거래량 순위 / 등락률 순위)
+    2차: 네이버 sise_quant.naver 스크래핑 (KOSPI+KOSDAQ 합산, 100위까지)
     """
+    # ── 1차: 한투 Open API 순위 ───────────────────────────────────────────
+    if KIS_ENABLED and kis_is_available():
+        try:
+            now = datetime.now(KST)
+            vol_items = kis_fetch_volume_ranking(top_n=50)
+            flu_items = kis_fetch_fluctuation_ranking(top_n=50)
+
+            if vol_items or flu_items:
+                # 가격 정보를 stocks_realtime에도 반영
+                all_items = {i["ticker"]: i for i in vol_items + flu_items}
+                with conn.cursor() as cur:
+                    for ticker, d in all_items.items():
+                        if d.get("price", 0) > 0:
+                            cur.execute("""
+                                UPDATE stocks_realtime
+                                SET current_price=%s, change_pct=%s,
+                                    naver_change_pct=%s,
+                                    volume=GREATEST(volume, %s), updated_at=NOW()
+                                WHERE ticker=%s
+                            """, (d["price"], d["change_pct"], d["change_pct"],
+                                  d.get("volume", 0), ticker))
+                conn.commit()
+
+                with conn.cursor() as cur:
+                    if vol_items:
+                        cur.execute("DELETE FROM market_rankings WHERE type='volume'")
+                        execute_values(cur, """
+                            INSERT INTO market_rankings
+                                (type, rank, ticker, name, price, change_pct, volume, trade_amount, updated_at)
+                            VALUES %s
+                        """, [("volume", i+1, s["ticker"], s["name"], s["price"],
+                                s["change_pct"], s.get("volume",0), s.get("trade_amount",0), now)
+                              for i, s in enumerate(vol_items)])
+                    if flu_items:
+                        cur.execute("DELETE FROM market_rankings WHERE type='fluctuation'")
+                        execute_values(cur, """
+                            INSERT INTO market_rankings
+                                (type, rank, ticker, name, price, change_pct, volume, trade_amount, updated_at)
+                            VALUES %s
+                        """, [("fluctuation", i+1, s["ticker"], s["name"], s["price"],
+                                s["change_pct"], s.get("volume",0), 0, now)
+                              for i, s in enumerate(flu_items)])
+                conn.commit()
+                log.info(f"[KIS] 순위 업데이트: 거래량 {len(vol_items)}개, 등락률 {len(flu_items)}개")
+                return  # 성공 시 네이버 스크래핑 스킵
+        except Exception as e:
+            log.warning(f"[KIS] 순위 업데이트 실패, 네이버 fallback: {e}")
+
+    # ── 2차: 네이버 스크래핑 (fallback) ──────────────────────────────────
     import requests
     try:
         from bs4 import BeautifulSoup
@@ -1343,6 +1457,17 @@ def promote_ipo_to_realtime(conn):
 
 def main():
     log.info("=== 원광증권 KRX Fetcher 시작 ===")
+
+    # 한투 Open API 초기화 확인
+    if KIS_ENABLED:
+        if kis_is_available():
+            log.info("[KIS] 한국투자증권 Open API 연결 성공 — 실시간 시세 조회 활성화")
+            log.info("[KIS] ※ 시세 조회 전용, 모의투자 매수/매도는 내부 DB에서 처리")
+        else:
+            log.warning("[KIS] API 키 설정됨 but 토큰 발급 실패 — 네이버 fallback 사용")
+    else:
+        log.info("[KIS] kis_api 모듈 없음 — 네이버 금융으로 시세 조회")
+
     conn = get_conn()
     create_tables(conn)
     seed_realtime(conn)    # 전체 종목 목록 로딩 (KOSPI+KOSDAQ 전체) — 필수 동기
@@ -1352,7 +1477,8 @@ def main():
         bg = get_conn()
         try:
             seed_history(bg)
-            log.info("초기 실시간 가격 로딩 (네이버 금융, 백그라운드)...")
+            src = "한국투자증권 Open API + 네이버 금융" if (KIS_ENABLED and kis_is_available()) else "네이버 금융"
+            log.info(f"초기 실시간 가격 로딩 ({src}, 백그라운드)...")
             update_realtime_prices(bg)
             update_indices(bg)
             refresh_all_news(bg)
