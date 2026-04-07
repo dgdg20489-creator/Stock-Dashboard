@@ -1,8 +1,14 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Bot, Sparkles, ChevronDown, ChevronUp, RefreshCw, TrendingUp, ShieldAlert, Lightbulb, ArrowRight } from "lucide-react";
+import {
+  Bot, Sparkles, ChevronDown, ChevronUp, RefreshCw,
+  TrendingUp, ShieldAlert, Lightbulb, ArrowRight,
+  MessageCircle, Send, X,
+} from "lucide-react";
+
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface RiskProfile {
   profile: "aggressive" | "balanced" | "defensive";
@@ -44,6 +50,11 @@ interface AnalysisResult {
   };
 }
 
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 interface AiAdvisorProps {
   userId: number;
 }
@@ -59,6 +70,13 @@ const SECTOR_COLORS = [
   "bg-purple-400", "bg-pink-400", "bg-cyan-400", "bg-orange-400",
 ];
 
+const QUICK_QUESTIONS = [
+  "지금 포트폴리오에서 가장 위험한 부분은?",
+  "어떤 종목을 더 사면 좋을까요?",
+  "리밸런싱을 어떻게 해야 하나요?",
+  "지금 매도해야 할 종목이 있나요?",
+];
+
 export function AiAdvisor({ userId }: AiAdvisorProps) {
   const [, setLocation] = useLocation();
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -67,13 +85,35 @@ export function AiAdvisor({ userId }: AiAdvisorProps) {
   const [expanded, setExpanded] = useState(false);
   const [open, setOpen] = useState(false);
 
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (chatOpen && chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages, chatOpen]);
+
+  const buildAnalysisContext = useCallback((r: AnalysisResult) => {
+    const holdings = r.sectorBreakdown.map(s => `${s.sector} ${s.percent.toFixed(0)}%`).join(", ");
+    return `투자 성향: ${r.riskProfile.label}, 총 자산: ${r.stats.totalAssets.toLocaleString()}원, ` +
+      `현금 비중: ${r.stats.cashPercent.toFixed(0)}%, 수익률: ${r.stats.totalReturnPct.toFixed(1)}%, ` +
+      `섹터 분포: ${holdings || "없음"}, AI 요약: ${r.ai.summary}`;
+  }, []);
+
   const analyze = useCallback(async () => {
     setLoading(true);
     setError(null);
     setOpen(true);
     setExpanded(false);
+    setChatOpen(false);
+    setChatMessages([]);
     try {
-      const r = await fetch("/api/ai-advisor/analyze", {
+      const r = await fetch(`${API_BASE}/api/ai-advisor/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId }),
@@ -88,6 +128,70 @@ export function AiAdvisor({ userId }: AiAdvisorProps) {
       setLoading(false);
     }
   }, [userId]);
+
+  const sendChat = useCallback(async (questionOverride?: string) => {
+    const text = (questionOverride ?? chatInput).trim();
+    if (!text || chatLoading) return;
+
+    const newMsg: ChatMessage = { role: "user", content: text };
+    const updatedMessages = [...chatMessages, newMsg];
+    setChatMessages(updatedMessages);
+    setChatInput("");
+    setChatLoading(true);
+
+    const assistantMsg: ChatMessage = { role: "assistant", content: "" };
+    setChatMessages([...updatedMessages, assistantMsg]);
+
+    try {
+      const resp = await fetch(`${API_BASE}/api/ai-advisor/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          messages: updatedMessages,
+          analysisContext: result ? buildAnalysisContext(result) : undefined,
+        }),
+      });
+
+      if (!resp.ok || !resp.body) throw new Error("채팅 실패");
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const parsed = JSON.parse(line.slice(6));
+            if (parsed.content) {
+              fullText += parsed.content;
+              setChatMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: "assistant", content: fullText };
+                return updated;
+              });
+            }
+          } catch {}
+        }
+      }
+    } catch {
+      setChatMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: "assistant", content: "오류가 발생했습니다. 다시 시도해주세요." };
+        return updated;
+      });
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [chatInput, chatLoading, chatMessages, userId, result, buildAnalysisContext]);
 
   const riskColors = result ? RISK_COLORS[result.riskProfile.profile] : RISK_COLORS.balanced;
 
@@ -135,7 +239,7 @@ export function AiAdvisor({ userId }: AiAdvisorProps) {
         </div>
       </div>
 
-      {/* 분석 시작 버튼 (결과 없을 때) */}
+      {/* 분석 시작 버튼 */}
       {!result && !loading && (
         <div className="px-6 pb-6">
           <button
@@ -209,7 +313,6 @@ export function AiAdvisor({ userId }: AiAdvisorProps) {
                 <div>
                   <p className="text-xs font-extrabold text-muted-foreground mb-2">섹터 분포</p>
                   <div className="flex h-3 rounded-full overflow-hidden gap-px">
-                    {/* 현금 비중 */}
                     {result.stats.cashPercent > 0 && (
                       <div
                         className="bg-gray-300 h-full transition-all"
@@ -320,7 +423,7 @@ export function AiAdvisor({ userId }: AiAdvisorProps) {
                 </div>
               )}
 
-              {/* 리밸런싱 노트 + 버튼 */}
+              {/* 리밸런싱 노트 */}
               {result.ai.rebalanceNote && (
                 <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-2xl p-4 border border-primary/15">
                   <p className="text-xs font-bold text-primary mb-1">리밸런싱 방향</p>
@@ -336,6 +439,135 @@ export function AiAdvisor({ userId }: AiAdvisorProps) {
                 <TrendingUp className="w-4 h-4" />
                 포트폴리오 리밸런싱 하기
               </button>
+
+              {/* AI 채팅 상담 버튼 */}
+              <button
+                onClick={() => { setChatOpen((v) => !v); setTimeout(() => inputRef.current?.focus(), 200); }}
+                className={cn(
+                  "w-full py-3.5 rounded-2xl font-extrabold text-sm border-2 transition-all flex items-center justify-center gap-2",
+                  chatOpen
+                    ? "bg-primary/10 border-primary text-primary"
+                    : "bg-card border-border text-foreground hover:border-primary/50 hover:bg-primary/5"
+                )}
+              >
+                <MessageCircle className="w-4 h-4" />
+                {chatOpen ? "채팅 닫기" : "AI 비서에게 질문하기"}
+              </button>
+
+              {/* 채팅 패널 */}
+              <AnimatePresence>
+                {chatOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-muted/30 rounded-2xl border border-border/50 overflow-hidden">
+                      {/* 채팅 헤더 */}
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-card">
+                        <Bot className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-extrabold text-foreground">AI 실시간 상담</span>
+                        <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full ml-1">Gemini</span>
+                        <button
+                          onClick={() => { setChatMessages([]); setChatInput(""); }}
+                          className="ml-auto p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          title="대화 초기화"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* 메시지 목록 */}
+                      <div className="max-h-72 overflow-y-auto p-3 space-y-3">
+                        {chatMessages.length === 0 ? (
+                          <div className="space-y-2">
+                            <p className="text-xs text-muted-foreground font-medium text-center py-2">
+                              포트폴리오 분석 결과를 바탕으로 궁금한 점을 물어보세요!
+                            </p>
+                            <div className="grid grid-cols-1 gap-1.5">
+                              {QUICK_QUESTIONS.map((q) => (
+                                <button
+                                  key={q}
+                                  onClick={() => sendChat(q)}
+                                  disabled={chatLoading}
+                                  className="text-left text-xs font-semibold text-primary bg-primary/5 border border-primary/15 rounded-xl px-3 py-2 hover:bg-primary/10 transition-colors disabled:opacity-50"
+                                >
+                                  💬 {q}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {chatMessages.map((msg, i) => (
+                              <div
+                                key={i}
+                                className={cn(
+                                  "flex gap-2",
+                                  msg.role === "user" ? "flex-row-reverse" : "flex-row"
+                                )}
+                              >
+                                {msg.role === "assistant" && (
+                                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Bot className="w-3.5 h-3.5 text-white" />
+                                  </div>
+                                )}
+                                <div
+                                  className={cn(
+                                    "max-w-[85%] px-3 py-2.5 rounded-2xl text-sm font-medium leading-relaxed",
+                                    msg.role === "user"
+                                      ? "bg-primary text-white rounded-tr-md"
+                                      : "bg-card border border-border/60 text-foreground rounded-tl-md"
+                                  )}
+                                >
+                                  {msg.content || (
+                                    <span className="flex gap-1 items-center py-0.5">
+                                      {[0, 1, 2].map((j) => (
+                                        <span
+                                          key={j}
+                                          className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce"
+                                          style={{ animationDelay: `${j * 0.15}s` }}
+                                        />
+                                      ))}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            <div ref={chatBottomRef} />
+                          </>
+                        )}
+                      </div>
+
+                      {/* 입력창 */}
+                      <div className="border-t border-border/40 p-3 bg-card">
+                        <div className="flex gap-2">
+                          <input
+                            ref={inputRef}
+                            type="text"
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+                            placeholder="질문을 입력하세요..."
+                            disabled={chatLoading}
+                            className="flex-1 text-sm font-medium px-3.5 py-2.5 rounded-xl border border-border/60 bg-background outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 disabled:opacity-60 transition-all"
+                          />
+                          <button
+                            onClick={() => sendChat()}
+                            disabled={!chatInput.trim() || chatLoading}
+                            className="p-2.5 rounded-xl bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                          >
+                            <Send className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
             </div>
           </motion.div>
         )}

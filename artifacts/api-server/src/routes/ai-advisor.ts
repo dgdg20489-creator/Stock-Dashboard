@@ -320,4 +320,89 @@ ${holdingsSummary}
   }
 });
 
+/* ─────────────────────────────────────────────
+   POST /api/ai-advisor/chat
+   Body: { userId, messages: [{role,content}], analysisContext? }
+   → SSE 스트리밍 응답
+───────────────────────────────────────────── */
+router.post("/ai-advisor/chat", async (req, res) => {
+  try {
+    const { userId, messages, analysisContext } = req.body;
+    if (!userId || !Array.isArray(messages)) {
+      return res.status(400).json({ error: "userId와 messages 필요" });
+    }
+
+    // 포트폴리오 요약 (컨텍스트용)
+    let portfolioContext = "";
+    if (analysisContext) {
+      portfolioContext = analysisContext;
+    } else {
+      const userRes = await pool.query(
+        "SELECT username, difficulty, cash_balance, seed_money FROM users WHERE id = $1",
+        [userId]
+      );
+      if (userRes.rows.length > 0) {
+        const u = userRes.rows[0];
+        const holdingsRes = await pool.query(
+          `SELECT h.ticker, h.shares, h.avg_price,
+                  COALESCE(sr.current_price, h.avg_price) AS current_price,
+                  sr.name
+           FROM holdings h
+           LEFT JOIN stocks_realtime sr ON sr.ticker = h.ticker
+           WHERE h.user_id = $1 LIMIT 20`,
+          [userId]
+        );
+        const hs = holdingsRes.rows.map((h: { name: string; ticker: string; shares: number; avg_price: number; current_price: number }) =>
+          `${h.name || h.ticker} ${h.shares}주`
+        ).join(", ");
+        portfolioContext = `사용자: ${u.username}, 난이도: ${u.difficulty}, ` +
+          `현금: ${Number(u.cash_balance).toLocaleString()}원, ` +
+          `보유 종목: ${hs || "없음"}`;
+      }
+    }
+
+    const systemMsg = `당신은 한국 주식 투자 전문 AI 비서입니다. 사용자의 포트폴리오 정보:
+${portfolioContext}
+
+친근하고 쉬운 말로, 한국 주식 투자 관련 질문에 답변해주세요. 답변은 2-4문장으로 간결하게 작성하세요. 투자 조언 시 리스크도 함께 언급하세요.`;
+
+    const chatMessages = [
+      { role: "user" as const, parts: [{ text: systemMsg }] },
+      { role: "model" as const, parts: [{ text: "알겠습니다! 포트폴리오를 파악했습니다. 궁금한 점을 질문해주세요." }] },
+      ...messages.map((m: { role: string; content: string }) => ({
+        role: (m.role === "assistant" ? "model" : "user") as "user" | "model",
+        parts: [{ text: m.content }],
+      })),
+    ];
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash",
+      contents: chatMessages,
+      config: { maxOutputTokens: 8192 },
+    });
+
+    for await (const chunk of stream) {
+      const text = chunk.text;
+      if (text) {
+        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+      }
+    }
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+  } catch (e) {
+    console.error("AI chat error:", e);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "채팅 중 오류가 발생했습니다." });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: "오류가 발생했습니다." })}\n\n`);
+      res.end();
+    }
+  }
+});
+
 export default router;
