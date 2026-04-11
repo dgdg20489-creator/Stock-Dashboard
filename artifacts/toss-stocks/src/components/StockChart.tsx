@@ -274,9 +274,35 @@ function genIntradayCandles(daily: OHLCPoint[], tf: TFKey): OHLCPoint[] {
 function aggregateMinutes(candles1m: OHLCPoint[], minutes: number): OHLCPoint[] {
   if (!candles1m.length || minutes <= 1) return candles1m;
   const result: OHLCPoint[] = [];
-  for (let i = 0; i < candles1m.length; i += minutes) {
-    const group = candles1m.slice(i, i + minutes);
-    if (!group.length) continue;
+  let group: OHLCPoint[] = [];
+  let bucketKey = -1;
+
+  for (const c of candles1m) {
+    // date 형식: "HH:MM" 또는 "HH:MM:SS"
+    const parts = c.date.split(":");
+    const hh = parseInt(parts[0]) || 0;
+    const mm = parseInt(parts[1]) || 0;
+    const totalMin = hh * 60 + mm;
+    const bucket = Math.floor(totalMin / minutes) * minutes;
+
+    if (bucket !== bucketKey) {
+      if (group.length) {
+        result.push({
+          date:   group[0].date,
+          open:   group[0].open,
+          high:   Math.max(...group.map(g => g.high)),
+          low:    Math.min(...group.map(g => g.low)),
+          close:  group[group.length - 1].close,
+          volume: group.reduce((s, g) => s + g.volume, 0),
+        });
+      }
+      group = [c];
+      bucketKey = bucket;
+    } else {
+      group.push(c);
+    }
+  }
+  if (group.length) {
     result.push({
       date:   group[0].date,
       open:   group[0].open,

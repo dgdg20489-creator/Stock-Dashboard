@@ -117,30 +117,45 @@ async function fetchMinutePage(ticker: string, endTime: string): Promise<OHLCBar
   } catch { return []; }
 }
 
-/** 당일 분봉 (pages 페이지, 시간순) */
-export async function fetchMinuteCandles(ticker: string, pages = 6): Promise<OHLCBar[]> {
+/** 당일(또는 최근 거래일) 분봉 전체 — 장 시작(09:00)부터 종료(15:30)까지 */
+export async function fetchMinuteCandles(ticker: string, pages = 13): Promise<OHLCBar[]> {
   await getToken();
   const all: OHLCBar[] = [];
-  const now = new Date();
-  const kst = new Date(now.getTime() + 9 * 3_600_000);
-  let hh = kst.getUTCHours();
-  let mm = kst.getUTCMinutes();
-  if (hh > 15 || (hh === 15 && mm >= 30)) { hh = 15; mm = 30; }
-  if (hh < 9) { hh = 9; mm = 0; }
+
+  // KST 기준 현재 시각
+  const kst = new Date(Date.now() + 9 * 3_600_000);
+  const kstH = kst.getUTCHours();
+  const kstM = kst.getUTCMinutes();
+  const isWeekday = kst.getUTCDay() >= 1 && kst.getUTCDay() <= 5;
+  const marketOpen  = kstH > 9 || (kstH === 9 && kstM >= 1);
+  const marketClose = kstH > 15 || (kstH === 15 && kstM >= 30);
+
+  // 장중이면 현재 시각, 그 외엔 15:30부터 소급
+  let hh: number, mm: number;
+  if (isWeekday && marketOpen && !marketClose) {
+    hh = kstH; mm = kstM;
+  } else {
+    hh = 15; mm = 30;
+  }
 
   for (let p = 0; p < pages; p++) {
     const endTime = `${String(hh).padStart(2,"0")}${String(mm).padStart(2,"0")}00`;
     const page = await fetchMinutePage(ticker, endTime);
-    if (!page.length) break;
+    if (!page.length) {
+      console.log(`[KIS 분봉] 페이지 ${p+1}: endTime=${endTime} → 0봉 (중단)`);
+      break;
+    }
     all.push(...page);
-    const last = page[page.length - 1].date;
+    console.log(`[KIS 분봉] 페이지 ${p+1}: ${page[0].date}~${page[page.length-1].date} (${page.length}봉)`);
+    const last = page[page.length - 1].date;  // "HH:MM"
     const [lhh, lmm] = last.split(":").map(Number);
     let nm = lmm - 1, nh = lhh;
     if (nm < 0) { nm = 59; nh--; }
-    if (nh < 9) break;
+    if (nh < 9 || (nh === 9 && nm < 1)) break;  // 09:01 이전이면 중단
     hh = nh; mm = nm;
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise(r => setTimeout(r, 300));  // 레이트 리밋 대비 300ms 대기
   }
+
   const seen = new Set<string>();
   return all.filter(c => {
     if (seen.has(c.date)) return false;
@@ -318,11 +333,11 @@ export async function fetchExecutions(ticker: string): Promise<ExecutionTick[]> 
       const time = hms.length >= 6
         ? `${hms.slice(0,2)}:${hms.slice(2,4)}:${hms.slice(4,6)}`
         : hms;
-      const sign = o.prdy_vrss_sign ?? "3";  // 2=상승,5=하락,3=보합
       const price  = parseInt(o.stck_prpr ?? "0") || 0;
       const volume = parseInt(o.cntg_vol  ?? "0") || 0;
-      // sign 2=상승(매수), 5=하락(매도), 그 외=보합
-      const isBuy = sign === "2" || sign === "1";
+      // ccld_dvsn: 체결구분 — "01"=매수체결, "02"=매도체결
+      const dvsn = o.ccld_dvsn ?? o.seln_type_dvsn_code ?? "";
+      const isBuy = dvsn === "01" || dvsn === "1";
       return { time, price, volume, isBuy };
     }).filter(t => t.price > 0);
   } catch { return []; }
