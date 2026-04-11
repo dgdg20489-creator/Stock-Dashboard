@@ -917,78 +917,91 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
     return () => ro.disconnect();
   }, []);
 
-  // ── KIS 실시간 분봉 fetch ─────────────────────────────────────
+  // ── KIS 한투 실시간 차트 데이터 fetch (모든 봉 주기) ──────────
   const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const [kisCandles1m,  setKisCandles1m]  = useState<OHLCPoint[]>([]);
-  const [kisLoading,    setKisLoading]    = useState(false);
-  const [kisError,      setKisError]      = useState(false);
+  const [kisRaw1m,   setKisRaw1m]   = useState<OHLCPoint[]>([]);  // 분봉 원본
+  const [kisPeriod,  setKisPeriod]  = useState<OHLCPoint[]>([]);  // 일/주/월/년봉
+  const [isLoading,  setIsLoading]  = useState(false);
 
+  // 분봉: 30초마다 갱신
   useEffect(() => {
     if (period !== "realtime") return;
     let alive = true;
-    setKisLoading(true);
-    setKisError(false);
+    setIsLoading(true);
 
     async function load() {
       try {
-        const res = await fetch(`${API_BASE}/api/stocks/${ticker}/minute-candles?pages=6`);
-        if (!res.ok) { if (alive) setKisError(true); return; }
-        const raw = await res.json() as { time: string; open: number; high: number; low: number; close: number; volume: number }[];
+        const res = await fetch(`${API_BASE}/api/stocks/${ticker}/minute-candles?pages=8`);
+        if (!res.ok || !alive) return;
+        const raw = await res.json() as { date:string; open:number; high:number; low:number; close:number; volume:number }[];
         if (!alive) return;
-        const points: OHLCPoint[] = raw.map(c => ({
-          date:   c.time,
-          open:   c.open,
-          high:   c.high,
-          low:    c.low,
-          close:  c.close,
-          volume: c.volume,
-        })).filter(c => c.close > 0);
-        setKisCandles1m(points);
-      } catch {
-        if (alive) setKisError(true);
-      } finally {
-        if (alive) setKisLoading(false);
-      }
+        setKisRaw1m(raw.filter(c => c.close > 0).map(c => ({
+          date: c.date, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume
+        })));
+      } catch { /* 폴백은 아래 chartData에서 처리 */ }
+      finally { if (alive) setIsLoading(false); }
     }
 
     load();
-    const interval = setInterval(load, 30_000);
-    return () => { alive = false; clearInterval(interval); };
+    const id = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(id); };
   }, [ticker, period, API_BASE]);
 
-  // 나머지 기간 → "all" (상장일 ~ 오늘 수정주가 전체)
-  const apiPeriod = useMemo(() => {
-    return GetStockHistoryPeriod["all"];
-  }, []);
+  // 일봉/주봉/월봉/년봉: 기간별 갱신 주기 다름
+  useEffect(() => {
+    if (period === "realtime") return;
+    let alive = true;
+    setIsLoading(true);
 
-  const { data: history, isLoading: histLoading } = useGetStockHistory(ticker, { period: apiPeriod });
-  const isLoading = period === "realtime" ? kisLoading : histLoading;
+    const kisCode: Record<PeriodKey, string> = {
+      day: "D", week: "W", month: "M", year: "Y", realtime: "D"
+    };
 
-  // ── 핵심 수정: 모든 값을 숫자로 강제 변환 + 0값 필터링 ──
-  const rawData: OHLCPoint[] = useMemo(() => {
-    return normalizeOHLC(history ? (history as any[]) : [], currentPrice);
-  }, [history, currentPrice]);
-
-  // 주봉/월봉/년봉 집계 or KIS 실시간 분봉
-  const chartData = useMemo(() => {
-    if (period === "realtime") {
-      // KIS 실시간 분봉 (1m 원본 → TF 집계)
-      if (kisError || !kisCandles1m.length) {
-        // KIS 실패 시 시뮬레이션 폴백
-        if (!rawData.length) return rawData;
-        const bpd = TF_BARS[tf];
-        const daysNeeded = Math.ceil(120 / bpd) + 5;
-        return genIntradayCandles(rawData.slice(-daysNeeded), tf);
-      }
-      const mins: Record<TFKey, number> = { "1m": 1, "5m": 5, "15m": 15, "30m": 30, "60m": 60 };
-      return aggregateMinutes(kisCandles1m, mins[tf]);
+    async function load() {
+      try {
+        const res = await fetch(`${API_BASE}/api/stocks/${ticker}/candles?period=${kisCode[period]}`);
+        if (!res.ok || !alive) return;
+        const raw = await res.json() as { date:string; open:number; high:number; low:number; close:number; volume:number }[];
+        if (!alive) return;
+        setKisPeriod(raw.filter(c => c.close > 0).map(c => ({
+          date: c.date, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume
+        })));
+      } catch { /* 폴백: DB 기반 데이터 사용 */ }
+      finally { if (alive) setIsLoading(false); }
     }
-    if (!rawData.length) return rawData;
-    if (period === "week")  return aggregateWeekly(rawData);
-    if (period === "month") return aggregateMonthly(rawData);
-    if (period === "year")  return aggregateYearly(rawData);
-    return rawData; // "day"
-  }, [rawData, period, tf, kisCandles1m, kisError]);
+
+    load();
+    // 일봉=60초, 주/월/년봉=5분
+    const ms = period === "day" ? 60_000 : 300_000;
+    const id = setInterval(load, ms);
+    return () => { alive = false; clearInterval(id); };
+  }, [ticker, period, API_BASE]);
+
+  // 일봉 DB 폴백 (KIS 실패 시)
+  const { data: history } = useGetStockHistory(ticker, { period: GetStockHistoryPeriod["all"] });
+  const fallbackData: OHLCPoint[] = useMemo(
+    () => normalizeOHLC(history ? (history as any[]) : [], currentPrice),
+    [history, currentPrice]
+  );
+
+  // ── 최종 차트 데이터 산출 ─────────────────────────────────────
+  const chartData = useMemo<OHLCPoint[]>(() => {
+    if (period === "realtime") {
+      // 분봉: KIS 실시간 또는 시뮬레이션 폴백
+      if (kisRaw1m.length) {
+        const mins: Record<TFKey, number> = { "1m":1, "5m":5, "15m":15, "30m":30, "60m":60 };
+        return aggregateMinutes(kisRaw1m, mins[tf]);
+      }
+      // 폴백: 일봉 데이터로 시뮬레이션
+      const base = kisPeriod.length ? kisPeriod : fallbackData;
+      if (!base.length) return [];
+      const bpd = TF_BARS[tf];
+      return genIntradayCandles(base.slice(-Math.ceil(120/bpd)+5), tf);
+    }
+    // 일봉/주봉/월봉/년봉: KIS 직접 또는 DB 폴백
+    const base = kisPeriod.length ? kisPeriod : fallbackData;
+    return base;
+  }, [period, tf, kisRaw1m, kisPeriod, fallbackData]);
 
   // period/tf 바뀌면 뷰 리셋
   useEffect(() => {

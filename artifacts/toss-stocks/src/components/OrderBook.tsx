@@ -27,67 +27,59 @@ interface Tick {
   isBuy: boolean;
 }
 
-function getBaseUrl() {
-  const base = (import.meta as any).env?.BASE_URL ?? "/";
-  return base.endsWith("/") ? base.slice(0, -1) : base;
-}
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 async function loadOrderbook(ticker: string): Promise<OrderBookData | null> {
   try {
-    const res = await fetch(`${getBaseUrl()}/api/stocks/${ticker}/orderbook`);
+    const res = await fetch(`${API_BASE}/api/stocks/${ticker}/orderbook`);
     if (!res.ok) return null;
     return await res.json() as OrderBookData;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-/** 호가 데이터로부터 체결내역 시뮬레이션 (실제 체결틱은 WebSocket 필요) */
-function makeTick(book: OrderBookData, id: number): Tick {
-  const allLevels = [...book.asks, ...book.bids];
-  if (!allLevels.length) return { id, time: "--:--:--", price: 0, qty: 1, isBuy: true };
-  const idx    = id % allLevels.length;
-  const level  = allLevels[idx];
-  const isBuy  = idx >= book.asks.length;
-  const now    = new Date();
-  const time   = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
-  const qty    = Math.max(1, Math.round(level.qty * 0.01 * (0.1 + Math.random() * 0.9)));
-  return { id, time, price: level.price, qty, isBuy };
+async function loadExecutions(ticker: string): Promise<Tick[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/stocks/${ticker}/executions`);
+    if (!res.ok) return [];
+    const raw = await res.json() as { time: string; price: number; volume: number; isBuy: boolean }[];
+    return raw.map((t, i) => ({ id: i, time: t.time, price: t.price, qty: t.volume, isBuy: t.isBuy }));
+  } catch { return []; }
 }
 
 export function OrderBook({ ticker, currentPrice }: OrderBookProps) {
   const [book,  setBook]  = useState<OrderBookData | null>(null);
   const [ticks, setTicks] = useState<Tick[]>([]);
-  const tickIdRef = useRef(0);
-  const prevPriceRef = useRef(currentPrice);
+  const tickIdBase = useRef(0);
 
+  // 호가창: 3초마다 KIS 실시간 데이터
   useEffect(() => {
     let alive = true;
-
     async function refresh() {
       const data = await loadOrderbook(ticker);
       if (alive && data) setBook(data);
     }
-
     refresh();
-    const interval = setInterval(refresh, 3000);
-    return () => { alive = false; clearInterval(interval); };
+    const id = setInterval(refresh, 3000);
+    return () => { alive = false; clearInterval(id); };
   }, [ticker]);
 
+  // 체결내역: 3초마다 KIS 실제 체결 데이터
   useEffect(() => {
-    if (!book) return;
-    const interval = setInterval(() => {
-      tickIdRef.current += 1;
-      setTicks(prev => [makeTick(book, tickIdRef.current), ...prev.slice(0, 11)]);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [book]);
-
-  useEffect(() => {
-    if (currentPrice !== prevPriceRef.current && book) {
-      prevPriceRef.current = currentPrice;
+    let alive = true;
+    async function refresh() {
+      const newTicks = await loadExecutions(ticker);
+      if (!alive || !newTicks.length) return;
+      // ID를 고유하게 부여
+      tickIdBase.current += newTicks.length;
+      const stamped = newTicks.slice(0, 20).map((t, i) => ({
+        ...t, id: tickIdBase.current - i
+      }));
+      setTicks(stamped);
     }
-  }, [currentPrice, book]);
+    refresh();
+    const id = setInterval(refresh, 3000);
+    return () => { alive = false; clearInterval(id); };
+  }, [ticker]);
 
   const fmt = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
 

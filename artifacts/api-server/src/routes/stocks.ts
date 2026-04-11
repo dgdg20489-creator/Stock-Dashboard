@@ -13,7 +13,7 @@ import {
   getVolume,
   getNews,
 } from "./stocksData.js";
-import { fetchMinuteCandles, fetchOrderbook } from "../kis.js";
+import { fetchMinuteCandles, fetchPeriodCandles, fetchOrderbook, fetchExecutions } from "../kis.js";
 
 const router: IRouter = Router();
 
@@ -539,6 +539,37 @@ router.get("/market/summary", async (_req, res) => {
   };
   const parsed = GetMarketSummaryResponse.parse(summary);
   res.json(parsed);
+});
+
+// ── KIS: 일봉 / 주봉 / 월봉 / 년봉 ──────────────────────────────
+router.get("/stocks/:ticker/candles", async (req, res) => {
+  const { ticker } = req.params;
+  const period = (String(req.query.period ?? "D")).toUpperCase() as "D" | "W" | "M" | "Y";
+  if (!["D","W","M","Y"].includes(period)) {
+    return res.status(400).json({ message: "period must be D, W, M, or Y" });
+  }
+  try {
+    const candles = await fetchPeriodCandles(ticker, period);
+    if (!candles.length) {
+      return res.status(503).json({ message: "KIS 캔들 데이터 없음" });
+    }
+    res.json(candles);
+  } catch (e) {
+    console.error("[KIS] candles error:", e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// ── KIS: 체결내역 ─────────────────────────────────────────────────
+router.get("/stocks/:ticker/executions", async (req, res) => {
+  const { ticker } = req.params;
+  try {
+    const ticks = await fetchExecutions(ticker);
+    res.json(ticks);
+  } catch (e) {
+    console.error("[KIS] executions error:", e);
+    res.status(500).json({ message: "Internal server error" });
+  }
 });
 
 // ── KIS 실시간: 당일 분봉 ────────────────────────────────────────
