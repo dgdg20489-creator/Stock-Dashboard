@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Newspaper, RefreshCw, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Newspaper, RefreshCw, TrendingUp, TrendingDown, Minus, Tag } from "lucide-react";
 import { NewsCard, NewsItem } from "@/components/NewsSection";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -9,8 +9,14 @@ const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type Filter = "all" | "bullish" | "bearish";
 
+const KEYWORDS = [
+  "삼성전자", "SK하이닉스", "반도체", "AI", "배터리", "2차전지",
+  "카카오", "네이버", "현대차", "코스피", "코스닥", "금리", "환율",
+];
+
 export default function News() {
   const [filter, setFilter] = useState<Filter>("all");
+  const [keyword, setKeyword] = useState<string | null>(null);
 
   const { data, isLoading, refetch, isFetching } = useQuery<NewsItem[]>({
     queryKey: ["news", "market-full"],
@@ -28,10 +34,14 @@ export default function News() {
   const bearish = all.filter((n) => n.sentiment === "bearish");
   const neutral = all.filter((n) => !n.sentiment || n.sentiment === "neutral");
 
-  const displayed =
+  const byFilter =
     filter === "bullish" ? bullish :
     filter === "bearish" ? bearish :
     all;
+
+  const displayed = keyword
+    ? byFilter.filter((n) => n.title.includes(keyword) || (n.summary ?? "").includes(keyword))
+    : byFilter;
 
   const tabs: { id: Filter; label: string; icon: typeof TrendingUp; count: number; color: string }[] = [
     { id: "all",     label: "전체",    icon: Newspaper,   count: all.length,     color: "text-foreground" },
@@ -56,6 +66,30 @@ export default function News() {
         >
           <RefreshCw className={cn("w-4 h-4 text-muted-foreground", isFetching && "animate-spin")} />
         </button>
+      </div>
+
+      {/* 키워드 추천 필터 */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Tag className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-bold text-muted-foreground">맞춤 키워드</span>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {KEYWORDS.map((kw) => (
+            <button
+              key={kw}
+              onClick={() => setKeyword(keyword === kw ? null : kw)}
+              className={cn(
+                "flex-shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors",
+                keyword === kw
+                  ? "bg-primary text-white border-primary"
+                  : "bg-card border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              )}
+            >
+              {kw}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 감성 필터 탭 */}

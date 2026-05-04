@@ -1,18 +1,15 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { BarChart2, Trophy, Newspaper, User, Star, Lightbulb, CalendarDays, PlayCircle } from "lucide-react";
+import { BarChart2, Newspaper, User, Lightbulb, CalendarDays } from "lucide-react";
 
 export function Navbar() {
   const [location] = useLocation();
 
   const navItems = [
     { label: "주식", path: "/", icon: BarChart2 },
-    { label: "관심", path: "/watchlist", icon: Star },
-    { label: "랭킹", path: "/rankings", icon: Trophy },
     { label: "공모주", path: "/ipo", icon: CalendarDays },
     { label: "뉴스", path: "/news", icon: Newspaper },
-    { label: "팁·퀴즈", path: "/tips", icon: Lightbulb },
-    { label: "가이드", path: "/guide", icon: PlayCircle },
+    { label: "학습", path: "/tips", icon: Lightbulb },
     { label: "내정보", path: "/my-info", icon: User },
   ];
 
@@ -23,7 +20,7 @@ export function Navbar() {
     <>
       {/* 상단 헤더 — 다크 */}
       <header className="sticky top-0 z-30 w-full bg-[#0f172a] border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-3 sm:px-5 lg:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-6">
             {/* 로고 */}
             <Link href="/" className="flex items-center gap-2.5 group cursor-pointer flex-shrink-0">

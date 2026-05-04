@@ -7,10 +7,14 @@ import { GameAvatar } from "@/components/GameAvatar";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, LogOut, AlertTriangle, Pencil, Trash2, X, Check } from "lucide-react";
+import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, LogOut, AlertTriangle, Pencil, Trash2, X, Check, Star, Trophy, User } from "lucide-react";
 import { useMissions } from "@/hooks/use-missions";
 import { AiAdvisor } from "@/components/AiAdvisor";
 import { useQueryClient } from "@tanstack/react-query";
+import Watchlist from "@/pages/Watchlist";
+import Rankings from "@/pages/Rankings";
+
+type MyInfoTab = "info" | "watchlist" | "rankings";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -134,6 +138,7 @@ function WithdrawConfirmModal({ username, onConfirm, onCancel, isLoading }: {
 
 export default function MyInfo({ userId, logout }: MyInfoProps) {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<MyInfoTab>("info");
   const { data: user, isLoading: userLoading } = useGetUser(userId);
   const { data: portfolio, isLoading: portLoading } = useGetUserPortfolio(userId, {
     query: { refetchInterval: 2000, staleTime: 0 },
@@ -252,10 +257,11 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-3 animate-in fade-in duration-500">
+      {/* 헤더 */}
       <div className="flex items-start justify-between px-1">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">내 정보</h1>
-          <p className="text-muted-foreground font-medium mt-0.5 text-sm">자산 현황과 투자 기록을 확인하세요.</p>
+          <p className="text-muted-foreground font-medium mt-0.5 text-sm">자산·관심종목·랭킹을 확인하세요.</p>
         </div>
         <button
           onClick={() => setShowLogoutModal(true)}
@@ -265,6 +271,36 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
           로그아웃
         </button>
       </div>
+
+      {/* 탭 */}
+      <div className="flex gap-1 bg-muted p-1.5 rounded-2xl">
+        {([
+          { id: "info" as MyInfoTab, label: "내정보", icon: User },
+          { id: "watchlist" as MyInfoTab, label: "관심종목", icon: Star },
+          { id: "rankings" as MyInfoTab, label: "랭킹", icon: Trophy },
+        ] as const).map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200",
+              activeTab === id ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* 관심종목 탭 */}
+      {activeTab === "watchlist" && <Watchlist />}
+
+      {/* 랭킹 탭 */}
+      {activeTab === "rankings" && <Rankings />}
+
+      {/* 내정보 탭 콘텐츠 */}
+      {activeTab === "info" && (<>
 
       <AnimatePresence>
         {isAtDemoteRisk && (
@@ -618,6 +654,7 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
           />
         )}
       </AnimatePresence>
+      </>)}
     </div>
   );
 }

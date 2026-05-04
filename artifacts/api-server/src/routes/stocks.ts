@@ -311,10 +311,10 @@ router.get("/news", async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
   try {
     const result = await pool.query(`
-      SELECT DISTINCT ON (id) id, ticker, title, body, office_name, article_url, published_at,
+      SELECT id, ticker, title, body, office_name, article_url, published_at,
              COALESCE(sentiment, 'neutral') as sentiment
       FROM market_news
-      ORDER BY id, published_at DESC NULLS LAST
+      ORDER BY published_at DESC NULLS LAST, id DESC
       LIMIT $1
     `, [limit]);
 

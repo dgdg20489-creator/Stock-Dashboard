@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, TrendingUp, BarChart2, DollarSign, ShieldCheck,
   Brain, Building2, GraduationCap, CheckCircle2, XCircle,
-  ChevronRight, Search,
+  ChevronRight, Search, PlayCircle, ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMissions } from "@/hooks/use-missions";
+import { Link, useSearch } from "wouter";
+import GuideContent from "@/pages/Guide";
 
-type TabType = "tips" | "quiz";
+type TabType = "tips" | "quiz" | "guide";
 
 /* ─────────────────────────────────────────────────
    주식 용어 데이터 (주식용어DB.xlsx 기반 111개)
@@ -1983,7 +1985,10 @@ function QuizSection() {
    메인 Tips 페이지
 ───────────────────────────────────────────────── */
 export default function Tips() {
-  const [tab, setTab] = useState<TabType>("tips");
+  const searchStr = useSearch();
+  const params = new URLSearchParams(searchStr);
+  const initTab = (params.get("tab") as TabType) ?? "tips";
+  const [tab, setTab] = useState<TabType>(initTab);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const { missions } = useMissions();
@@ -1997,8 +2002,8 @@ export default function Tips() {
   return (
     <div className="max-w-3xl mx-auto space-y-5 animate-in fade-in duration-500">
       <div className="px-1">
-        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">팁 &amp; 퀴즈</h1>
-        <p className="text-muted-foreground font-medium mt-1">주식 용어 {TIPS_DATA.length}개 · 일일 퀴즈 3문제</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">학습 센터</h1>
+        <p className="text-muted-foreground font-medium mt-1">주식 용어 {TIPS_DATA.length}개 · 일일 퀴즈 · 가이드 영상</p>
       </div>
 
       {/* 탭 */}
@@ -2027,7 +2032,7 @@ export default function Tips() {
           )}
         >
           <GraduationCap className="w-4 h-4" />
-          투자 퀴즈
+          퀴즈
           {missions.quiz ? (
             <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-green-100 text-green-600">완료</span>
           ) : (
@@ -2036,6 +2041,16 @@ export default function Tips() {
               tab === "quiz" ? "bg-blue-100 text-blue-600" : "bg-background/60 text-muted-foreground"
             )}>+40P</span>
           )}
+        </button>
+        <button
+          onClick={() => setTab("guide")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all duration-200",
+            tab === "guide" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <PlayCircle className="w-4 h-4" />
+          가이드
         </button>
       </div>
 
@@ -2106,15 +2121,32 @@ export default function Tips() {
               </div>
             )}
           </motion.div>
-        ) : (
+        ) : tab === "quiz" ? (
           <motion.div
             key="quiz"
             initial={{ opacity: 0, x: 8 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -8 }}
             transition={{ duration: 0.18 }}
+            className="space-y-4"
           >
             <QuizSection />
+            <Link href="/missions">
+              <button className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-border/60 bg-card text-sm font-bold text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                일일 미션으로 돌아가기
+              </button>
+            </Link>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="guide"
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            transition={{ duration: 0.18 }}
+          >
+            <GuideContent />
           </motion.div>
         )}
       </AnimatePresence>

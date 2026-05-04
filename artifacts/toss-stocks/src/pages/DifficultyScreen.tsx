@@ -40,6 +40,59 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
+  // ── 비밀번호 찾기 상태 ──
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [recoveryPhone, setRecoveryPhone] = useState("");
+  const [recoveryPhoneStep, setRecoveryPhoneStep] = useState<PhoneStep>("idle");
+  const [recoverySentCode, setRecoverySentCode] = useState("");
+  const [recoveryInputCode, setRecoveryInputCode] = useState("");
+  const [recoveryCodeError, setRecoveryCodeError] = useState("");
+  const [recoveryNewPw, setRecoveryNewPw] = useState("");
+  const [recoveryNewPwConfirm, setRecoveryNewPwConfirm] = useState("");
+  const [recoveryError, setRecoveryError] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryDone, setRecoveryDone] = useState(false);
+
+  const handleRecoverySendCode = () => {
+    const normalized = recoveryPhone.replace(/-/g, "");
+    if (!isValidPhone(normalized)) {
+      setRecoveryCodeError("올바른 전화번호를 입력하세요 (010XXXXXXXX)");
+      return;
+    }
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    setRecoverySentCode(code);
+    setRecoveryInputCode("");
+    setRecoveryCodeError("");
+    setRecoveryPhoneStep("sent");
+    window.alert(`[원광증권 비밀번호 재설정] 인증번호: ${code}`);
+  };
+
+  const handleRecoveryVerify = () => {
+    if (recoveryInputCode.trim() === recoverySentCode) {
+      setRecoveryPhoneStep("verified");
+      setRecoveryCodeError("");
+    } else {
+      setRecoveryCodeError("인증번호가 올바르지 않습니다.");
+    }
+  };
+
+  const handleRecoverySubmit = async () => {
+    if (!recoveryNewPw || recoveryNewPw.length < 4 || recoveryNewPw !== recoveryNewPwConfirm) return;
+    setRecoveryLoading(true);
+    setRecoveryError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/users/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: recoveryPhone.replace(/-/g, ""), newPassword: recoveryNewPw }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setRecoveryError(data.message ?? "재설정 실패"); return; }
+      setRecoveryDone(true);
+    } catch { setRecoveryError("서버 연결에 실패했습니다."); }
+    finally { setRecoveryLoading(false); }
+  };
+
   const avatar: AvatarId = `${selectedType}_${gender === "녀" ? "f" : "m"}` as AvatarId;
 
   const difficulties: { id: DifficultyType; title: string; sub: string; seed: string; color: string; dot: string }[] = [
@@ -475,74 +528,183 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
               transition={{ duration: 0.2 }}
               className="bg-white rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="px-6 pt-6 pb-4 space-y-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">전화번호</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                    <input
-                      type="tel"
-                      value={loginPhone}
-                      onChange={(e) => setLoginPhone(e.target.value)}
-                      placeholder="010XXXXXXXX"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted/60 border border-border/60 text-foreground text-sm font-medium placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 focus:border-primary/30 focus:outline-none transition-all"
-                      maxLength={13}
-                      onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">비밀번호</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                    <input
-                      type="password"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="비밀번호 입력"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted/60 border border-border/60 text-foreground text-sm font-medium placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 focus:border-primary/30 focus:outline-none transition-all"
-                      onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                    />
-                  </div>
-                </div>
-
-                {loginError && (
-                  <div className="px-4 py-2.5 bg-red-50 rounded-xl border border-red-200">
-                    <p className="text-sm text-red-600 font-semibold">{loginError}</p>
-                  </div>
+              <AnimatePresence mode="wait">
+                {!showRecovery ? (
+                  <motion.div key="login-form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <div className="px-6 pt-6 pb-4 space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">전화번호</label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                          <input
+                            type="tel"
+                            value={loginPhone}
+                            onChange={(e) => setLoginPhone(e.target.value)}
+                            placeholder="010XXXXXXXX"
+                            className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted/60 border border-border/60 text-foreground text-sm font-medium placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 focus:border-primary/30 focus:outline-none transition-all"
+                            maxLength={13}
+                            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">비밀번호</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                          <input
+                            type="password"
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            placeholder="비밀번호 입력"
+                            className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted/60 border border-border/60 text-foreground text-sm font-medium placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 focus:border-primary/30 focus:outline-none transition-all"
+                            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                          />
+                        </div>
+                      </div>
+                      {loginError && (
+                        <div className="px-4 py-2.5 bg-red-50 rounded-xl border border-red-200">
+                          <p className="text-sm text-red-600 font-semibold">{loginError}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-6 pb-6">
+                      <button
+                        onClick={handleLogin}
+                        disabled={!loginPhone.trim() || !loginPassword.trim() || loginLoading}
+                        className={cn(
+                          "w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2",
+                          loginPhone.trim() && loginPassword.trim()
+                            ? "bg-[#0f172a] text-white hover:bg-[#1e293b] active:scale-[0.99] shadow-lg"
+                            : "bg-muted text-muted-foreground cursor-not-allowed"
+                        )}
+                      >
+                        {loginLoading ? (
+                          <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>로그인 중...</span></>
+                        ) : (
+                          <><LogIn className="w-4 h-4" /><span>로그인</span></>
+                        )}
+                      </button>
+                      <div className="flex items-center justify-between mt-3">
+                        <p className="text-xs text-muted-foreground font-medium">
+                          계정이 없으신가요?{" "}
+                          <button onClick={() => setTab("signup")} className="text-primary font-bold hover:underline">회원가입</button>
+                        </p>
+                        <button
+                          onClick={() => { setShowRecovery(true); setRecoveryDone(false); setRecoveryPhone(""); setRecoveryPhoneStep("idle"); setRecoveryNewPw(""); setRecoveryNewPwConfirm(""); setRecoveryError(""); }}
+                          className="text-xs text-muted-foreground hover:text-primary font-semibold hover:underline transition-colors"
+                        >
+                          비밀번호 찾기
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div key="recovery-form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <div className="px-6 pt-6 pb-4 space-y-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <button onClick={() => setShowRecovery(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                          <ChevronRight className="w-4 h-4 rotate-180" />
+                        </button>
+                        <h3 className="font-extrabold text-foreground">비밀번호 재설정</h3>
+                      </div>
+                      {recoveryDone ? (
+                        <div className="py-6 text-center space-y-3">
+                          <div className="w-14 h-14 bg-green-100 rounded-full mx-auto flex items-center justify-center">
+                            <span className="text-2xl">✅</span>
+                          </div>
+                          <p className="font-extrabold text-green-700">비밀번호가 변경됐습니다!</p>
+                          <p className="text-xs text-muted-foreground">새 비밀번호로 로그인해 주세요.</p>
+                          <button
+                            onClick={() => { setShowRecovery(false); setRecoveryDone(false); }}
+                            className="w-full py-3 rounded-xl bg-[#0f172a] text-white font-bold text-sm hover:bg-[#1e293b] transition-colors"
+                          >
+                            로그인 화면으로
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                              가입 시 전화번호
+                              {recoveryPhoneStep === "verified" && <span className="ml-2 text-emerald-600 normal-case">✓ 인증 완료</span>}
+                            </label>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                                <input
+                                  type="tel"
+                                  value={recoveryPhone}
+                                  onChange={(e) => { setRecoveryPhone(e.target.value); setRecoveryPhoneStep("idle"); }}
+                                  placeholder="010XXXXXXXX"
+                                  disabled={recoveryPhoneStep === "verified"}
+                                  className={cn("w-full pl-10 pr-4 py-3 rounded-xl bg-muted/60 border text-sm font-medium placeholder:text-muted-foreground/50 focus:outline-none transition-all",
+                                    recoveryPhoneStep === "verified" ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-border/60 text-foreground")}
+                                  maxLength={13}
+                                />
+                              </div>
+                              <button
+                                onClick={handleRecoverySendCode}
+                                disabled={recoveryPhoneStep === "verified" || !recoveryPhone.trim()}
+                                className="px-3 py-3 rounded-xl text-sm font-bold bg-[#0f172a] text-white hover:bg-[#1e293b] disabled:bg-muted disabled:text-muted-foreground transition-all whitespace-nowrap"
+                              >
+                                {recoveryPhoneStep === "verified" ? "완료" : "인증번호"}
+                              </button>
+                            </div>
+                            <AnimatePresence>
+                              {recoveryPhoneStep === "sent" && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mt-2">
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="text"
+                                      value={recoveryInputCode}
+                                      onChange={(e) => setRecoveryInputCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                      placeholder="6자리 인증번호"
+                                      className="flex-1 px-4 py-3 rounded-xl bg-muted/60 border border-border/60 text-sm font-medium tracking-widest focus:outline-none"
+                                      maxLength={6}
+                                    />
+                                    <button onClick={handleRecoveryVerify} disabled={recoveryInputCode.length !== 6} className="px-4 py-3 rounded-xl text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:bg-muted disabled:text-muted-foreground transition-all">확인</button>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                            {recoveryCodeError && <p className="text-xs text-red-500 font-semibold mt-1">{recoveryCodeError}</p>}
+                          </div>
+                          <AnimatePresence>
+                            {recoveryPhoneStep === "verified" && (
+                              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden space-y-2">
+                                <div>
+                                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">새 비밀번호</label>
+                                  <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                                    <input type="password" value={recoveryNewPw} onChange={(e) => setRecoveryNewPw(e.target.value)} placeholder="새 비밀번호 (4자 이상)" className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted/60 border border-border/60 text-sm font-medium focus:outline-none" />
+                                  </div>
+                                </div>
+                                <div className="relative">
+                                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                                  <input type="password" value={recoveryNewPwConfirm} onChange={(e) => setRecoveryNewPwConfirm(e.target.value)} placeholder="새 비밀번호 확인"
+                                    className={cn("w-full pl-10 pr-4 py-3 rounded-xl bg-muted/60 border text-sm font-medium focus:outline-none",
+                                      recoveryNewPwConfirm && recoveryNewPw !== recoveryNewPwConfirm ? "border-red-300" : "border-border/60")} />
+                                </div>
+                                {recoveryNewPwConfirm && recoveryNewPw !== recoveryNewPwConfirm && <p className="text-xs text-red-500 font-semibold">비밀번호가 일치하지 않습니다.</p>}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                          {recoveryError && <div className="px-4 py-2.5 bg-red-50 rounded-xl border border-red-200"><p className="text-sm text-red-600 font-semibold">{recoveryError}</p></div>}
+                          {recoveryPhoneStep === "verified" && (
+                            <button
+                              onClick={handleRecoverySubmit}
+                              disabled={!recoveryNewPw || recoveryNewPw.length < 4 || recoveryNewPw !== recoveryNewPwConfirm || recoveryLoading}
+                              className="w-full py-3.5 rounded-xl font-bold text-sm bg-[#0f172a] text-white hover:bg-[#1e293b] disabled:bg-muted disabled:text-muted-foreground transition-all"
+                            >
+                              {recoveryLoading ? "처리 중..." : "비밀번호 변경하기"}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </motion.div>
                 )}
-              </div>
-
-              <div className="px-6 pb-6">
-                <button
-                  onClick={handleLogin}
-                  disabled={!loginPhone.trim() || !loginPassword.trim() || loginLoading}
-                  className={cn(
-                    "w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2",
-                    loginPhone.trim() && loginPassword.trim()
-                      ? "bg-[#0f172a] text-white hover:bg-[#1e293b] active:scale-[0.99] shadow-lg"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                >
-                  {loginLoading ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>로그인 중...</span>
-                    </>
-                  ) : (
-                    <>
-                      <LogIn className="w-4 h-4" />
-                      <span>로그인</span>
-                    </>
-                  )}
-                </button>
-                <p className="text-center text-xs text-muted-foreground mt-3 font-medium">
-                  계정이 없으신가요?{" "}
-                  <button onClick={() => setTab("signup")} className="text-primary font-bold hover:underline">
-                    회원가입
-                  </button>
-                </p>
-              </div>
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>

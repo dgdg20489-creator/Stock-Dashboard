@@ -163,6 +163,26 @@ router.post("/users/login", async (req, res) => {
   }
 });
 
+router.post("/users/reset-password", async (req, res) => {
+  try {
+    const { phone, newPassword } = req.body;
+    if (!phone || !newPassword || newPassword.length < 4) {
+      res.status(400).json({ message: "phone과 newPassword(4자 이상)가 필요합니다." });
+      return;
+    }
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone));
+    if (!user) {
+      res.status(404).json({ message: "등록되지 않은 전화번호입니다." });
+      return;
+    }
+    await db.update(usersTable).set({ password: newPassword }).where(eq(usersTable.id, user.id));
+    res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.get("/users/:userId", async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);

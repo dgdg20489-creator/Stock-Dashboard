@@ -1,8 +1,8 @@
 import { useMissions } from "@/hooks/use-missions";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Circle, Star, Zap, BookOpen, TrendingUp, Gift, Coins } from "lucide-react";
-import { Link } from "wouter";
+import { CheckCircle2, Star, Zap, BookOpen, CalendarCheck, Gift } from "lucide-react";
+import { Link, useLocation } from "wouter";
 
 const COIN_ICON = "🪙";
 
@@ -17,7 +17,8 @@ interface MissionRowProps {
   color: string;
 }
 
-function MissionRow({ icon, title, desc, points, done, actionLabel, onAction, color }: MissionRowProps) {
+function MissionRow({ icon, title, desc, points, done, actionLabel, onAction, color, quizLink }: MissionRowProps & { quizLink?: boolean }) {
+  const [, navigate] = useLocation();
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}
@@ -32,12 +33,12 @@ function MissionRow({ icon, title, desc, points, done, actionLabel, onAction, co
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className={cn("font-bold text-foreground", done && "line-through text-muted-foreground")}>{title}</p>
-          <span className="px-2 py-0.5 bg-red-50 text-red-600 rounded-full text-xs font-extrabold border border-red-100">
+          <p className={cn("font-bold text-foreground text-base", done && "line-through text-muted-foreground")}>{title}</p>
+          <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-extrabold border border-primary/20">
             +{points}P
           </span>
         </div>
-        <p className="text-xs text-muted-foreground font-medium mt-0.5">{desc}</p>
+        <p className="text-sm text-muted-foreground font-medium mt-0.5">{desc}</p>
       </div>
       {!done && onAction && actionLabel && (
         <button
@@ -47,12 +48,13 @@ function MissionRow({ icon, title, desc, points, done, actionLabel, onAction, co
           {actionLabel}
         </button>
       )}
-      {!done && !onAction && actionLabel && (
-        <Link href={actionLabel === "주식 보기" ? "/" : "/tips"}>
-          <button className="flex-shrink-0 px-4 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 active:scale-95 transition-all shadow-sm">
-            {actionLabel}
-          </button>
-        </Link>
+      {!done && !onAction && quizLink && actionLabel && (
+        <button
+          onClick={() => navigate("/tips?tab=quiz")}
+          className="flex-shrink-0 px-4 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
+        >
+          {actionLabel}
+        </button>
       )}
     </motion.div>
   );
@@ -63,7 +65,7 @@ interface DailyMissionsProps {
 }
 
 export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
-  const { missions, coins, justEarnedCoin, checkAttendance } = useMissions();
+  const { missions, coins, justEarnedCoin, checkAttendance, completeTrade } = useMissions();
 
   const totalRequired = 100;
   const pct = Math.min(100, (missions.points / totalRequired) * 100);
@@ -80,23 +82,23 @@ export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden bg-gradient-to-br from-red-600 to-red-500 rounded-3xl p-6 text-white shadow-lg shadow-red-500/20"
+        className="relative overflow-hidden bg-gradient-to-br from-primary to-primary/80 rounded-3xl p-6 text-white shadow-lg shadow-primary/20"
       >
         <div className="flex items-center justify-between mb-5">
           <div>
-            <p className="text-red-100 font-semibold text-sm">오늘의 포인트</p>
+            <p className="text-white/80 font-semibold text-sm">오늘의 포인트</p>
             <p className="text-4xl font-extrabold mt-0.5">
               {missions.points}
-              <span className="text-2xl text-red-200 ml-1">/ 100P</span>
+              <span className="text-2xl text-white/60 ml-1">/ 100P</span>
             </p>
           </div>
           <div className="text-right">
-            <p className="text-red-100 text-xs font-semibold mb-1">보유 코인</p>
+            <p className="text-white/70 text-xs font-semibold mb-1">보유 코인</p>
             <p className="text-2xl font-extrabold">{COIN_ICON} {coins}</p>
           </div>
         </div>
 
-        <div className="h-3 bg-red-400/40 rounded-full overflow-hidden">
+        <div className="h-3 bg-white/20 rounded-full overflow-hidden">
           <motion.div
             className="h-full bg-white rounded-full"
             initial={{ width: 0 }}
@@ -108,7 +110,7 @@ export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
         {isComplete ? (
           <p className="mt-3 text-sm font-bold text-white/90">✅ 오늘 미션 완료! 코인을 획득했습니다.</p>
         ) : (
-          <p className="mt-3 text-sm font-semibold text-red-100">
+          <p className="mt-3 text-sm font-semibold text-white/80">
             {totalRequired - missions.points}P 더 모으면 🪙 코인 1개 획득!
           </p>
         )}
@@ -154,21 +156,23 @@ export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
         <MissionRow
           icon={<BookOpen className="w-6 h-6 text-blue-500" />}
           title="투자 퀴즈 풀기"
-          desc="주식 팁 퀴즈에서 1문제 이상 정답 맞추기"
+          desc="주식 학습 퀴즈에서 2문제 이상 정답 맞추기"
           points={40}
           done={missions.quiz}
           color="bg-blue-50"
           actionLabel="퀴즈 풀기"
+          quizLink={true}
         />
 
         <MissionRow
-          icon={<TrendingUp className="w-6 h-6 text-red-500" />}
-          title="주식 매수 또는 매도"
-          desc="오늘 하루 1번 이상 주식 거래하기"
+          icon={<CalendarCheck className="w-6 h-6 text-primary" />}
+          title="오늘의 출석 완료"
+          desc="버튼을 눌러 하루 출석 도장을 찍어보세요"
           points={30}
           done={missions.trade}
-          color="bg-red-50"
-          actionLabel="주식 보기"
+          color="bg-primary/10"
+          actionLabel="출석 도장 찍기"
+          onAction={completeTrade}
         />
       </div>
 
