@@ -427,16 +427,16 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         className="grid grid-cols-2 gap-4"
       >
         <Link href="/missions">
-          <div className="bg-gradient-to-br from-red-600 to-red-500 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-red-500/20 hover:-translate-y-0.5 transition-all">
+          <div className="bg-gradient-to-br from-primary to-primary/80 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all">
             <div className="flex items-center gap-2 mb-2">
-              <Zap className="w-4 h-4 text-red-100" />
-              <span className="font-bold text-sm text-red-100">일일 미션</span>
+              <Zap className="w-4 h-4 text-white/80" />
+              <span className="font-bold text-sm text-white/80">일일 미션</span>
             </div>
-            <p className="text-2xl font-extrabold">{missions.points}<span className="text-base text-red-200">P</span></p>
-            <div className="mt-2 h-1.5 bg-red-400/40 rounded-full overflow-hidden">
+            <p className="text-2xl font-extrabold">{missions.points}<span className="text-base text-white/60">P</span></p>
+            <div className="mt-2 h-1.5 bg-white/20 rounded-full overflow-hidden">
               <div className="h-full bg-white rounded-full transition-all" style={{ width: `${Math.min(100, missions.points)}%` }} />
             </div>
-            <p className="text-xs text-red-200 font-semibold mt-1.5">{missionsCompleted}/3 미션 완료</p>
+            <p className="text-xs text-white/60 font-semibold mt-1.5">{missionsCompleted}/3 미션 완료</p>
           </div>
         </Link>
 

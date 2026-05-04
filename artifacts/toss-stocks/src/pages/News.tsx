@@ -1,23 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Newspaper, RefreshCw, TrendingUp, TrendingDown, Minus, Tag } from "lucide-react";
+import { Newspaper, RefreshCw, TrendingUp, TrendingDown, Minus, Search, Star, X } from "lucide-react";
 import { NewsCard, NewsItem } from "@/components/NewsSection";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useWatchlist } from "@/hooks/use-watchlist";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type Filter = "all" | "bullish" | "bearish";
 
-const KEYWORDS = [
-  "삼성전자", "SK하이닉스", "반도체", "AI", "배터리", "2차전지",
-  "카카오", "네이버", "현대차", "코스피", "코스닥", "금리", "환율",
-];
-
 export default function News() {
   const [filter, setFilter] = useState<Filter>("all");
-  const [keyword, setKeyword] = useState<string | null>(null);
+  const [keyword, setKeyword] = useState("");
 
+  const { groups } = useWatchlist();
+  const watchlistTickers = useMemo(
+    () => Array.from(new Set(groups.flatMap((g) => g.stocks))),
+    [groups]
+  );
+
+  /* ── 전체 뉴스 ── */
   const { data, isLoading, refetch, isFetching } = useQuery<NewsItem[]>({
     queryKey: ["news", "market-full"],
     queryFn: async () => {
@@ -29,6 +32,32 @@ export default function News() {
     staleTime: 60 * 1000,
   });
 
+  /* ── 관심종목 뉴스 (티커별 개별 요청) ── */
+  const { data: watchlistNewsRaw } = useQuery<NewsItem[]>({
+    queryKey: ["news", "watchlist", watchlistTickers.join(",")],
+    queryFn: async () => {
+      if (watchlistTickers.length === 0) return [];
+      const results = await Promise.all(
+        watchlistTickers.slice(0, 8).map((ticker) =>
+          fetch(`${API_BASE}/api/stocks/${ticker}/news?limit=10`)
+            .then((r) => (r.ok ? r.json() : []))
+            .catch(() => [])
+        )
+      );
+      const combined = (results.flat() as NewsItem[]);
+      const seen = new Set<string>();
+      return combined.filter((n) => {
+        const key = String(n.id ?? n.url ?? n.title);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    },
+    enabled: watchlistTickers.length > 0,
+    staleTime: 60 * 1000,
+  });
+  const watchlistNews = watchlistNewsRaw ?? [];
+
   const all = data ?? [];
   const bullish = all.filter((n) => n.sentiment === "bullish");
   const bearish = all.filter((n) => n.sentiment === "bearish");
@@ -39,14 +68,15 @@ export default function News() {
     filter === "bearish" ? bearish :
     all;
 
-  const displayed = keyword
-    ? byFilter.filter((n) => n.title.includes(keyword) || (n.summary ?? "").includes(keyword))
+  const kw = keyword.trim();
+  const displayed = kw
+    ? byFilter.filter((n) => n.title.includes(kw) || (n.summary ?? "").includes(kw))
     : byFilter;
 
   const tabs: { id: Filter; label: string; icon: typeof TrendingUp; count: number; color: string }[] = [
-    { id: "all",     label: "전체",    icon: Newspaper,   count: all.length,     color: "text-foreground" },
-    { id: "bullish", label: "호재",    icon: TrendingUp,  count: bullish.length,  color: "text-up" },
-    { id: "bearish", label: "악재",    icon: TrendingDown, count: bearish.length, color: "text-down" },
+    { id: "all",     label: "전체",  icon: Newspaper,    count: all.length,     color: "text-foreground" },
+    { id: "bullish", label: "호재",  icon: TrendingUp,   count: bullish.length, color: "text-up" },
+    { id: "bearish", label: "악재",  icon: TrendingDown, count: bearish.length, color: "text-down" },
   ];
 
   return (
@@ -68,28 +98,24 @@ export default function News() {
         </button>
       </div>
 
-      {/* 키워드 추천 필터 */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <Tag className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-bold text-muted-foreground">맞춤 키워드</span>
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          {KEYWORDS.map((kw) => (
-            <button
-              key={kw}
-              onClick={() => setKeyword(keyword === kw ? null : kw)}
-              className={cn(
-                "flex-shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors",
-                keyword === kw
-                  ? "bg-primary text-white border-primary"
-                  : "bg-card border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-              )}
-            >
-              {kw}
-            </button>
-          ))}
-        </div>
+      {/* 키워드 검색 */}
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none" />
+        <input
+          type="text"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          placeholder="뉴스 키워드 검색 (예: 삼성전자, 금리, 반도체...)"
+          className="w-full pl-11 pr-10 py-3 rounded-2xl bg-card border border-border/60 text-sm font-medium text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all"
+        />
+        {keyword && (
+          <button
+            onClick={() => setKeyword("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-muted transition-colors"
+          >
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        )}
       </div>
 
       {/* 감성 필터 탭 */}
@@ -118,7 +144,7 @@ export default function News() {
       </div>
 
       {/* AI 분석 통계 */}
-      {!isLoading && all.length > 0 && (
+      {!isLoading && all.length > 0 && !kw && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -157,7 +183,33 @@ export default function News() {
         </motion.div>
       )}
 
-      {/* 뉴스 목록 */}
+      {/* 관심종목 뉴스 (watchlist가 있을 때만) */}
+      {watchlistTickers.length > 0 && watchlistNews.length > 0 && !kw && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card rounded-3xl p-6 border border-primary/20 shadow-sm"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-7 h-7 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Star className="w-3.5 h-3.5 text-primary fill-primary" />
+            </div>
+            <span className="font-extrabold text-foreground">관심종목 뉴스</span>
+            <span className="ml-auto text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+              {watchlistNews.length}건
+            </span>
+          </div>
+          <div className="divide-y divide-border/40">
+            {watchlistNews.slice(0, 10).map((item) => (
+              <div key={item.id ?? item.url} className="first:pt-0 last:pb-0">
+                <NewsCard item={item} showSummary={false} />
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* 전체 뉴스 목록 */}
       {isLoading ? (
         <div className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm space-y-4 animate-pulse">
           {[1, 2, 3, 4, 5].map((i) => (
@@ -173,13 +225,22 @@ export default function News() {
       ) : displayed.length === 0 ? (
         <div className="bg-card rounded-3xl p-12 border border-border/50 shadow-sm text-center">
           <Newspaper className="w-12 h-12 mx-auto mb-3 opacity-20" />
-          <p className="font-bold text-muted-foreground">해당 뉴스가 없습니다</p>
+          <p className="font-bold text-muted-foreground">
+            {kw ? `"${kw}" 관련 뉴스가 없습니다` : "해당 뉴스가 없습니다"}
+          </p>
+          {kw && (
+            <button onClick={() => setKeyword("")} className="mt-3 text-sm text-primary font-bold hover:underline">
+              검색 초기화
+            </button>
+          )}
         </div>
       ) : (
         <div className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <Newspaper className="w-4 h-4 text-primary" />
-            <span className="font-extrabold text-foreground">{displayed.length}개 기사</span>
+            <span className="font-extrabold text-foreground">
+              {kw ? `"${kw}" 검색 결과` : "전체 뉴스"} · {displayed.length}건
+            </span>
             <span className="ml-auto text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
               네이버금융 · AI 분석
             </span>

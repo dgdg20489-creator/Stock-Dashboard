@@ -1,13 +1,12 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { BarChart2, Newspaper, User, Lightbulb, CalendarDays } from "lucide-react";
+import { BarChart2, Newspaper, User, Lightbulb } from "lucide-react";
 
 export function Navbar() {
   const [location] = useLocation();
 
   const navItems = [
     { label: "주식", path: "/", icon: BarChart2 },
-    { label: "공모주", path: "/ipo", icon: CalendarDays },
     { label: "뉴스", path: "/news", icon: Newspaper },
     { label: "학습", path: "/tips", icon: Lightbulb },
     { label: "내정보", path: "/my-info", icon: User },
