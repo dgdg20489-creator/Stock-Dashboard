@@ -7,7 +7,7 @@
  * 시세 조회 전용. 실계좌 거래 없음.
  */
 
-const KIS_BASE   = "https://openapi.koreainvestment.com:9443";
+const KIS_BASE   = "https://openapivts.koreainvestment.com:9443";
 const APP_KEY    = process.env.KIS_APP_KEY    ?? "";
 const APP_SECRET = process.env.KIS_APP_SECRET ?? "";
 

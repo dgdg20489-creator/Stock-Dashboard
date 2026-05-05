@@ -87,6 +87,8 @@ channel = "stable-25_05"
 PORT = "5000"
 BASE_PATH = "/"
 API_PORT = "8080"
+KIS_APP_KEY = "PS5iqAvrCnxVmo8iOBLyEF33zHsRIVbK6KSr"
+KIS_APP_SECRET = "fmICLKwU958s5hoWa6ZWf+JREMkLw95Gm/TbVFjyzEG3+ENeokiDSEiBic3VfEsOOBj6yX5qd+j55tg687bDJQ2XjigDiJuJLFLd9MZYdZhfOt3bV5874s28/S5ER/YXbyikDfPP5qwSTTC9oYnZf9CivLxYzmElAWk+pRGcyEVFuPl8uDE="
 
 [[ports]]
 localPort = 5000

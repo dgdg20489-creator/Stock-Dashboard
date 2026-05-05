@@ -541,6 +541,73 @@ router.get("/market/summary", async (_req, res) => {
   res.json(parsed);
 });
 
+// ── 한국 장 운영 상태 ─────────────────────────────────────────────
+router.get("/market/status", (_req, res) => {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 3_600_000);
+  const kstH = kst.getUTCHours();
+  const kstM = kst.getUTCMinutes();
+  const dayOfWeek = kst.getUTCDay(); // 0=Sun, 6=Sat
+  const kstTime = `${String(kstH).padStart(2,"0")}:${String(kstM).padStart(2,"0")}`;
+  const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+  const totalMin = kstH * 60 + kstM;
+  const openMin  = 9 * 60;        // 09:00
+  const closeMin = 15 * 60 + 30;  // 15:30
+  const isOpen = isWeekday && totalMin >= openMin && totalMin < closeMin;
+  const isPreMarket = isWeekday && totalMin >= openMin - 60 && totalMin < openMin; // 08:00~09:00 동시호가
+
+  let message: string;
+  let nextEventLabel: string;
+  let nextEventTime: string;
+
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    message = "주말 – 장 휴장";
+    // 다음 월요일 09:00
+    const daysToMon = dayOfWeek === 6 ? 2 : 1;
+    const nextMon = new Date(kst.getTime() + daysToMon * 86_400_000);
+    nextEventLabel = "다음 개장";
+    nextEventTime = `${nextMon.getUTCFullYear()}-${String(nextMon.getUTCMonth()+1).padStart(2,"0")}-${String(nextMon.getUTCDate()).padStart(2,"0")} 09:00 KST`;
+  } else if (isOpen) {
+    message = "장 개장 중 (09:00 ~ 15:30)";
+    nextEventLabel = "오늘 마감";
+    const todayDate = kst.toISOString().slice(0,10);
+    nextEventTime = `${todayDate} 15:30 KST`;
+  } else if (isPreMarket) {
+    message = "동시호가 진행 중 (08:00 ~ 09:00)";
+    nextEventLabel = "정규장 개장";
+    const todayDate = kst.toISOString().slice(0,10);
+    nextEventTime = `${todayDate} 09:00 KST`;
+  } else if (totalMin < openMin) {
+    message = "장 개장 전";
+    nextEventLabel = "오늘 개장";
+    const todayDate = kst.toISOString().slice(0,10);
+    nextEventTime = `${todayDate} 09:00 KST`;
+  } else {
+    message = "장 마감 (15:30 이후)";
+    // 다음 거래일
+    let daysAhead = 1;
+    const tomorrow = new Date(kst.getTime() + 86_400_000);
+    if (tomorrow.getUTCDay() === 6) daysAhead = 3; // Sat→Mon
+    if (tomorrow.getUTCDay() === 0) daysAhead = 2; // Sun→Mon
+    const nextDay = new Date(kst.getTime() + daysAhead * 86_400_000);
+    nextEventLabel = "다음 개장";
+    nextEventTime = `${nextDay.getUTCFullYear()}-${String(nextDay.getUTCMonth()+1).padStart(2,"0")}-${String(nextDay.getUTCDate()).padStart(2,"0")} 09:00 KST`;
+  }
+
+  res.json({
+    isOpen,
+    isPreMarket,
+    isWeekday,
+    kstTime,
+    dayOfWeek,
+    message,
+    nextEventLabel,
+    nextEventTime,
+    openTime: "09:00",
+    closeTime: "15:30",
+  });
+});
+
 // ── KIS: 일봉 / 주봉 / 월봉 / 년봉 ──────────────────────────────
 router.get("/stocks/:ticker/candles", async (req, res) => {
   const { ticker } = req.params;

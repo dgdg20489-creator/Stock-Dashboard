@@ -1,5 +1,6 @@
 import { useGetStocks } from "@workspace/api-client-react";
 import { MarketSummary } from "@/components/MarketSummary";
+import { MarketStatusBanner } from "@/components/MarketStatus";
 import { NewsSection } from "@/components/NewsSection";
 import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -289,6 +290,11 @@ export default function Home() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {/* 장 상태 배너 */}
+      <section>
+        <MarketStatusBanner />
+      </section>
+
       {/* 시장 지수 */}
       <section>
         <MarketSummary />

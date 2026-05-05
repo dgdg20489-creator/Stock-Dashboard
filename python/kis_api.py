@@ -17,8 +17,8 @@ log = logging.getLogger(__name__)
 KIS_APP_KEY    = os.environ.get("KIS_APP_KEY", "")
 KIS_APP_SECRET = os.environ.get("KIS_APP_SECRET", "")
 
-# 한국투자증권 실전 API 기본 URL
-KIS_BASE_URL = "https://openapi.koreainvestment.com:9443"
+# 한국투자증권 모의투자 API 기본 URL
+KIS_BASE_URL = "https://openapivts.koreainvestment.com:9443"
 
 KST = timezone(timedelta(hours=9))
 

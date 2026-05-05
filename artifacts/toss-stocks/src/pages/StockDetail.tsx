@@ -17,6 +17,7 @@ import { ArrowLeft, Star, BarChart2, Users, Newspaper } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { useMissions } from "@/hooks/use-missions";
+import { useMarketStatus } from "@/components/MarketStatus";
 
 interface StockDetailProps {
   userId: number;
@@ -49,6 +50,7 @@ export default function StockDetail({ userId }: StockDetailProps) {
   const { isWatched, toggleWatch } = useWatchlist();
   const { completeTrade } = useMissions();
   const watched = ticker ? isWatched(ticker) : false;
+  const marketStatus = useMarketStatus();
 
   const [activeTab, setActiveTab] = useState<DetailTab>("trade");
   const [sharesStr, setSharesStr] = useState("");
@@ -188,11 +190,36 @@ export default function StockDetail({ userId }: StockDetailProps) {
 
           {/* 호가창 */}
           <div className="bg-card rounded-3xl p-5 shadow-sm border border-border/50">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-3">
               <h3 className="text-sm font-extrabold text-foreground">호가창</h3>
               <TermTooltip term="호가창" />
               <span className="text-xs font-semibold text-muted-foreground">실시간 매수/매도 잔량</span>
+              {marketStatus && (
+                <span className={cn(
+                  "ml-auto text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1",
+                  marketStatus.isOpen
+                    ? "bg-green-50 text-green-700"
+                    : marketStatus.isPreMarket
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-muted text-muted-foreground"
+                )}>
+                  <span className={cn(
+                    "w-1.5 h-1.5 rounded-full",
+                    marketStatus.isOpen ? "bg-green-500 animate-pulse" : marketStatus.isPreMarket ? "bg-amber-400 animate-pulse" : "bg-muted-foreground/40"
+                  )} />
+                  {marketStatus.isOpen ? "장중" : marketStatus.isPreMarket ? "동시호가" : "장마감"}
+                </span>
+              )}
             </div>
+            {marketStatus && !marketStatus.isOpen && !marketStatus.isPreMarket && (
+              <div className="mb-3 px-3 py-2 bg-muted/60 rounded-xl text-[11px] text-muted-foreground font-semibold flex items-center gap-1.5">
+                <span>📴</span>
+                <span>
+                  {marketStatus.isWeekday ? "장 마감 후 데이터입니다." : "주말에는 장이 쉽니다."}
+                  &nbsp;{marketStatus.nextEventLabel}: <span className="font-bold text-foreground">{marketStatus.nextEventTime}</span>
+                </span>
+              </div>
+            )}
             <OrderBook ticker={stock.ticker} currentPrice={stock.currentPrice} />
           </div>
 
