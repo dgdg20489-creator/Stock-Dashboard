@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { 
   useGetStockByTicker, 
@@ -11,9 +11,8 @@ import { StockChart } from "@/components/StockChart";
 import { StockLogo } from "@/components/StockLogo";
 import { OrderBook } from "@/components/OrderBook";
 import { TermTooltip } from "@/components/TermTooltip";
-import { NewsSection } from "@/components/NewsSection";
 import { CommunitySection } from "@/components/CommunitySection";
-import { ArrowLeft, Star, BarChart2, Users, Newspaper } from "lucide-react";
+import { ArrowLeft, Star, BarChart2, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { useMissions } from "@/hooks/use-missions";
@@ -26,12 +25,11 @@ interface StockDetailProps {
 const BUY_PCTS  = [{ label: "25%", pct: 0.25 }, { label: "50%", pct: 0.5 }, { label: "75%", pct: 0.75 }, { label: "최대", pct: 1.0 }];
 const SELL_PCTS = [{ label: "25%", pct: 0.25 }, { label: "50%", pct: 0.5 }, { label: "75%", pct: 0.75 }, { label: "전량", pct: 1.0 }];
 
-type DetailTab = "trade" | "community" | "news";
+type DetailTab = "trade" | "community";
 
 const TABS: { id: DetailTab; label: string; icon: React.ReactNode }[] = [
   { id: "trade",     label: "차트·거래",  icon: <BarChart2 className="w-4 h-4" /> },
   { id: "community", label: "커뮤니티",   icon: <Users className="w-4 h-4" /> },
-  { id: "news",      label: "뉴스",       icon: <Newspaper className="w-4 h-4" /> },
 ];
 
 export default function StockDetail({ userId }: StockDetailProps) {
@@ -129,19 +127,19 @@ export default function StockDetail({ userId }: StockDetailProps) {
         <div className="flex items-center gap-4 mb-4">
           <StockLogo ticker={stock.ticker} name={stock.name} size="lg" />
           <div>
-            <h1 className="text-xl font-extrabold text-foreground">{stock.name}</h1>
-            <p className="text-sm font-semibold text-muted-foreground">{stock.ticker} · {stock.sector}</p>
+            <h1 className="text-2xl font-extrabold text-foreground">{stock.name}</h1>
+            <p className="text-base font-semibold text-muted-foreground">{stock.ticker} · {stock.sector}</p>
           </div>
         </div>
         <div className="flex items-end justify-between">
           <div>
-            <div className="text-4xl font-extrabold tracking-tight text-foreground">
+            <div className="text-5xl font-extrabold tracking-tight text-foreground">
               {new Intl.NumberFormat("ko-KR").format(stock.currentPrice)}
-              <span className="text-2xl ml-1 text-muted-foreground font-bold">원</span>
+              <span className="text-3xl ml-1 text-muted-foreground font-bold">원</span>
             </div>
-            <div className={cn("text-base font-bold mt-1 flex items-center gap-1.5", colorClass)}>
+            <div className={cn("text-lg font-bold mt-1 flex items-center gap-1.5", colorClass)}>
               <span>{isPositive ? "▲" : "▼"} {formatCurrency(Math.abs(stock.change)).replace("₩", "")}</span>
-              <span className="text-sm">({formatPercent(stock.changePercent)})</span>
+              <span className="text-base">({formatPercent(stock.changePercent)})</span>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -328,15 +326,6 @@ export default function StockDetail({ userId }: StockDetailProps) {
         <CommunitySection ticker={ticker} userId={userId} />
       )}
 
-      {/* ── 탭 3: 뉴스 ── */}
-      {activeTab === "news" && (
-        <NewsSection
-          ticker={ticker}
-          title={`${stock.name} 관련 뉴스`}
-          limit={20}
-          showSummary={true}
-        />
-      )}
     </div>
   );
 }
@@ -344,11 +333,11 @@ export default function StockDetail({ userId }: StockDetailProps) {
 function Metric({ label, value, tooltip }: { label: string; value: string | number; tooltip?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+      <span className="flex items-center gap-1 text-sm font-semibold text-muted-foreground">
         {label}
         {tooltip && <TermTooltip term={label} />}
       </span>
-      <span className="text-sm font-extrabold text-foreground">{value}</span>
+      <span className="text-base font-extrabold text-foreground">{value}</span>
     </div>
   );
 }

@@ -69,17 +69,17 @@ function RankRow({ item, index }: { item: RankItem; index: number }) {
           className="flex items-center justify-between w-full"
         >
           <div className="flex items-center gap-3">
-            <span className="w-6 text-center text-sm font-bold text-muted-foreground">{item.rank}</span>
+            <span className="w-6 text-center text-base font-bold text-muted-foreground">{item.rank}</span>
             <div className="group-hover:scale-105 transition-transform">
               <StockLogo ticker={item.ticker} name={item.name} size="md" />
             </div>
             <div>
-              <p className="font-bold text-foreground group-hover:text-primary transition-colors">{item.name}</p>
-              <p className="text-xs text-muted-foreground font-semibold">
+              <p className="text-base font-bold text-foreground group-hover:text-primary transition-colors">{item.name}</p>
+              <p className="text-sm text-muted-foreground font-semibold">
                 {item.ticker}
                 {item.market && (
                   <span className={cn(
-                    "ml-1.5 px-1 py-0.5 rounded text-[9px] font-bold",
+                    "ml-1.5 px-1 py-0.5 rounded text-[10px] font-bold",
                     item.market === "KOSPI" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-600"
                   )}>
                     {item.market}
@@ -89,8 +89,8 @@ function RankRow({ item, index }: { item: RankItem; index: number }) {
             </div>
           </div>
           <div className="text-right">
-            <p className="font-extrabold text-foreground">{formatCurrency(item.price)}</p>
-            <p className={cn("text-xs font-bold", getColorClass(item.changePercent))}>
+            <p className="text-base font-extrabold text-foreground">{formatCurrency(item.price)}</p>
+            <p className={cn("text-sm font-bold", getColorClass(item.changePercent))}>
               {isPositive ? "▲" : "▼"} {formatPercent(item.changePercent)}
             </p>
           </div>
@@ -113,17 +113,17 @@ function StockRow({ stock, index }: { stock: any; index: number }) {
           className="flex items-center justify-between w-full"
         >
           <div className="flex items-center gap-3">
-            <span className="w-6 text-center text-sm font-bold text-muted-foreground">{index + 1}</span>
+            <span className="w-6 text-center text-base font-bold text-muted-foreground">{index + 1}</span>
             <div className="group-hover:scale-105 transition-transform">
               <StockLogo ticker={stock.ticker} name={stock.name} size="md" />
             </div>
             <div>
-              <p className="font-bold text-foreground group-hover:text-primary transition-colors">{stock.name}</p>
-              <p className="text-xs text-muted-foreground font-semibold">
+              <p className="text-base font-bold text-foreground group-hover:text-primary transition-colors">{stock.name}</p>
+              <p className="text-sm text-muted-foreground font-semibold">
                 {stock.ticker}
                 {stock.market && (
                   <span className={cn(
-                    "ml-1.5 px-1 py-0.5 rounded text-[9px] font-bold",
+                    "ml-1.5 px-1 py-0.5 rounded text-[10px] font-bold",
                     stock.market === "KOSPI" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-600"
                   )}>
                     {stock.market}
@@ -133,8 +133,8 @@ function StockRow({ stock, index }: { stock: any; index: number }) {
             </div>
           </div>
           <div className="text-right">
-            <p className="font-extrabold text-foreground">{formatCurrency(stock.currentPrice)}</p>
-            <p className={cn("text-xs font-bold", getColorClass(stock.changePercent))}>
+            <p className="text-base font-extrabold text-foreground">{formatCurrency(stock.currentPrice)}</p>
+            <p className={cn("text-sm font-bold", getColorClass(stock.changePercent))}>
               {isPositive ? "▲" : "▼"} {formatPercent(stock.changePercent)}
             </p>
           </div>
