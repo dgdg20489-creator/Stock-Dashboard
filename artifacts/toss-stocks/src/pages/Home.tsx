@@ -431,10 +431,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 오늘의 주요 뉴스 */}
-      <section>
-        <NewsSection title="오늘의 주요 뉴스" limit={5} showSummary={false} />
-      </section>
     </div>
   );
 }
