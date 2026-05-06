@@ -253,7 +253,7 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
     ? Math.min(100, Math.max(0, (portfolio.totalReturnPercent / promoteThreshold) * 100))
     : 100;
 
-  const missionsCompleted = [missions.buy, missions.sell, missions.quiz].filter(Boolean).length;
+  const missionsCompleted = [missions.attendance, missions.trade, missions.quiz].filter(Boolean).length;
 
   return (
     <div className="max-w-2xl mx-auto space-y-3 animate-in fade-in duration-500">

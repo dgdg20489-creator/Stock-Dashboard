@@ -48,8 +48,7 @@ export default function StockDetail({ userId }: StockDetailProps) {
   });
 
   const { isWatched, toggleWatch } = useWatchlist();
-  const { completeBuy, completeSell } = useMissions();
-  const [lastTradeType, setLastTradeType] = useState<"buy" | "sell">("buy");
+  const { completeTrade } = useMissions();
   const watched = ticker ? isWatched(ticker) : false;
   const marketStatus = useMarketStatus();
 
@@ -61,10 +60,8 @@ export default function StockDetail({ userId }: StockDetailProps) {
     mutation: {
       onSuccess: () => {
         setSharesStr("");
-        const isBuy = lastTradeType === "buy";
-        const missionAwarded = isBuy ? completeBuy() : completeSell();
-        const label = isBuy ? "매수" : "매도";
-        alert(missionAwarded ? `${label} 주문이 체결되었습니다. (+30P 미션 달성!)` : `${label} 주문이 체결되었습니다.`);
+        const missionAwarded = completeTrade();
+        alert(missionAwarded ? "주문이 체결되었습니다. (+30P 미션 달성!)" : "주문이 체결되었습니다.");
         queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       },
       onError: (err: any) => {
