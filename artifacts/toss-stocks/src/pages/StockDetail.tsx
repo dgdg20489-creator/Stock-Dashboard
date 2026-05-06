@@ -12,7 +12,8 @@ import { StockLogo } from "@/components/StockLogo";
 import { OrderBook } from "@/components/OrderBook";
 import { TermTooltip } from "@/components/TermTooltip";
 import { CommunitySection } from "@/components/CommunitySection";
-import { ArrowLeft, Star, BarChart2, Users } from "lucide-react";
+import { NewsSection } from "@/components/NewsSection";
+import { ArrowLeft, Star, BarChart2, Users, Newspaper } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { useMissions } from "@/hooks/use-missions";
@@ -25,11 +26,12 @@ interface StockDetailProps {
 const BUY_PCTS  = [{ label: "25%", pct: 0.25 }, { label: "50%", pct: 0.5 }, { label: "75%", pct: 0.75 }, { label: "최대", pct: 1.0 }];
 const SELL_PCTS = [{ label: "25%", pct: 0.25 }, { label: "50%", pct: 0.5 }, { label: "75%", pct: 0.75 }, { label: "전량", pct: 1.0 }];
 
-type DetailTab = "trade" | "community";
+type DetailTab = "trade" | "community" | "news";
 
 const TABS: { id: DetailTab; label: string; icon: React.ReactNode }[] = [
   { id: "trade",     label: "차트·거래",  icon: <BarChart2 className="w-4 h-4" /> },
   { id: "community", label: "커뮤니티",   icon: <Users className="w-4 h-4" /> },
+  { id: "news",      label: "뉴스",       icon: <Newspaper className="w-4 h-4" /> },
 ];
 
 export default function StockDetail({ userId }: StockDetailProps) {
@@ -324,6 +326,13 @@ export default function StockDetail({ userId }: StockDetailProps) {
       {/* ── 탭 2: 커뮤니티 ── */}
       {activeTab === "community" && (
         <CommunitySection ticker={ticker} userId={userId} />
+      )}
+
+      {/* ── 탭 3: 뉴스 ── */}
+      {activeTab === "news" && (
+        <div className="px-4 py-3">
+          <NewsSection title={`${ticker} 관련 뉴스`} ticker={ticker} limit={20} showSummary={true} />
+        </div>
       )}
 
     </div>
