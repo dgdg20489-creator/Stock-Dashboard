@@ -48,7 +48,8 @@ export default function StockDetail({ userId }: StockDetailProps) {
   });
 
   const { isWatched, toggleWatch } = useWatchlist();
-  const { completeTrade } = useMissions();
+  const { completeBuy, completeSell } = useMissions();
+  const [lastTradeType, setLastTradeType] = useState<"buy" | "sell">("buy");
   const watched = ticker ? isWatched(ticker) : false;
   const marketStatus = useMarketStatus();
 
@@ -60,8 +61,10 @@ export default function StockDetail({ userId }: StockDetailProps) {
     mutation: {
       onSuccess: () => {
         setSharesStr("");
-        const missionAwarded = completeTrade();
-        alert(missionAwarded ? "주문이 체결되었습니다. (+30P 미션 달성!)" : "주문이 체결되었습니다.");
+        const isBuy = lastTradeType === "buy";
+        const missionAwarded = isBuy ? completeBuy() : completeSell();
+        const label = isBuy ? "매수" : "매도";
+        alert(missionAwarded ? `${label} 주문이 체결되었습니다. (+30P 미션 달성!)` : `${label} 주문이 체결되었습니다.`);
         queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       },
       onError: (err: any) => {
@@ -87,6 +90,7 @@ export default function StockDetail({ userId }: StockDetailProps) {
 
   const handleTrade = (type: ExecuteTradeRequestType) => {
     if (shares <= 0) return;
+    setLastTradeType(type === ExecuteTradeRequestType.buy ? "buy" : "sell");
     tradeMutation.mutate({ data: { userId, ticker: stock.ticker, type, shares } });
   };
 

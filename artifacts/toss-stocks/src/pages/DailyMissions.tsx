@@ -1,7 +1,7 @@
 import { useMissions } from "@/hooks/use-missions";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Star, Zap, BookOpen, CalendarCheck, Gift } from "lucide-react";
+import { CheckCircle2, TrendingUp, TrendingDown, Zap, BookOpen, Gift } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 const COIN_ICON = "🪙";
@@ -65,7 +65,7 @@ interface DailyMissionsProps {
 }
 
 export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
-  const { missions, coins, justEarnedCoin, checkAttendance, completeTrade } = useMissions();
+  const { missions, coins, justEarnedCoin } = useMissions();
 
   const totalRequired = 100;
   const pct = Math.min(100, (missions.points / totalRequired) * 100);
@@ -143,36 +143,32 @@ export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
         <h2 className="font-extrabold text-foreground px-1">오늘의 미션</h2>
 
         <MissionRow
-          icon={<Star className="w-6 h-6 text-yellow-500" />}
-          title="출석 체크"
-          desc="오늘 하루 첫 방문 인증"
+          icon={<TrendingUp className="w-6 h-6 text-red-500" />}
+          title="매수 체험"
+          desc="종목을 1주 이상 매수하면 달성"
           points={30}
-          done={missions.attendance}
-          color="bg-yellow-50"
-          actionLabel="출석 체크하기"
-          onAction={checkAttendance}
+          done={missions.buy}
+          color="bg-red-50"
         />
 
         <MissionRow
-          icon={<BookOpen className="w-6 h-6 text-blue-500" />}
+          icon={<TrendingDown className="w-6 h-6 text-blue-500" />}
+          title="매도 체험"
+          desc="보유 종목을 1주 이상 매도하면 달성"
+          points={30}
+          done={missions.sell}
+          color="bg-blue-50"
+        />
+
+        <MissionRow
+          icon={<BookOpen className="w-6 h-6 text-violet-500" />}
           title="투자 퀴즈 풀기"
           desc="주식 학습 퀴즈에서 2문제 이상 정답 맞추기"
           points={40}
           done={missions.quiz}
-          color="bg-blue-50"
+          color="bg-violet-50"
           actionLabel="퀴즈 풀기"
           quizLink={true}
-        />
-
-        <MissionRow
-          icon={<CalendarCheck className="w-6 h-6 text-primary" />}
-          title="오늘의 출석 완료"
-          desc="버튼을 눌러 하루 출석 도장을 찍어보세요"
-          points={30}
-          done={missions.trade}
-          color="bg-primary/10"
-          actionLabel="출석 도장 찍기"
-          onAction={completeTrade}
         />
       </div>
 

@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 
 export interface DailyMissionState {
   date: string;
-  attendance: boolean;
+  buy: boolean;
+  sell: boolean;
   quiz: boolean;
-  trade: boolean;
   points: number;
 }
 
@@ -28,7 +28,7 @@ function loadMissions(): DailyMissionState {
       if (data.date === todayStr()) return data;
     }
   } catch {}
-  return { date: todayStr(), attendance: false, quiz: false, trade: false, points: 0 };
+  return { date: todayStr(), buy: false, sell: false, quiz: false, points: 0 };
 }
 
 function loadCoins(): number {
@@ -62,7 +62,7 @@ export function useMissions() {
     localStorage.setItem(unlockedKey(), JSON.stringify(unlockedItems));
   }, [unlockedItems]);
 
-  const awardPoints = useCallback((type: "attendance" | "quiz" | "trade", pts: number): boolean => {
+  const awardPoints = useCallback((type: "buy" | "sell" | "quiz", pts: number): boolean => {
     let awarded = false;
     setMissions((prev) => {
       if (prev[type]) return prev;
@@ -80,16 +80,16 @@ export function useMissions() {
     return awarded;
   }, []);
 
-  const checkAttendance = useCallback(() => {
-    return awardPoints("attendance", 30);
+  const completeBuy = useCallback(() => {
+    return awardPoints("buy", 30);
+  }, [awardPoints]);
+
+  const completeSell = useCallback(() => {
+    return awardPoints("sell", 30);
   }, [awardPoints]);
 
   const completeQuiz = useCallback(() => {
     return awardPoints("quiz", 40);
-  }, [awardPoints]);
-
-  const completeTrade = useCallback(() => {
-    return awardPoints("trade", 30);
   }, [awardPoints]);
 
   const spendCoins = useCallback((itemId: string, cost: number): boolean => {
@@ -109,9 +109,9 @@ export function useMissions() {
     coins,
     justEarnedCoin,
     unlockedItems,
-    checkAttendance,
+    completeBuy,
+    completeSell,
     completeQuiz,
-    completeTrade,
     spendCoins,
     isItemUnlocked,
   };
