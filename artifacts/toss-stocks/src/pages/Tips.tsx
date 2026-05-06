@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, TrendingUp, BarChart2, DollarSign, ShieldCheck,
   Brain, Building2, GraduationCap, CheckCircle2, XCircle,
-  ChevronRight, Search, PlayCircle, ArrowLeft,
+  ChevronRight, Search, PlayCircle, ArrowLeft, RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMissions } from "@/hooks/use-missions";
@@ -1755,8 +1755,10 @@ function QuizSection() {
   const [selected, setSelected] = useState<number | null>(null);
   const [phase, setPhase] = useState<QuizPhase>("question");
   const [results, setResults] = useState<boolean[]>([]); // 각 문제 정오표
+  const [selectedHistory, setSelectedHistory] = useState<number[]>([]); // 선택 기록
   const [finished, setFinished] = useState(() => localStorage.getItem(doneKey) === "1");
   const [rewardGiven, setRewardGiven] = useState(false);
+  const [showReview, setShowReview] = useState(false);
 
   const quiz = dailyQuizzes[currentIdx];
   const isLast = currentIdx === DAILY_COUNT - 1;
@@ -1769,6 +1771,7 @@ function QuizSection() {
     setPhase(correct ? "correct" : "wrong");
     const newResults = [...results, correct];
     setResults(newResults);
+    setSelectedHistory((prev) => [...prev, idx]);
 
     // 마지막 문제 완료 시
     if (isLast) {
@@ -1829,33 +1832,141 @@ function QuizSection() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             className={cn(
-              "flex items-center gap-3 rounded-2xl px-5 py-3.5 border",
+              "rounded-2xl px-5 py-3.5 border",
               rewardGiven || correctCount >= 2
                 ? "bg-green-50 border-green-200"
                 : "bg-amber-50 border-amber-200"
             )}
           >
-            <CheckCircle2 className={cn(
-              "w-5 h-5 flex-shrink-0",
-              rewardGiven || correctCount >= 2 ? "text-green-500" : "text-amber-500"
-            )} />
-            <div>
-              {rewardGiven || (finished && correctCount >= 2) ? (
-                <>
-                  <p className="font-bold text-green-700 text-sm">오늘의 퀴즈 미션 완료! +40P 획득 🎉</p>
-                  <p className="text-xs text-green-600 font-medium">{correctCount}/{DAILY_COUNT}문제 정답 · 내일 새로운 퀴즈가 준비됩니다.</p>
-                </>
-              ) : alreadyDone && !finished ? (
-                <>
-                  <p className="font-bold text-green-700 text-sm">이미 완료한 퀴즈입니다!</p>
-                  <p className="text-xs text-green-600 font-medium">내일 새로운 퀴즈가 준비됩니다.</p>
-                </>
-              ) : (
-                <>
-                  <p className="font-bold text-amber-700 text-sm">오늘 퀴즈 완료 — {correctCount}/{DAILY_COUNT}문제 정답</p>
-                  <p className="text-xs text-amber-600 font-medium">2개 이상 정답 시 포인트 지급 · 내일 다시 도전해보세요!</p>
-                </>
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className={cn(
+                "w-5 h-5 flex-shrink-0",
+                rewardGiven || correctCount >= 2 ? "text-green-500" : "text-amber-500"
+              )} />
+              <div className="flex-1">
+                {rewardGiven || (finished && correctCount >= 2) ? (
+                  <>
+                    <p className="font-bold text-green-700 text-sm">오늘의 퀴즈 미션 완료! +40P 획득 🎉</p>
+                    <p className="text-xs text-green-600 font-medium">{correctCount}/{DAILY_COUNT}문제 정답 · 내일 새로운 퀴즈가 준비됩니다.</p>
+                  </>
+                ) : alreadyDone && !finished ? (
+                  <>
+                    <p className="font-bold text-green-700 text-sm">이미 완료한 퀴즈입니다!</p>
+                    <p className="text-xs text-green-600 font-medium">내일 새로운 퀴즈가 준비됩니다.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-bold text-amber-700 text-sm">오늘 퀴즈 완료 — {correctCount}/{DAILY_COUNT}문제 정답</p>
+                    <p className="text-xs text-amber-600 font-medium">2개 이상 정답 시 포인트 지급 · 내일 다시 도전해보세요!</p>
+                  </>
+                )}
+              </div>
+              {finished && selectedHistory.length > 0 && (
+                <button
+                  onClick={() => setShowReview((v) => !v)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0",
+                    showReview
+                      ? "bg-primary text-white"
+                      : "bg-white border border-border text-foreground hover:bg-muted/50"
+                  )}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  {showReview ? "닫기" : "문제 보기"}
+                </button>
               )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── 퀴즈 복습 패널 ── */}
+      <AnimatePresence>
+        {showReview && finished && selectedHistory.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-3 pt-1">
+              <p className="text-xs font-bold text-muted-foreground px-1">오늘 푼 문제 복습</p>
+              {dailyQuizzes.map((q, qi) => {
+                const userSelected = selectedHistory[qi];
+                const isCorrect = results[qi];
+                return (
+                  <div
+                    key={q.id}
+                    className={cn(
+                      "rounded-2xl border-2 overflow-hidden",
+                      isCorrect ? "border-green-200 bg-green-50/50" : "border-red-200 bg-red-50/50"
+                    )}
+                  >
+                    {/* 문제 헤더 */}
+                    <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30">
+                      <div className={cn(
+                        "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
+                        isCorrect ? "bg-green-500" : "bg-red-400"
+                      )}>
+                        {isCorrect
+                          ? <CheckCircle2 className="w-4 h-4 text-white" />
+                          : <XCircle className="w-4 h-4 text-white" />}
+                      </div>
+                      <span className="text-xs font-bold text-muted-foreground">{qi + 1}번</span>
+                      <span className={cn(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-full border ml-auto",
+                        q.difficulty === "쉬움" ? "bg-green-50 text-green-600 border-green-200"
+                          : q.difficulty === "보통" ? "bg-yellow-50 text-yellow-600 border-yellow-200"
+                          : "bg-red-50 text-red-600 border-red-200"
+                      )}>
+                        {q.difficulty}
+                      </span>
+                    </div>
+                    {/* 질문 */}
+                    <div className="px-4 pt-3 pb-2">
+                      <p className="text-sm font-bold text-foreground">{q.question}</p>
+                    </div>
+                    {/* 보기 */}
+                    <div className="px-4 pb-3 space-y-1.5">
+                      {q.options.map((opt, oi) => {
+                        const isAnswer = oi === q.answerIndex;
+                        const isUser = oi === userSelected;
+                        let cls = "border-border/40 bg-white/50 text-muted-foreground";
+                        if (isAnswer) cls = "border-green-400 bg-green-50 text-green-700 font-bold";
+                        else if (isUser && !isAnswer) cls = "border-red-300 bg-red-50 text-red-600";
+                        return (
+                          <div key={oi} className={cn(
+                            "flex items-center gap-2.5 px-3 py-2 rounded-xl border text-sm",
+                            cls
+                          )}>
+                            <span className={cn(
+                              "w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 border",
+                              isAnswer ? "bg-green-500 text-white border-green-500"
+                                : isUser ? "bg-red-400 text-white border-red-400"
+                                : "border-current"
+                            )}>
+                              {String.fromCharCode(65 + oi)}
+                            </span>
+                            <span className="flex-1">{opt}</span>
+                            {isAnswer && <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                            {isUser && !isAnswer && <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* 해설 */}
+                    <div className={cn(
+                      "px-4 py-3 border-t border-border/30",
+                      isCorrect ? "bg-green-50" : "bg-red-50"
+                    )}>
+                      <p className="text-xs text-muted-foreground font-semibold">
+                        💡 {q.explanation}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
         )}
