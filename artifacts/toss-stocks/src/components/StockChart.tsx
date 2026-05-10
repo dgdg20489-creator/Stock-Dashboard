@@ -24,7 +24,7 @@ interface Indicators {
 }
 
 const DEFAULT_IND: Indicators = {
-  ma5: true, ma20: true, ma60: false, ma120: false,
+  ma5: true, ma20: true, ma60: true, ma120: true,
   bb: false, ichimoku: false, rsi: false, macd: false,
 };
 
@@ -324,61 +324,71 @@ function polyline(pts: [number, number][], stroke: string, sw: number, dash?: st
 
 // ── 캔들/라인 SVG 차트 ───────────────────────────────────────────
 function EnhancedChart({
-  data, containerWidth, avgCost, chartType, indicators,
+  data, containerWidth, avgCost, chartType, indicators, livePrice,
 }: {
   data: OHLCPoint[];
   containerWidth: number;
   avgCost?: number;
   chartType: ChartType;
   indicators: Indicators;
+  livePrice?: number;
 }) {
   const [hover, setHover] = useState<{ idx: number; sx: number; sy: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const MAIN_H = 280;
+  const MAIN_H = 320;
   const PAD_L = 8;
-  const PAD_R = 68;
+  const PAD_R = 72;
   const chartW = containerWidth - PAD_L - PAD_R;
 
-  if (!data.length || chartW <= 0) return (
-    <div className="h-[280px] flex flex-col items-center justify-center gap-2 text-muted-foreground">
+  // ── 실시간 마지막 캔들 패치 (hooks 규칙: 조건부 return 전에 호출) ──
+  const patchedData = useMemo(() => {
+    if (!livePrice || livePrice <= 0 || !data.length) return data;
+    const copy = [...data];
+    const last = { ...copy[copy.length - 1] };
+    last.close = livePrice;
+    last.high = Math.max(last.high, livePrice);
+    last.low = last.low > 0 ? Math.min(last.low, livePrice) : livePrice;
+    copy[copy.length - 1] = last;
+    return copy;
+  }, [data, livePrice]);
+
+  if (!patchedData.length || chartW <= 0) return (
+    <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground" style={{ height: MAIN_H }}>
       <div className="text-3xl">📊</div>
       <p className="text-sm font-medium">차트 데이터 준비 중...</p>
-      <p className="text-xs">잠시 후 다시 시도해주세요</p>
     </div>
   );
 
-  const n = data.length;
+  const n = patchedData.length;
   const slotW = chartW / n;
-  // bodyW: 슬롯의 80% 사용, 최소 1.5px (많은 봉), 최대는 슬롯 너비 제한만 (간격 없음)
-  const bodyW = Math.max(1.5, slotW * 0.8);
+  const bodyW = Math.max(1.5, slotW * 0.75);
   const wickW = Math.max(0.6, Math.min(1.5, slotW * 0.12));
 
-  // ── Y축 오토스케일: 유효한 가격값만 사용 ──
-  const validPrices = data.flatMap(d => [d.high, d.low]).filter(v => isFinite(v) && v > 0);
+  // ── Y축 오토스케일 ──
+  const validPrices = patchedData.flatMap(d => [d.high, d.low]).filter(v => isFinite(v) && v > 0);
   if (validPrices.length === 0) return (
-    <div className="h-[280px] flex items-center justify-center text-muted-foreground">
+    <div className="flex items-center justify-center text-muted-foreground" style={{ height: MAIN_H }}>
       <p className="text-sm">가격 데이터를 불러오는 중...</p>
     </div>
   );
 
   let minP = Math.min(...validPrices);
   let maxP = Math.max(...validPrices);
+  if (livePrice && livePrice > 0) { maxP = Math.max(maxP, livePrice); minP = Math.min(minP, livePrice); }
 
-  // 지표 가격 범위 확장
   if (indicators.bb) {
-    const bb = calcBB(data);
+    const bb = calcBB(patchedData);
     bb.upper.forEach(v => { if (v && isFinite(v)) maxP = Math.max(maxP, v); });
     bb.lower.forEach(v => { if (v && isFinite(v)) minP = Math.min(minP, v); });
   }
   if (indicators.ichimoku) {
-    const ich = calcIchimoku(data);
+    const ich = calcIchimoku(patchedData);
     [...ich.senkouA, ...ich.senkouB, ...ich.tenkan, ...ich.kijun].forEach(v => {
       if (v != null && isFinite(v)) { maxP = Math.max(maxP, v); minP = Math.min(minP, v); }
     });
   }
 
-  // ── 패딩: 최소 0.5% 이상 확보 ──
   const range = maxP - minP;
   const pad = range > 0 ? range * 0.06 : maxP * 0.03 || 500;
   minP -= pad; maxP += pad;
@@ -399,23 +409,23 @@ function EnhancedChart({
     setHover({ idx, sx, sy });
   };
 
-  // Y-axis ticks: 5개 균등 간격, 한국식 숫자 포맷 (단위: 원)
   const fmt = (v: number) => {
     if (v >= 100_000_000) return `${(v / 100_000_000).toFixed(1)}억`;
-    if (v >= 10_000)      return `${Math.round(v / 10_000)}만원`;
-    return `${new Intl.NumberFormat("ko-KR").format(Math.round(v))}원`;
+    if (v >= 10_000)      return `${Math.round(v / 10_000)}만`;
+    return `${new Intl.NumberFormat("ko-KR").format(Math.round(v))}`;
   };
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(pct => ({
-    y:     pct * MAIN_H,
-    price: maxP - pct * rangeP,
+  const fmtFull = (v: number) => new Intl.NumberFormat("ko-KR").format(Math.round(v));
+
+  const yTicks = [0, 0.2, 0.4, 0.6, 0.8, 1].map(pct => ({
+    y: pct * MAIN_H, price: maxP - pct * rangeP,
   }));
 
-  const ma5v   = indicators.ma5   ? calcMA(data, 5)   : [];
-  const ma20v  = indicators.ma20  ? calcMA(data, 20)  : [];
-  const ma60v  = indicators.ma60  ? calcMA(data, 60)  : [];
-  const ma120v = indicators.ma120 ? calcMA(data, 120) : [];
-  const bbv    = indicators.bb    ? calcBB(data)       : null;
-  const ichv   = indicators.ichimoku ? calcIchimoku(data) : null;
+  const ma5v   = indicators.ma5   ? calcMA(patchedData, 5)   : [];
+  const ma20v  = indicators.ma20  ? calcMA(patchedData, 20)  : [];
+  const ma60v  = indicators.ma60  ? calcMA(patchedData, 60)  : [];
+  const ma120v = indicators.ma120 ? calcMA(patchedData, 120) : [];
+  const bbv    = indicators.bb    ? calcBB(patchedData)       : null;
+  const ichv   = indicators.ichimoku ? calcIchimoku(patchedData) : null;
 
   const maPoints = (vals: (number | null)[]) =>
     vals.reduce<[number, number][][]>((segs, v, i) => {
@@ -425,7 +435,14 @@ function EnhancedChart({
       return segs;
     }, [[]]).filter(s => s.length >= 2);
 
-  const hPoint = hover ? data[hover.idx] : null;
+  const hPoint = hover ? patchedData[hover.idx] : null;
+
+  // 현재가 Y좌표 (실시간 가격선)
+  const livePriceY = livePrice && livePrice > 0 && isFinite(toY(livePrice)) ? toY(livePrice) : null;
+  const lastClose = patchedData[patchedData.length - 1]?.close ?? 0;
+  const lastOpen  = patchedData[patchedData.length - 1]?.open ?? 0;
+  const liveIsUp  = lastClose >= lastOpen;
+  const liveColor = liveIsUp ? "#F04452" : "#3182F6";
 
   return (
     <div className="relative select-none" style={{ userSelect: "none" }}>
@@ -439,18 +456,18 @@ function EnhancedChart({
         onTouchMove={e => { e.preventDefault(); const t = e.touches[0]; handleMove(t.clientX, t.clientY); }}
         onTouchEnd={() => setHover(null)}
       >
-        {/* 격자 */}
+        {/* ── 격자선 ── */}
         {yTicks.map(({ y, price }) => (
           <g key={y}>
-            <line x1={PAD_L} y1={y} x2={containerWidth - PAD_R} y2={y} stroke="#f0f0f0" strokeWidth={0.8} />
-            <text x={containerWidth - PAD_R + 6} y={y + 4} fontSize={9.5} fill="#999" dominantBaseline="middle" fontWeight="600">
+            <line x1={PAD_L} y1={y} x2={containerWidth - PAD_R} y2={y} stroke="#F1F5F9" strokeWidth={0.7} />
+            <text x={containerWidth - PAD_R + 6} y={y + 3.5} fontSize={9} fill="#94A3B8" dominantBaseline="middle" fontWeight="500">
               {fmt(price)}
             </text>
           </g>
         ))}
 
-        {/* 일목균형표 구름 */}
-        {ichv && data.map((_, i) => {
+        {/* ── 일목균형표 구름 ── */}
+        {ichv && patchedData.map((_, i) => {
           const a = ichv.senkouA[i], b = ichv.senkouB[i];
           if (a == null || b == null) return null;
           const top = Math.min(toY(a), toY(b));
@@ -461,7 +478,7 @@ function EnhancedChart({
           );
         })}
 
-        {/* 볼린저 밴드 */}
+        {/* ── 볼린저 밴드 ── */}
         {bbv && (() => {
           const midPts = maPoints(bbv.mid);
           const upPts  = maPoints(bbv.upper);
@@ -479,14 +496,14 @@ function EnhancedChart({
                 <path d={allFill.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ") + " Z"}
                   fill="#94A3B8" fillOpacity={0.06} stroke="none" />
               )}
-              {midPts.map((seg, i) => <g key={i}>{polyline(seg, "#94A3B8", 0.8)}</g>)}
-              {upPts.map((seg, i) => <g key={i}>{polyline(seg, "#94A3B8", 0.8, "4 3")}</g>)}
-              {loPts.map((seg, i) => <g key={i}>{polyline(seg, "#94A3B8", 0.8, "4 3")}</g>)}
+              {midPts.map((seg, i) => <g key={i}>{polyline(seg, "#94A3B8", 0.9)}</g>)}
+              {upPts.map((seg, i) => <g key={i}>{polyline(seg, "#94A3B8", 0.9, "4 3")}</g>)}
+              {loPts.map((seg, i) => <g key={i}>{polyline(seg, "#94A3B8", 0.9, "4 3")}</g>)}
             </>
           );
         })()}
 
-        {/* 일목균형표 선 */}
+        {/* ── 일목균형표 선 ── */}
         {ichv && (() => (
           <>
             {maPoints(ichv.tenkan).map((s, i) => <g key={i}>{polyline(s, "#F04452", 0.9)}</g>)}
@@ -499,40 +516,43 @@ function EnhancedChart({
 
         {/* ── 캔들 or 라인 ── */}
         {chartType === "candle" ? (
-          data.map((d, i) => {
+          patchedData.map((d, i) => {
             if (d.close <= 0) return null;
             const isUp = d.close >= d.open;
+            const isLast = i === n - 1;
             const color = isUp ? "#F04452" : "#3182F6";
             const hy = toY(d.high), ly = toY(d.low);
             const oy = toY(d.open), cy = toY(d.close);
-            // body 범위: SVG상 위(작은 y) ~ 아래(큰 y)
             const rawBodyTop = Math.min(oy, cy);
             const rawBodyBot = Math.max(oy, cy);
-            // 최소 높이 적용하되 ly(저가)를 초과하지 않도록 클램핑
             const bodyTop = Math.max(hy, rawBodyTop);
             const bodyBot = Math.min(ly, Math.max(rawBodyBot, rawBodyTop + 1.5));
             const bodyH   = Math.max(1, bodyBot - bodyTop);
             const cx = toX(i);
             return (
               <g key={i}>
-                {/* 위 꼬리: 고가선 → 몸통 상단 */}
                 {hy < bodyTop && (
                   <line x1={cx} y1={hy} x2={cx} y2={bodyTop} stroke={color} strokeWidth={wickW} />
                 )}
-                {/* 아래 꼬리: 몸통 하단 → 저가선 */}
                 {bodyBot < ly && (
                   <line x1={cx} y1={bodyBot} x2={cx} y2={ly} stroke={color} strokeWidth={wickW} />
                 )}
                 <rect x={cx - bodyW / 2} y={bodyTop} width={bodyW} height={bodyH}
-                  fill={isUp ? "#F04452" : "#3182F6"} stroke={isUp ? "#d03040" : "#2060c0"}
-                  strokeWidth={0.4} rx={bodyW > 4 ? 1 : 0} />
+                  fill={isUp ? "#F04452" : "#3182F6"} stroke={isUp ? "#c83040" : "#1858b8"}
+                  strokeWidth={0.4} rx={bodyW > 4 ? 1.5 : 0}
+                  opacity={isLast && livePrice ? 0.85 : 1}
+                />
+                {/* 마지막 캔들 상단에 점멸 도트 */}
+                {isLast && livePrice && (
+                  <circle cx={cx} cy={toY(d.close)} r={2.5} fill={color} opacity={0.9} />
+                )}
               </g>
             );
           })
         ) : (
           (() => {
-            const pts = data.filter(d => d.close > 0).map((d, i): [number, number] => [toX(i), toY(d.close)]);
-            const isPos = (data[data.length - 1]?.close ?? 0) >= (data[0]?.close ?? 0);
+            const pts = patchedData.filter(d => d.close > 0).map((d, i): [number, number] => [toX(i), toY(d.close)]);
+            const isPos = (patchedData[patchedData.length - 1]?.close ?? 0) >= (patchedData[0]?.close ?? 0);
             const color = isPos ? "#F04452" : "#3182F6";
             const gradId = "chart-line-grad";
             if (pts.length < 2) return null;
@@ -542,7 +562,7 @@ function EnhancedChart({
               <>
                 <defs>
                   <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity={0.15} />
+                    <stop offset="0%" stopColor={color} stopOpacity={0.18} />
                     <stop offset="100%" stopColor={color} stopOpacity={0} />
                   </linearGradient>
                 </defs>
@@ -553,32 +573,45 @@ function EnhancedChart({
           })()
         )}
 
-        {/* 이동평균선 */}
-        {maPoints(ma5v).map((s, i) => <g key={`ma5-${i}`}>{polyline(s, MA_COLORS.ma5, 1)}</g>)}
-        {maPoints(ma20v).map((s, i) => <g key={`ma20-${i}`}>{polyline(s, MA_COLORS.ma20, 1)}</g>)}
-        {maPoints(ma60v).map((s, i) => <g key={`ma60-${i}`}>{polyline(s, MA_COLORS.ma60, 1)}</g>)}
-        {maPoints(ma120v).map((s, i) => <g key={`ma120-${i}`}>{polyline(s, MA_COLORS.ma120, 1)}</g>)}
+        {/* ── 이동평균선 (MA5/20/60/120) ── */}
+        {maPoints(ma5v).map((s, i) => <g key={`ma5-${i}`}>{polyline(s, MA_COLORS.ma5, 1.2)}</g>)}
+        {maPoints(ma20v).map((s, i) => <g key={`ma20-${i}`}>{polyline(s, MA_COLORS.ma20, 1.2)}</g>)}
+        {maPoints(ma60v).map((s, i) => <g key={`ma60-${i}`}>{polyline(s, MA_COLORS.ma60, 1.2)}</g>)}
+        {maPoints(ma120v).map((s, i) => <g key={`ma120-${i}`}>{polyline(s, MA_COLORS.ma120, 1.2)}</g>)}
 
-        {/* 평균 매수가 — 회색 점선, 차트 위에 옅게 표시 */}
+        {/* ── 평균 매수가 점선 ── */}
         {avgCost && isFinite(avgCost) && avgCost >= minP && avgCost <= maxP && (
           <>
             <line x1={PAD_L} y1={toY(avgCost)} x2={containerWidth - PAD_R} y2={toY(avgCost)}
-              stroke="#94A3B8" strokeWidth={1} strokeDasharray="4 4" opacity={0.7} />
-            <rect x={PAD_L + 4} y={toY(avgCost) - 9} width={70} height={16} rx={3}
-              fill="#F8FAFC" stroke="#CBD5E1" strokeWidth={0.8} opacity={0.9} />
-            <text x={PAD_L + 39} y={toY(avgCost) + 4} fontSize={8.5} fill="#64748B" textAnchor="middle" fontWeight="600">
+              stroke="#F97316" strokeWidth={1} strokeDasharray="5 3" opacity={0.8} />
+            <rect x={containerWidth - PAD_R + 1} y={toY(avgCost) - 9} width={PAD_R - 2} height={16} rx={3} fill="#FFF7ED" stroke="#FED7AA" strokeWidth={0.8} />
+            <text x={containerWidth - PAD_R + (PAD_R - 2) / 2 + 1} y={toY(avgCost) + 4} fontSize={8.5} fill="#EA580C" textAnchor="middle" fontWeight="700">
               평균 {fmt(avgCost)}
             </text>
           </>
         )}
 
-        {/* 크로스헤어 */}
+        {/* ── 실시간 현재가 라인 ── */}
+        {livePriceY != null && livePriceY >= 0 && livePriceY <= MAIN_H && (
+          <>
+            <line x1={PAD_L} y1={livePriceY} x2={containerWidth - PAD_R} y2={livePriceY}
+              stroke={liveColor} strokeWidth={0.8} strokeDasharray="3 3" opacity={0.6} />
+            <rect x={containerWidth - PAD_R + 1} y={livePriceY - 9} width={PAD_R - 2} height={16} rx={3}
+              fill={liveIsUp ? "#F04452" : "#3182F6"} />
+            <text x={containerWidth - PAD_R + (PAD_R - 2) / 2 + 1} y={livePriceY + 3.5} fontSize={8.5}
+              fill="white" textAnchor="middle" fontWeight="700" dominantBaseline="middle">
+              {fmt(lastClose)}
+            </text>
+          </>
+        )}
+
+        {/* ── 크로스헤어 ── */}
         {hover && hPoint && hPoint.close > 0 && (
           <>
-            <line x1={hover.sx} y1={0} x2={hover.sx} y2={MAIN_H} stroke="#64748B" strokeWidth={0.8} strokeDasharray="4 3" pointerEvents="none" />
-            <line x1={PAD_L} y1={hover.sy} x2={containerWidth - PAD_R} y2={hover.sy} stroke="#64748B" strokeWidth={0.8} strokeDasharray="4 3" pointerEvents="none" />
-            <rect x={containerWidth - PAD_R + 1} y={hover.sy - 8} width={PAD_R - 2} height={16} rx={3} fill="#1E293B" />
-            <text x={containerWidth - PAD_R + (PAD_R - 2) / 2 + 1} y={hover.sy + 4} fontSize={9} fill="white" textAnchor="middle" fontWeight="bold">
+            <line x1={hover.sx} y1={0} x2={hover.sx} y2={MAIN_H} stroke="#94A3B8" strokeWidth={0.8} strokeDasharray="4 3" pointerEvents="none" />
+            <line x1={PAD_L} y1={hover.sy} x2={containerWidth - PAD_R} y2={hover.sy} stroke="#94A3B8" strokeWidth={0.8} strokeDasharray="4 3" pointerEvents="none" />
+            <rect x={containerWidth - PAD_R + 1} y={hover.sy - 9} width={PAD_R - 2} height={17} rx={3} fill="#1E293B" />
+            <text x={containerWidth - PAD_R + (PAD_R - 2) / 2 + 1} y={hover.sy + 3.5} fontSize={8.5} fill="white" textAnchor="middle" fontWeight="700" dominantBaseline="middle">
               {fmt(maxP - (hover.sy / MAIN_H) * rangeP)}
             </text>
             <circle cx={toX(hover.idx)} cy={toY(hPoint.close)} r={3.5} fill="white" stroke="#64748B" strokeWidth={1.5} />
@@ -586,72 +619,74 @@ function EnhancedChart({
         )}
       </svg>
 
-      {/* OHLCV 툴팁 */}
-      {hover && hPoint && hPoint.close > 0 && (() => {
-        const tipW = 168;
-        const left = hover.sx + tipW + 10 > containerWidth - PAD_R
-          ? hover.sx - tipW - 6 : hover.sx + 10;
-        const fmtFull = (v: number) => new Intl.NumberFormat("ko-KR").format(Math.round(v));
-        return (
-          <div
-            className="absolute pointer-events-none z-20 bg-gray-900/95 text-white rounded-xl px-3 py-2 shadow-xl border border-white/10"
-            style={{ left, top: Math.max(4, hover.sy - 60), width: tipW }}
-          >
-            <p className="text-[10px] font-semibold text-gray-400 mb-1 truncate">{hPoint.date}</p>
-            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
-              <span className="text-gray-400">시가</span><span className="font-bold text-right">{fmtFull(hPoint.open)}</span>
-              <span className="text-gray-400">고가</span><span className="font-bold text-up text-right">{fmtFull(hPoint.high)}</span>
-              <span className="text-gray-400">저가</span><span className="font-bold text-down text-right">{fmtFull(hPoint.low)}</span>
-              <span className="text-gray-400">종가</span><span className="font-bold text-right">{fmtFull(hPoint.close)}</span>
-              <span className="text-gray-400">거래량</span><span className="font-bold text-right">{fmtFull(hPoint.volume)}</span>
-            </div>
-          </div>
-        );
-      })()}
+      {/* ── OHLCV 인라인 헤더 (호버 시) ── */}
+      {hover && hPoint && hPoint.close > 0 && (
+        <div className="absolute top-0 left-1 z-20 flex items-center gap-3 bg-white/95 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm border border-border/40 pointer-events-none">
+          <span className="text-[9px] text-muted-foreground font-medium truncate max-w-[80px]">{hPoint.date.slice(0, 10)}</span>
+          <span className="text-[9px]"><span className="text-muted-foreground">시</span> <span className="font-bold">{fmtFull(hPoint.open)}</span></span>
+          <span className="text-[9px]"><span className="text-muted-foreground">고</span> <span className="font-bold text-[#F04452]">{fmtFull(hPoint.high)}</span></span>
+          <span className="text-[9px]"><span className="text-muted-foreground">저</span> <span className="font-bold text-[#3182F6]">{fmtFull(hPoint.low)}</span></span>
+          <span className="text-[9px]"><span className="text-muted-foreground">종</span> <span className="font-bold">{fmtFull(hPoint.close)}</span></span>
+          <span className="text-[9px]"><span className="text-muted-foreground">량</span> <span className="font-bold">{fmtFull(hPoint.volume)}</span></span>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── 거래량 바 (캔들 색과 동기화) ─────────────────────────────────
+// ── 거래량 바 (캔들 색 동기화 + MA20 라인) ────────────────────────
 function VolumeBars({ data, containerWidth }: { data: OHLCPoint[]; containerWidth: number }) {
   if (!data.length) return null;
-  const H = 60; const PAD_L = 8; const PAD_R = 68;
+  const H = 72; const PAD_L = 8; const PAD_R = 72;
   const chartW = containerWidth - PAD_L - PAD_R;
   const slotW = chartW / data.length;
-  const barW = Math.max(1, slotW * 0.62);
-  const maxV = Math.max(...data.map(d => d.volume).filter(v => v > 0)) || 1;
+  const barW = Math.max(1, slotW * 0.70);
+  const vols = data.map(d => d.volume).filter(v => v > 0);
+  const maxV = Math.max(...vols) || 1;
   const fmtVol = (v: number) => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1000 ? `${Math.round(v/1000)}K` : String(v);
+
+  // 거래량 MA20
+  const volMA20 = data.map((_, i) => {
+    if (i < 19) return null;
+    return data.slice(i - 19, i + 1).reduce((s, d) => s + d.volume, 0) / 20;
+  });
+  const volMAPts = volMA20.reduce<[number, number][]>((acc, v, i) => {
+    if (v != null) acc.push([PAD_L + i * slotW + slotW / 2, H - (v / maxV) * (H - 16)]);
+    return acc;
+  }, []);
+  const volMAPath = volMAPts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
 
   return (
     <svg width={containerWidth} height={H} className="overflow-visible select-none">
-      {/* 라벨 */}
-      <text x={PAD_L + 2} y={11} fontSize={9} fill="#94A3B8" fontWeight="bold">거래량</text>
-      <text x={containerWidth - PAD_R + 6} y={11} fontSize={8.5} fill="#94A3B8">{fmtVol(maxV)}</text>
-      {/* 최대 수평선 */}
-      <line x1={PAD_L} y1={14} x2={containerWidth - PAD_R} y2={14} stroke="#f5f5f5" strokeWidth={0.5} />
-      {/* 막대 */}
+      <text x={PAD_L + 2} y={11} fontSize={9} fill="#94A3B8" fontWeight="600">거래량 <tspan fontSize={8} fill="#CBD5E1">(20)</tspan></text>
+      <text x={containerWidth - PAD_R + 6} y={11} fontSize={8} fill="#94A3B8">{fmtVol(maxV)}</text>
+      <line x1={PAD_L} y1={14} x2={containerWidth - PAD_R} y2={14} stroke="#F1F5F9" strokeWidth={0.5} />
       {data.map((d, i) => {
         if (d.volume <= 0) return null;
-        const bh = Math.max(1, (d.volume / maxV) * (H - 18));
+        const bh = Math.max(1, (d.volume / maxV) * (H - 16));
         const isUp = d.close >= d.open;
+        const isLast = i === data.length - 1;
         return (
           <rect key={i}
             x={PAD_L + i * slotW + slotW / 2 - barW / 2}
             y={H - bh}
             width={barW} height={bh}
             fill={isUp ? "#F04452" : "#3182F6"}
-            fillOpacity={0.45}
+            fillOpacity={isLast ? 0.7 : 0.4}
             rx={0.5}
           />
         );
       })}
+      {volMAPts.length >= 2 && (
+        <path d={volMAPath} stroke="#3182F6" strokeWidth={1} fill="none" opacity={0.7} />
+      )}
     </svg>
   );
 }
 
 // ── RSI 패널 ──────────────────────────────────────────────────────
 function RSIPanel({ data, containerWidth }: { data: OHLCPoint[]; containerWidth: number }) {
-  const H = 76; const PAD_L = 8; const PAD_R = 68;
+  const H = 76; const PAD_L = 8; const PAD_R = 72;
   const chartW = containerWidth - PAD_L - PAD_R;
   const rsi = useMemo(() => calcRSI(data), [data]);
   const slotW = chartW / data.length;
@@ -674,7 +709,7 @@ function RSIPanel({ data, containerWidth }: { data: OHLCPoint[]; containerWidth:
 
 // ── MACD 패널 ─────────────────────────────────────────────────────
 function MACDPanel({ data, containerWidth }: { data: OHLCPoint[]; containerWidth: number }) {
-  const H = 76; const PAD_L = 8; const PAD_R = 68;
+  const H = 76; const PAD_L = 8; const PAD_R = 72;
   const chartW = containerWidth - PAD_L - PAD_R;
   const { macd, signal, hist } = useMemo(() => calcMACD(data), [data]);
   const allV = [...macd, ...signal, ...hist].filter(v => isFinite(v));
@@ -714,7 +749,7 @@ function TimeAxis({ data, containerWidth, period, tf }: {
   period: PeriodKey;
   tf: TFKey;
 }) {
-  const PAD_L = 8; const PAD_R = 68;
+  const PAD_L = 8; const PAD_R = 72;
   const chartW = containerWidth - PAD_L - PAD_R;
   const n = data.length;
   if (n === 0 || chartW <= 0) return null;
@@ -1152,13 +1187,15 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
         </div>
       )}
 
-      {/* ── MA 레전드 ── */}
-      {(indicators.ma5 || indicators.ma20 || indicators.ma60 || indicators.ma120 || indicators.ichimoku) && (
-        <div className="flex flex-wrap gap-2 mb-1.5 px-1">
-          {indicators.ma5   && <span className="text-[9px] font-bold" style={{ color: MA_COLORS.ma5 }}>MA5</span>}
-          {indicators.ma20  && <span className="text-[9px] font-bold" style={{ color: MA_COLORS.ma20 }}>MA20</span>}
-          {indicators.ma60  && <span className="text-[9px] font-bold" style={{ color: MA_COLORS.ma60 }}>MA60</span>}
-          {indicators.ma120 && <span className="text-[9px] font-bold" style={{ color: MA_COLORS.ma120 }}>MA120</span>}
+      {/* ── MA 레전드 (토스증권 스타일) ── */}
+      {(indicators.ma5 || indicators.ma20 || indicators.ma60 || indicators.ma120 || indicators.ichimoku || indicators.bb) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1.5 px-1">
+          <span className="text-[9px] text-muted-foreground font-medium">이동평균선</span>
+          {indicators.ma5   && <span className="flex items-center gap-1"><span className="inline-block w-3 h-[2px] rounded" style={{ background: MA_COLORS.ma5 }} /><span className="text-[9px] font-bold" style={{ color: MA_COLORS.ma5 }}>5</span></span>}
+          {indicators.ma20  && <span className="flex items-center gap-1"><span className="inline-block w-3 h-[2px] rounded" style={{ background: MA_COLORS.ma20 }} /><span className="text-[9px] font-bold" style={{ color: MA_COLORS.ma20 }}>20</span></span>}
+          {indicators.ma60  && <span className="flex items-center gap-1"><span className="inline-block w-3 h-[2px] rounded" style={{ background: MA_COLORS.ma60 }} /><span className="text-[9px] font-bold" style={{ color: MA_COLORS.ma60 }}>60</span></span>}
+          {indicators.ma120 && <span className="flex items-center gap-1"><span className="inline-block w-3 h-[2px] rounded" style={{ background: MA_COLORS.ma120 }} /><span className="text-[9px] font-bold" style={{ color: MA_COLORS.ma120 }}>120</span></span>}
+          {indicators.bb    && <span className="text-[9px] font-bold text-slate-400">BB(20)</span>}
           {indicators.ichimoku && <>
             <span className="text-[9px] font-bold text-red-500">전환</span>
             <span className="text-[9px] font-bold text-blue-500">기준</span>
@@ -1191,6 +1228,7 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
               avgCost={avgCost}
               chartType={chartType}
               indicators={indicators}
+              livePrice={viewOffset === 0 ? currentPrice : undefined}
             />
             <TimeAxis data={visibleData} containerWidth={containerWidth} period={period} tf={tf} />
             <div className="flex justify-between px-1 mt-0.5">
