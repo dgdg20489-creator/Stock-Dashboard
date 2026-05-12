@@ -19,7 +19,9 @@ const DIFFICULTY_LABEL: Record<string, string> = {
 export function Sidebar({ userId }: SidebarProps) {
   const [location] = useLocation();
   const { data: user } = useGetUser(userId);
-  const { data: portfolio } = useGetUserPortfolio(userId);
+  const { data: portfolio } = useGetUserPortfolio(userId, {
+    query: { refetchInterval: 3000, staleTime: 0 },
+  });
 
   const navItems = [
     { label: "주식", path: "/", icon: BarChart2 },

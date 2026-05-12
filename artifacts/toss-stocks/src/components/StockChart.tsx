@@ -634,16 +634,31 @@ function EnhancedChart({
   );
 }
 
-// ── 거래량 바 (캔들 색 동기화 + MA20 라인) ────────────────────────
+// ── 거래량 바 (캔들 색 동기화 + MA20 라인 + Y축 눈금) ─────────────
 function VolumeBars({ data, containerWidth }: { data: OHLCPoint[]; containerWidth: number }) {
   if (!data.length) return null;
-  const H = 72; const PAD_L = 8; const PAD_R = 72;
+  const H = 90; const PAD_L = 8; const PAD_R = 72;
+  const PLOT_TOP = 18; // label area height
+  const PLOT_H = H - PLOT_TOP;
   const chartW = containerWidth - PAD_L - PAD_R;
   const slotW = chartW / data.length;
   const barW = Math.max(1, slotW * 0.70);
   const vols = data.map(d => d.volume).filter(v => v > 0);
   const maxV = Math.max(...vols) || 1;
-  const fmtVol = (v: number) => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1000 ? `${Math.round(v/1000)}K` : String(v);
+  const lastVol = data[data.length - 1]?.volume ?? 0;
+
+  const fmtVol = (v: number) => {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
+    if (v >= 1_000)     return `${(v / 1_000).toFixed(2)}K`;
+    return String(v);
+  };
+  const fmtVolShort = (v: number) => {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+    if (v >= 1_000)     return `${Math.round(v / 1_000)}K`;
+    return String(v);
+  };
+
+  const toY = (v: number) => PLOT_TOP + PLOT_H - (v / maxV) * PLOT_H;
 
   // 거래량 MA20
   const volMA20 = data.map((_, i) => {
@@ -651,19 +666,40 @@ function VolumeBars({ data, containerWidth }: { data: OHLCPoint[]; containerWidt
     return data.slice(i - 19, i + 1).reduce((s, d) => s + d.volume, 0) / 20;
   });
   const volMAPts = volMA20.reduce<[number, number][]>((acc, v, i) => {
-    if (v != null) acc.push([PAD_L + i * slotW + slotW / 2, H - (v / maxV) * (H - 16)]);
+    if (v != null) acc.push([PAD_L + i * slotW + slotW / 2, toY(v)]);
     return acc;
   }, []);
   const volMAPath = volMAPts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
 
+  // Y축 눈금 (상단, 중간, 하단)
+  const yTicks = [1, 0.5, 0.25].map(pct => ({ v: maxV * pct, y: toY(maxV * pct) }));
+
+  // 마지막 거래량 Y 좌표 (라벨 표시)
+  const lastVolY = lastVol > 0 ? toY(lastVol) : null;
+
   return (
     <svg width={containerWidth} height={H} className="overflow-visible select-none">
-      <text x={PAD_L + 2} y={11} fontSize={9} fill="#94A3B8" fontWeight="600">거래량 <tspan fontSize={8} fill="#CBD5E1">(20)</tspan></text>
-      <text x={containerWidth - PAD_R + 6} y={11} fontSize={8} fill="#94A3B8">{fmtVol(maxV)}</text>
-      <line x1={PAD_L} y1={14} x2={containerWidth - PAD_R} y2={14} stroke="#F1F5F9" strokeWidth={0.5} />
+      {/* 헤더 라벨 */}
+      <text x={PAD_L + 2} y={12} fontSize={9} fill="#94A3B8" fontWeight="600">
+        거래량 <tspan fontSize={8} fill="#CBD5E1">(20)</tspan>
+      </text>
+
+      {/* Y축 눈금선 + 라벨 */}
+      {yTicks.map(({ v, y }, idx) => (
+        <g key={idx}>
+          <line x1={PAD_L} y1={y} x2={containerWidth - PAD_R} y2={y}
+            stroke="#F1F5F9" strokeWidth={0.5} />
+          <text x={containerWidth - PAD_R + 4} y={y + 3.5}
+            fontSize={8} fill="#94A3B8" dominantBaseline="middle">
+            {fmtVolShort(v)}
+          </text>
+        </g>
+      ))}
+
+      {/* 거래량 바 */}
       {data.map((d, i) => {
         if (d.volume <= 0) return null;
-        const bh = Math.max(1, (d.volume / maxV) * (H - 16));
+        const bh = Math.max(1, (d.volume / maxV) * PLOT_H);
         const isUp = d.close >= d.open;
         const isLast = i === data.length - 1;
         return (
@@ -672,13 +708,27 @@ function VolumeBars({ data, containerWidth }: { data: OHLCPoint[]; containerWidt
             y={H - bh}
             width={barW} height={bh}
             fill={isUp ? "#F04452" : "#3182F6"}
-            fillOpacity={isLast ? 0.7 : 0.4}
+            fillOpacity={isLast ? 0.8 : 0.45}
             rx={0.5}
           />
         );
       })}
+
+      {/* MA20 라인 */}
       {volMAPts.length >= 2 && (
-        <path d={volMAPath} stroke="#3182F6" strokeWidth={1} fill="none" opacity={0.7} />
+        <path d={volMAPath} stroke="#F97316" strokeWidth={1.1} fill="none" opacity={0.8} />
+      )}
+
+      {/* 마지막 거래량 오른쪽 라벨 (현재가 박스 스타일) */}
+      {lastVolY != null && lastVol > 0 && (
+        <>
+          <rect x={containerWidth - PAD_R + 1} y={lastVolY - 8} width={PAD_R - 3} height={15} rx={2}
+            fill="#1E293B" />
+          <text x={containerWidth - PAD_R + (PAD_R - 3) / 2 + 1} y={lastVolY + 3.5}
+            fontSize={8} fill="white" textAnchor="middle" fontWeight="700" dominantBaseline="middle">
+            {fmtVol(lastVol)}
+          </text>
+        </>
       )}
     </svg>
   );
@@ -830,7 +880,7 @@ function TimeAxis({ data, containerWidth, period, tf }: {
     <svg width={containerWidth} height={20} className="overflow-visible select-none">
       {/* 연도 구분 수직선 */}
       {yearLines.map(({ x, year }, idx) => (
-        <line key={`yl-${idx}`} x1={x} y1={0} x2={x} y2={-280}
+        <line key={`yl-${idx}`} x1={x} y1={0} x2={x} y2={-600}
           stroke="#e2e8f0" strokeWidth={1} strokeDasharray="4 2" pointerEvents="none" />
       ))}
       {/* 날짜/연도 라벨 */}
@@ -1059,10 +1109,42 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
       const bpd = TF_BARS[tf];
       return genIntradayCandles(base.slice(-Math.ceil(120/bpd)+5), tf);
     }
-    // 일봉/주봉/월봉/년봉: KIS 직접 또는 DB 폴백
+
+    // 일봉/주봉/월봉: KIS 직접 또는 DB 폴백
     const base = kisPeriod.length ? kisPeriod : fallbackData;
+
+    // ── 년봉: 일봉 데이터를 연도별로 집계 ──────────────────────────
+    if (period === "year") {
+      if (!base.length) return [];
+      const yearMap = new Map<string, OHLCPoint>();
+      for (const d of base) {
+        const yr = d.date.slice(0, 4);
+        if (!yr || isNaN(parseInt(yr))) continue;
+        if (!yearMap.has(yr)) {
+          yearMap.set(yr, { date: yr, open: d.open, high: d.high, low: d.low, close: d.close, volume: d.volume });
+        } else {
+          const y = yearMap.get(yr)!;
+          y.high = Math.max(y.high, d.high);
+          y.low = Math.min(y.low > 0 ? y.low : d.low, d.low);
+          y.close = d.close;
+          y.volume += d.volume;
+        }
+      }
+      const yearly = Array.from(yearMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+      // 현재 연도 캔들 보완 (실시간 가격 반영)
+      const curYear = new Date().getFullYear().toString();
+      const cyIdx = yearly.findIndex(y => y.date === curYear);
+      if (cyIdx >= 0 && currentPrice > 0) {
+        const cy = yearly[cyIdx];
+        yearly[cyIdx] = { ...cy, close: currentPrice, high: Math.max(cy.high, currentPrice), low: Math.min(cy.low > 0 ? cy.low : currentPrice, currentPrice) };
+      } else if (cyIdx < 0 && currentPrice > 0) {
+        yearly.push({ date: curYear, open: currentPrice, high: currentPrice, low: currentPrice, close: currentPrice, volume: 0 });
+      }
+      return yearly;
+    }
+
     return base;
-  }, [period, tf, kisRaw1m, kisPeriod, fallbackData]);
+  }, [period, tf, kisRaw1m, kisPeriod, fallbackData, currentPrice]);
 
   // period/tf 바뀌면 뷰 리셋
   useEffect(() => {
@@ -1230,18 +1312,6 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
               indicators={indicators}
               livePrice={viewOffset === 0 ? currentPrice : undefined}
             />
-            <TimeAxis data={visibleData} containerWidth={containerWidth} period={period} tf={tf} />
-            <div className="flex justify-between px-1 mt-0.5">
-              <span className="text-[8px] text-muted-foreground/50">
-                {visibleData.length}봉 표시 / 총 {chartData.length}봉
-                {chartData.length > 0 && chartData[0]?.date && (
-                  <> &middot; {chartData[0].date.slice(0, 4)}~{chartData[chartData.length-1]?.date?.slice(0, 7)}</>
-                )}
-              </span>
-              <span className="text-[8px] text-muted-foreground/50 pr-16">
-                🔍 휠 줌 &middot; ← 드래그: 과거 탐색
-              </span>
-            </div>
           </div>
         )}
 
@@ -1263,6 +1333,28 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
         {indicators.macd && !showRealtimeLine && visibleData.length > 0 && (
           <div className="mt-1 border-t border-border/30 pt-1">
             <MACDPanel data={visibleData} containerWidth={containerWidth} />
+          </div>
+        )}
+
+        {/* ── 시간축 (모든 패널 아래에 배치) ── */}
+        {!showRealtimeLine && visibleData.length > 0 && (
+          <div className="border-t border-border/40">
+            <TimeAxis data={visibleData} containerWidth={containerWidth} period={period} tf={tf} />
+          </div>
+        )}
+
+        {/* ── 봉 수 / 조작 힌트 ── */}
+        {!showRealtimeLine && visibleData.length > 0 && (
+          <div className="flex justify-between px-1 mt-0.5">
+            <span className="text-[8px] text-muted-foreground/50">
+              {visibleData.length}봉 표시 / 총 {chartData.length}봉
+              {chartData.length > 0 && chartData[0]?.date && (
+                <> &middot; {chartData[0].date.slice(0, 4)}~{chartData[chartData.length-1]?.date?.slice(0, 7)}</>
+              )}
+            </span>
+            <span className="text-[8px] text-muted-foreground/50 pr-16">
+              🔍 휠 줌 &middot; ← 드래그: 과거 탐색
+            </span>
           </div>
         )}
       </div>
