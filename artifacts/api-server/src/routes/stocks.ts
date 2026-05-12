@@ -13,7 +13,7 @@ import {
   getVolume,
   getNews,
 } from "./stocksData.js";
-import { fetchMinuteCandles, fetchPeriodCandles, fetchOrderbook, fetchExecutions } from "../kis.js";
+import { fetchMinuteCandles, fetchPeriodCandles, fetchOrderbook, fetchExecutions, fetchLivePrice } from "../kis.js";
 
 const router: IRouter = Router();
 
@@ -606,6 +606,68 @@ router.get("/market/status", (_req, res) => {
     openTime: "09:00",
     closeTime: "15:30",
   });
+});
+
+// ── KIS 실시간 현재가 (단일 종목 즉시 조회) ──────────────────────
+// 프론트에서 현재 보고 있는 종목의 최신 가격을 KIS REST API에서 직접 가져옴.
+// DB 캐시를 거치지 않아 항상 최신 데이터 반환.
+router.get("/stocks/:ticker/live", async (req, res) => {
+  const { ticker } = req.params;
+  try {
+    // 1차: KIS 실전 REST API 직접 조회
+    const live = await fetchLivePrice(ticker);
+    if (live) {
+      // 가져온 실시간 가격을 DB에도 비동기 반영 (fire-and-forget)
+      pool.query(`
+        UPDATE stocks_realtime
+        SET current_price=$1, change_val=$2, change_pct=$3,
+            open_price=COALESCE(NULLIF(open_price,0), $4),
+            high_price=GREATEST(COALESCE(high_price,0), $5),
+            low_price=CASE WHEN low_price IS NULL OR low_price=0 THEN $6
+                           ELSE LEAST(low_price, $6) END,
+            volume=CASE WHEN $7>0 THEN $7 ELSE volume END,
+            updated_at=NOW()
+        WHERE ticker=$8
+      `, [live.price, live.change, live.changePct,
+          live.open || live.price,
+          live.high || live.price,
+          live.low  || live.price,
+          live.volume,
+          ticker]).catch(() => {});
+
+      return res.json({
+        ticker:       live.ticker,
+        price:        live.price,
+        change:       live.change,
+        changePct:    live.changePct,
+        open:         live.open,
+        high:         live.high,
+        low:          live.low,
+        volume:       live.volume,
+        source:       "kis-rest",
+      });
+    }
+
+    // 2차 fallback: DB에서 최신 가격 반환
+    const row = await getStockFromDB(ticker);
+    if (row) {
+      return res.json({
+        ticker,
+        price:     Math.round(parseFloat(row.current_price) || 0),
+        change:    Math.round(parseFloat(row.change_val) || 0),
+        changePct: Math.round((parseFloat(row.change_pct) || 0) * 100) / 100,
+        open:      Math.round(parseFloat(row.open_price ?? "0") || 0),
+        high:      Math.round(parseFloat(row.high_price ?? "0") || 0),
+        low:       Math.round(parseFloat(row.low_price ?? "0") || 0),
+        volume:    parseInt(row.volume) || 0,
+        source:    "db",
+      });
+    }
+    return res.status(404).json({ message: "종목 없음" });
+  } catch (e) {
+    console.error("[KIS] live price error:", e);
+    res.status(500).json({ message: "Internal server error" });
+  }
 });
 
 // ── KIS: 일봉 / 주봉 / 월봉 / 년봉 ──────────────────────────────

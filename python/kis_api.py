@@ -313,6 +313,118 @@ def start_websocket(tickers: list[str], on_price_update=None):
     log.info(f"[KIS-WS] WebSocket 스레드 시작 (URL: {KIS_WS_URL})")
 
 
+# 다중 WebSocket 연결 상태 추적
+_multi_ws_threads: list = []
+_multi_ws_subscribed: set = set()
+_multi_ws_lock = threading.Lock()
+
+
+def start_websocket_multi(tickers: list[str], on_price_update=None, batch_size: int = 40):
+    """
+    다중 WebSocket 연결로 200종목 이상 실시간 체결가 수신.
+    - 각 연결당 최대 40종목 구독
+    - 자동 재연결 포함
+    tickers: 구독할 종목 목록 (최대 batch_size * 연결수)
+    on_price_update: 체결 수신 콜백 (ticker, price_dict) -> None
+    """
+    global _multi_ws_subscribed
+
+    if not KIS_APP_KEY or not KIS_APP_SECRET:
+        log.warning("[KIS-WS-MULTI] API 키 없음")
+        return
+
+    all_tickers = list(tickers)
+    batches = [all_tickers[i:i + batch_size] for i in range(0, len(all_tickers), batch_size)]
+
+    with _multi_ws_lock:
+        _multi_ws_subscribed = set(all_tickers)
+
+    log.info(f"[KIS-WS-MULTI] {len(all_tickers)}종목 → {len(batches)}개 연결 (각 최대 {batch_size}종목)")
+
+    for idx, batch in enumerate(batches):
+        _start_single_ws_thread(idx, batch, on_price_update)
+        time.sleep(1.0)  # 연결 간격 (레이트 리밋)
+
+
+def _start_single_ws_thread(conn_idx: int, subscribe_list: list[str], on_price_update=None):
+    """단일 WebSocket 연결 스레드 시작 (다중 연결용)."""
+
+    connected_flag = [False]
+    conn_name = f"kis-ws-{conn_idx}"
+
+    def _on_open_sub(ws):
+        connected_flag[0] = True
+        log.info(f"[KIS-WS-{conn_idx}] 연결됨, {len(subscribe_list)}종목 구독 시작")
+        for tkr in subscribe_list:
+            approval_key = _get_ws_approval_key()
+            if not approval_key:
+                break
+            req = {
+                "header": {
+                    "approval_key": approval_key,
+                    "custtype": "P",
+                    "tr_type": "1",
+                    "content-type": "utf-8",
+                },
+                "body": {"input": {"tr_id": "H0STCNT0", "tr_key": tkr}}
+            }
+            try:
+                ws.send(json.dumps(req))
+                time.sleep(0.05)
+            except Exception as e:
+                log.debug(f"[KIS-WS-{conn_idx}] 구독 오류 {tkr}: {e}")
+        log.info(f"[KIS-WS-{conn_idx}] 구독 완료: {subscribe_list[:3]}...")
+
+    def _on_msg(ws, message):
+        try:
+            if message.startswith("{"):
+                msg = json.loads(message)
+                tr_id = msg.get("header", {}).get("tr_id", "")
+                if tr_id == "PINGPONG":
+                    ws.send(message)
+                return
+            trade = _parse_ws_trade(message)
+            if trade:
+                with _ws_prices_lock:
+                    _ws_prices[trade["ticker"]] = trade
+                if on_price_update:
+                    try:
+                        on_price_update(trade["ticker"], trade)
+                    except Exception as e:
+                        log.debug(f"[KIS-WS-{conn_idx}] 콜백 오류: {e}")
+        except Exception as e:
+            log.debug(f"[KIS-WS-{conn_idx}] on_message 오류: {e}")
+
+    def _on_err(ws, error):
+        connected_flag[0] = False
+        log.warning(f"[KIS-WS-{conn_idx}] 오류: {error}")
+
+    def _on_close(ws, code, msg):
+        connected_flag[0] = False
+        log.info(f"[KIS-WS-{conn_idx}] 종료: {code}")
+
+    def _run():
+        while True:
+            try:
+                app = websocket.WebSocketApp(
+                    KIS_WS_URL,
+                    on_open=_on_open_sub,
+                    on_message=_on_msg,
+                    on_error=_on_err,
+                    on_close=_on_close,
+                )
+                app.run_forever(ping_interval=30, ping_timeout=10)
+            except Exception as e:
+                log.warning(f"[KIS-WS-{conn_idx}] 재연결 대기: {e}")
+            time.sleep(15)
+            log.info(f"[KIS-WS-{conn_idx}] 재연결 시도...")
+
+    t = threading.Thread(target=_run, name=conn_name, daemon=True)
+    with _multi_ws_lock:
+        _multi_ws_threads.append(t)
+    t.start()
+
+
 def get_ws_prices() -> dict:
     """WebSocket으로 수신한 실시간 체결가 캐시 반환."""
     with _ws_prices_lock:

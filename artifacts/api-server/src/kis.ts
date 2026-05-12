@@ -7,7 +7,8 @@
  * 시세 조회 전용. 실계좌 거래 없음.
  */
 
-const KIS_BASE   = "https://openapivts.koreainvestment.com:9443";
+const KIS_BASE      = "https://openapivts.koreainvestment.com:9443";
+const KIS_BASE_REAL = "https://openapi.koreainvestment.com:9443";
 const APP_KEY    = process.env.KIS_APP_KEY    ?? "";
 const APP_SECRET = process.env.KIS_APP_SECRET ?? "";
 
@@ -305,6 +306,60 @@ export async function fetchOrderbook(ticker: string): Promise<OrderBookData | nu
     const totalAskQty = parseInt(o.total_askp_rsqn ?? "0") || asks.reduce((s,a) => s+a.qty, 0);
     const totalBidQty = parseInt(o.total_bidp_rsqn ?? "0") || bids.reduce((s,b) => s+b.qty, 0);
     return { asks, bids, totalAskQty, totalBidQty };
+  } catch { return null; }
+}
+
+// ── 실시간 현재가 단일 조회 (FHKST01010100) — 실전 API ─────────────
+export interface LivePrice {
+  ticker:     string;
+  price:      number;
+  change:     number;
+  changePct:  number;
+  open:       number;
+  high:       number;
+  low:        number;
+  volume:     number;
+  base:       number;   // 전일 종가
+}
+
+export async function fetchLivePrice(ticker: string): Promise<LivePrice | null> {
+  if (!APP_KEY || !APP_SECRET) return null;
+  // 실시간 현재가는 실전 API (openapi.koreainvestment.com) 사용
+  const token = await getToken();
+  if (!token) return null;
+
+  const hdrs: Record<string, string> = {
+    "Content-Type": "application/json; charset=UTF-8",
+    authorization:  `Bearer ${token}`,
+    appkey:         APP_KEY,
+    appsecret:      APP_SECRET,
+    tr_id:          "FHKST01010100",
+    custtype:       "P",
+  };
+
+  const url = new URL(`${KIS_BASE_REAL}/uapi/domestic-stock/v1/quotations/inquire-price`);
+  url.searchParams.set("fid_cond_mrkt_div_code", "J");
+  url.searchParams.set("fid_input_iscd", ticker);
+
+  try {
+    const res = await fetch(url.toString(), { headers: hdrs, signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const d = await res.json() as Record<string, unknown>;
+    if ((d.rt_cd as string) !== "0") return null;
+    const o = (d.output as Record<string, string>) ?? {};
+    const price = parseInt(o.stck_prpr  ?? "0") || 0;
+    if (price <= 0) return null;
+    return {
+      ticker,
+      price,
+      change:    parseInt(o.prdy_vrss  ?? "0") || 0,
+      changePct: parseFloat(o.prdy_ctrt ?? "0") || 0,
+      open:      parseInt(o.stck_oprc  ?? "0") || 0,
+      high:      parseInt(o.stck_hgpr  ?? "0") || 0,
+      low:       parseInt(o.stck_lwpr  ?? "0") || 0,
+      volume:    parseInt(o.acml_vol   ?? "0") || 0,
+      base:      parseInt(o.stck_sdpr  ?? "0") || 0,
+    };
   } catch { return null; }
 }
 

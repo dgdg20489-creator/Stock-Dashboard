@@ -23,6 +23,7 @@ try:
         fetch_daily_ohlcv as kis_fetch_daily_ohlcv,
         is_available as kis_is_available,
         start_websocket as kis_start_websocket,
+        start_websocket_multi as kis_start_websocket_multi,
         get_ws_prices as kis_get_ws_prices,
         is_ws_connected as kis_is_ws_connected,
     )
@@ -544,8 +545,9 @@ def simulate_prices(conn):
     """
     Brownian-motion simulation (random walk from current price).
     - 장 중(09:00~15:30 KST): ±0.25% / step, base 가격 근처로 수렴
-    - 장 마감 후: ±0.40% / step, 독립 랜덤 워크 (계속 움직임)
-    - base_price 대비 ±3% 이탈 시 강제 수렴 (과도한 이탈 방지)
+    - 장 마감 후: 가격 고정 (실제 시장과 동일)
+    - base_price 대비 ±3% 이탈 시 강제 수렴
+    - 오늘의 고가/저가/시가 실시간 추적 → 일봉 마지막 캔들 정확도 향상
     NOTE: volume은 절대 건드리지 않음 — Naver 실제 거래량 유지.
     """
     import pytz
@@ -566,11 +568,15 @@ def simulate_prices(conn):
     revert_k = 0.08
 
     with conn.cursor() as cur:
-        cur.execute("SELECT ticker, current_price, base_price, naver_change_pct FROM stocks_realtime")
+        cur.execute("""
+            SELECT ticker, current_price, base_price, naver_change_pct,
+                   open_price, high_price, low_price
+            FROM stocks_realtime
+        """)
         stocks = cur.fetchall()
 
     rows = []
-    for ticker, curr_raw, base_raw, naver_chg_raw in stocks:
+    for ticker, curr_raw, base_raw, naver_chg_raw, open_raw, high_raw, low_raw in stocks:
         base      = float(base_raw)      if base_raw      else 0.0
         curr      = float(curr_raw)      if curr_raw      else base
         naver_chg = float(naver_chg_raw) if naver_chg_raw else 0.0
@@ -599,7 +605,12 @@ def simulate_prices(conn):
             change_pct = naver_chg
             change_val = round(new_price - base)
 
-        rows.append((new_price, change_pct, change_val, ticker))
+        # 오늘의 고가/저가/시가 추적
+        open_p = float(open_raw) if open_raw and float(open_raw) > 0 else new_price
+        high_p = max(float(high_raw) if high_raw and float(high_raw) > 0 else new_price, new_price)
+        low_p  = min(float(low_raw)  if low_raw  and float(low_raw)  > 0 else new_price, new_price)
+
+        rows.append((new_price, change_pct, change_val, open_p, high_p, low_p, ticker))
 
     import time as _time
     for _attempt in range(3):
@@ -607,7 +618,9 @@ def simulate_prices(conn):
             with conn.cursor() as cur:
                 cur.executemany("""
                     UPDATE stocks_realtime
-                    SET current_price=%s, change_pct=%s, change_val=%s, updated_at=NOW()
+                    SET current_price=%s, change_pct=%s, change_val=%s,
+                        open_price=%s, high_price=%s, low_price=%s,
+                        updated_at=NOW()
                     WHERE ticker=%s
                 """, rows)
             conn.commit()
@@ -1534,32 +1547,70 @@ def main():
     threading.Thread(target=_init_bg, name="bg-init", daemon=True).start()
     log.info("초기화 백그라운드 시작 — 메인 루프 즉시 진입")
 
-    # ── WebSocket 실시간 체결 구독 (상위 40종목) ─────────────────────────
+    # ── WebSocket 실시간 체결 구독 (단일 연결: 상위 40종목) ─────────────
+    # KIS WebSocket은 승인키 1개당 연결 1개만 허용 → 단일 연결로 최대 40종목 구독
+    # 현재 보고 있는 종목은 /api/stocks/:ticker/live 엔드포인트로 직접 KIS REST 조회
     if KIS_ENABLED and kis_is_available():
         try:
             ws_tickers = get_all_tickers_from_db(conn)[:40]
             if ws_tickers:
+                _ws_db_conn = None
+                _ws_db_conn_lock = threading.Lock()
+
+                def _get_ws_db_conn():
+                    nonlocal _ws_db_conn
+                    with _ws_db_conn_lock:
+                        if _ws_db_conn is None:
+                            try:
+                                _ws_db_conn = get_conn()
+                            except Exception:
+                                return None
+                        return _ws_db_conn
+
                 def _ws_db_update(ticker: str, d: dict):
-                    """WebSocket 체결 수신 즉시 DB 반영."""
+                    """WebSocket 체결 수신 즉시 DB 반영 (고가/저가/시가도 업데이트)."""
                     try:
-                        wc = get_conn()
+                        wc = _get_ws_db_conn()
+                        if not wc:
+                            return
                         with wc.cursor() as cur:
                             cur.execute("""
                                 UPDATE stocks_realtime
                                 SET current_price=%s, change_val=%s,
                                     change_pct=%s, naver_change_pct=%s,
-                                    volume=%s, updated_at=NOW()
+                                    volume=%s,
+                                    high_price=GREATEST(COALESCE(high_price,0), %s),
+                                    low_price=CASE
+                                        WHEN low_price IS NULL OR low_price=0 THEN %s
+                                        ELSE LEAST(low_price, %s)
+                                    END,
+                                    open_price=COALESCE(NULLIF(open_price,0), %s),
+                                    updated_at=NOW()
                                 WHERE ticker=%s
                             """, (
                                 d["price"], d["change"], d["change_pct"],
-                                d["change_pct"], d.get("volume", 0) or 0, ticker,
+                                d["change_pct"], d.get("volume", 0) or 0,
+                                d["price"],                     # high_price GREATEST
+                                d["price"],                     # low_price NULL case
+                                d["price"],                     # low_price LEAST
+                                d.get("open", d["price"]),     # open_price COALESCE
+                                ticker,
                             ))
                         wc.commit()
-                        wc.close()
                     except Exception as e:
                         log.debug(f"[KIS-WS] DB 즉시반영 오류 {ticker}: {e}")
+                        nonlocal _ws_db_conn
+                        with _ws_db_conn_lock:
+                            try:
+                                if _ws_db_conn:
+                                    _ws_db_conn.close()
+                            except Exception:
+                                pass
+                            _ws_db_conn = None
+
                 kis_start_websocket(ws_tickers, on_price_update=_ws_db_update)
                 log.info(f"[KIS-WS] 상위 {len(ws_tickers)}종목 실시간 체결 구독 시작")
+                log.info("[KIS] 나머지 종목: /live REST 엔드포인트 + Brownian 시뮬레이션으로 실시간 제공")
         except Exception as e:
             log.warning(f"[KIS-WS] WebSocket 시작 실패: {e}")
 

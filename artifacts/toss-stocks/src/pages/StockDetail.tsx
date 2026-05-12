@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { 
   useGetStockByTicker, 
@@ -18,6 +18,47 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { useMissions } from "@/hooks/use-missions";
 import { useMarketStatus } from "@/components/MarketStatus";
+
+interface LivePriceData {
+  price:     number;
+  change:    number;
+  changePct: number;
+  open:      number;
+  high:      number;
+  low:       number;
+  volume:    number;
+  source:    string;
+}
+
+/** KIS REST /live 엔드포인트 폴링 훅 — 현재 보는 종목만 직접 조회 */
+function useLivePrice(ticker: string, basePrice: number) {
+  const [live, setLive] = useState<LivePriceData | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!ticker) return;
+    let active = true;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/stocks/${ticker}/live`);
+        if (!res.ok || !active) return;
+        const d = await res.json() as LivePriceData;
+        if (d.price > 0) setLive(d);
+      } catch { /* ignore */ }
+    };
+
+    poll(); // 즉시 1회 조회
+    intervalRef.current = setInterval(poll, 2000); // 2초 간격
+
+    return () => {
+      active = false;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [ticker]);
+
+  return live;
+}
 
 interface StockDetailProps {
   userId: number;
@@ -52,6 +93,9 @@ export default function StockDetail({ userId }: StockDetailProps) {
   const watched = ticker ? isWatched(ticker) : false;
   const marketStatus = useMarketStatus();
 
+  // KIS REST 실시간 가격 폴링 (2초 간격, 현재 보는 종목만)
+  const liveData = useLivePrice(ticker, stock?.currentPrice ?? 0);
+
   const [activeTab, setActiveTab] = useState<DetailTab>("trade");
   const [sharesStr, setSharesStr] = useState("");
   const shares = parseInt(sharesStr) || 0;
@@ -78,21 +122,29 @@ export default function StockDetail({ userId }: StockDetailProps) {
     );
   }
 
-  const isPositive = stock.change >= 0;
-  const colorClass = getColorClass(stock.change);
-  const estimatedAmount = shares * stock.currentPrice;
+  // live 데이터 우선, 없으면 DB 값 사용
+  const currentPrice  = liveData?.price     ?? stock.currentPrice;
+  const currentChange = liveData?.change     ?? stock.change;
+  const currentChangePct = liveData?.changePct ?? stock.changePercent;
+  const todayOpen  = liveData?.open  || stock.openPrice  || Math.round(currentPrice * 0.999);
+  const todayHigh  = liveData?.high  || stock.highPrice  || Math.round(currentPrice * 1.015);
+  const todayLow   = liveData?.low   || stock.lowPrice   || Math.round(currentPrice * 0.985);
+  const liveSource = liveData?.source ?? "db";
+
+  const isPositive = currentChange >= 0;
+  const colorClass = getColorClass(currentChange);
+  const estimatedAmount = shares * currentPrice;
   const holding = portfolio?.holdings.find((h) => h.ticker === ticker);
   const ownedShares = holding ? holding.shares : 0;
   const cashBalance = portfolio?.cashBalance || 0;
 
   const handleTrade = (type: ExecuteTradeRequestType) => {
     if (shares <= 0) return;
-    setLastTradeType(type === ExecuteTradeRequestType.buy ? "buy" : "sell");
     tradeMutation.mutate({ data: { userId, ticker: stock.ticker, type, shares } });
   };
 
   const setBuyPct = (pct: number) => {
-    const calc = Math.floor(cashBalance * pct / stock.currentPrice);
+    const calc = Math.floor(cashBalance * pct / currentPrice);
     setSharesStr(calc > 0 ? String(calc) : "0");
   };
   const setSellPct = (pct: number) => {
@@ -137,17 +189,24 @@ export default function StockDetail({ userId }: StockDetailProps) {
         <div className="flex items-end justify-between">
           <div>
             <div className="text-5xl font-extrabold tracking-tight text-foreground">
-              {new Intl.NumberFormat("ko-KR").format(stock.currentPrice)}
+              {new Intl.NumberFormat("ko-KR").format(currentPrice)}
               <span className="text-3xl ml-1 text-muted-foreground font-bold">원</span>
             </div>
             <div className={cn("text-lg font-bold mt-1 flex items-center gap-1.5", colorClass)}>
-              <span>{isPositive ? "▲" : "▼"} {formatCurrency(Math.abs(stock.change)).replace("₩", "")}</span>
-              <span className="text-base">({formatPercent(stock.changePercent)})</span>
+              <span>{isPositive ? "▲" : "▼"} {formatCurrency(Math.abs(currentChange)).replace("₩", "")}</span>
+              <span className="text-base">({formatPercent(currentChangePct)})</span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-[10px] font-extrabold text-red-500">실시간</span>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-extrabold text-red-500">
+                {liveSource === "kis-rest" ? "KIS 실시간" : "실시간"}
+              </span>
+            </div>
+            <div className="text-[9px] text-muted-foreground/70 font-medium">
+              고 {new Intl.NumberFormat("ko-KR").format(todayHigh)} · 저 {new Intl.NumberFormat("ko-KR").format(todayLow)}
+            </div>
           </div>
         </div>
       </div>
@@ -180,11 +239,11 @@ export default function StockDetail({ userId }: StockDetailProps) {
             <StockChart
               ticker={stock.ticker}
               isPositive={isPositive}
-              currentPrice={stock.currentPrice}
-              openPrice={stock.openPrice ?? Math.round(stock.currentPrice * 0.999)}
-              highPrice={stock.highPrice ?? Math.round(stock.currentPrice * 1.015)}
-              lowPrice={stock.lowPrice ?? Math.round(stock.currentPrice * 0.985)}
-              volume={stock.volume}
+              currentPrice={currentPrice}
+              openPrice={todayOpen}
+              highPrice={todayHigh}
+              lowPrice={todayLow}
+              volume={liveData?.volume || stock.volume}
               avgCost={holding?.avgPrice}
             />
           </div>
