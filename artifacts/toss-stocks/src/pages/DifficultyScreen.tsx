@@ -159,6 +159,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
         setSignupError(data.message ?? "회원가입에 실패했습니다.");
         return;
       }
+      localStorage.setItem("wonkwang_new_user", String(data.id));
       onComplete(data.id);
     } catch {
       setSignupError("서버 연결에 실패했습니다.");

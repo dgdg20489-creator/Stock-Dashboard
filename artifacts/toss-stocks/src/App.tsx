@@ -22,6 +22,7 @@ import Tips from "./pages/Tips";
 import Ipo from "./pages/Ipo";
 import Guide from "./pages/Guide";
 import NotFound from "./pages/not-found";
+import OnboardingGuide from "./components/OnboardingGuide";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, staleTime: 1000 * 60 * 5 } },
@@ -180,6 +181,24 @@ function Router() {
     }
   }, [userError]);
 
+  // 신규 회원 온보딩 가이드
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (!userId) return false;
+    const newUserId = localStorage.getItem("wonkwang_new_user");
+    return newUserId === String(userId);
+  });
+
+  useEffect(() => {
+    if (!userId) return;
+    const newUserId = localStorage.getItem("wonkwang_new_user");
+    if (newUserId === String(userId)) setShowOnboarding(true);
+  }, [userId]);
+
+  const handleOnboardingComplete = () => {
+    localStorage.removeItem("wonkwang_new_user");
+    setShowOnboarding(false);
+  };
+
   const [notif, setNotif] = useState<{ type: NotifType; newDifficulty: string } | null>(null);
 
   useEffect(() => {
@@ -217,6 +236,21 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       </Layout>
+
+      {/* 신규 회원 온보딩 가이드 */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <motion.div
+            key="onboarding"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <OnboardingGuide onComplete={handleOnboardingComplete} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {notif && (
