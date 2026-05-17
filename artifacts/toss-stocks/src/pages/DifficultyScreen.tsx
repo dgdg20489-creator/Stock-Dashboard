@@ -61,10 +61,9 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
     }
     const code = String(Math.floor(100000 + Math.random() * 900000));
     setRecoverySentCode(code);
-    setRecoveryInputCode("");
+    setRecoveryInputCode(code);
     setRecoveryCodeError("");
     setRecoveryPhoneStep("sent");
-    window.alert(`[원광증권 비밀번호 재설정] 인증번호: ${code}`);
   };
 
   const handleRecoveryVerify = () => {
@@ -115,10 +114,9 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
     }
     const code = String(Math.floor(100000 + Math.random() * 900000));
     setSentCode(code);
-    setInputCode("");
+    setInputCode(code);
     setCodeError("");
     setPhoneStep("sent");
-    window.alert(`[원광증권 인증] 인증번호: ${code}\n\n이 번호를 입력해 주세요.`);
   };
 
   // 인증번호 확인
