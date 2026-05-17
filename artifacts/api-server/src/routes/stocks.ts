@@ -608,43 +608,49 @@ router.get("/market/status", (_req, res) => {
   });
 });
 
-// ── KIS 실시간 현재가 (단일 종목 즉시 조회) ──────────────────────
-// 프론트에서 현재 보고 있는 종목의 최신 가격을 KIS REST API에서 직접 가져옴.
-// DB 캐시를 거치지 않아 항상 최신 데이터 반환.
+// ── 네이버 실시간 현재가 (단일 종목 즉시 조회) ─────────────────
+// 네이버 모바일 API → DB 업데이트 → 응답. KIS보다 안정적.
 router.get("/stocks/:ticker/live", async (req, res) => {
   const { ticker } = req.params;
   try {
-    // 1차: KIS 실전 REST API 직접 조회
-    const live = await fetchLivePrice(ticker);
-    if (live) {
-      // 가져온 실시간 가격을 DB에도 비동기 반영 (fire-and-forget)
-      pool.query(`
-        UPDATE stocks_realtime
-        SET current_price=$1, change_val=$2, change_pct=$3,
-            open_price=COALESCE(NULLIF(open_price,0), $4),
-            high_price=GREATEST(COALESCE(high_price,0), $5),
-            low_price=CASE WHEN low_price IS NULL OR low_price=0 THEN $6
-                           ELSE LEAST(low_price, $6) END,
-            volume=CASE WHEN $7>0 THEN $7 ELSE volume END,
-            updated_at=NOW()
-        WHERE ticker=$8
-      `, [live.price, live.change, live.changePct,
-          live.open || live.price,
-          live.high || live.price,
-          live.low  || live.price,
-          live.volume,
-          ticker]).catch(() => {});
+    // 1차: 네이버 모바일 API 직접 조회
+    const naverUrl = `https://m.stock.naver.com/api/stock/${ticker}/basic`;
+    let naverPrice = 0, naverChange = 0, naverChangePct = 0;
+    try {
+      const naverRes = await fetch(naverUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+          "Referer": "https://m.stock.naver.com/",
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (naverRes.ok) {
+        const d = await naverRes.json() as Record<string, string>;
+        naverPrice     = parseInt((d.closePrice ?? "0").replace(/,/g, "")) || 0;
+        naverChange    = parseFloat((d.compareToPreviousClosePrice ?? "0").replace(/,/g, "").replace("+", "")) || 0;
+        naverChangePct = parseFloat(d.fluctuationsRatio ?? "0") || 0;
+      }
+    } catch { /* ignore, fall through to DB */ }
+
+    if (naverPrice > 0) {
+      // DB에도 반영 (fire-and-forget)
+      pool.query(
+        `UPDATE stocks_realtime
+         SET current_price=$1, change_val=$2, change_pct=$3, updated_at=NOW()
+         WHERE ticker=$4`,
+        [naverPrice, naverChange, naverChangePct, ticker]
+      ).catch(() => {});
 
       return res.json({
-        ticker:       live.ticker,
-        price:        live.price,
-        change:       live.change,
-        changePct:    live.changePct,
-        open:         live.open,
-        high:         live.high,
-        low:          live.low,
-        volume:       live.volume,
-        source:       "kis-rest",
+        ticker,
+        price:     naverPrice,
+        change:    naverChange,
+        changePct: naverChangePct,
+        open:      0,
+        high:      0,
+        low:       0,
+        volume:    0,
+        source:    "naver",
       });
     }
 
@@ -656,16 +662,16 @@ router.get("/stocks/:ticker/live", async (req, res) => {
         price:     Math.round(parseFloat(row.current_price) || 0),
         change:    Math.round(parseFloat(row.change_val) || 0),
         changePct: Math.round((parseFloat(row.change_pct) || 0) * 100) / 100,
-        open:      Math.round(parseFloat(row.open_price ?? "0") || 0),
-        high:      Math.round(parseFloat(row.high_price ?? "0") || 0),
-        low:       Math.round(parseFloat(row.low_price ?? "0") || 0),
+        open:      0,
+        high:      0,
+        low:       0,
         volume:    parseInt(row.volume) || 0,
         source:    "db",
       });
     }
     return res.status(404).json({ message: "종목 없음" });
   } catch (e) {
-    console.error("[KIS] live price error:", e);
+    console.error("[Naver] live price error:", e);
     res.status(500).json({ message: "Internal server error" });
   }
 });

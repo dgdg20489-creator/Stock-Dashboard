@@ -245,8 +245,6 @@ def update_all_prices_from_listing(conn):
             if s["price"] <= 0:
                 continue
             rows.append((
-                s["price"], s["price"],
-                s.get("change_val", 0), s.get("change_pct", 0),
                 max(s.get("volume", 0), 1),
                 s["market_cap"] or 0,
                 s["ticker"]
@@ -258,9 +256,7 @@ def update_all_prices_from_listing(conn):
                     with conn.cursor() as cur:
                         cur.executemany("""
                             UPDATE stocks_realtime
-                            SET current_price=%s, base_price=%s,
-                                change_val=%s, change_pct=%s,
-                                volume=%s, market_cap=%s,
+                            SET volume=%s, market_cap=%s,
                                 updated_at=NOW()
                             WHERE ticker=%s
                         """, rows)
