@@ -294,6 +294,306 @@ function Scarf({ item }: { item?: WardrobeItem }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// 상의 아이템별 3D 디테일 오버레이
+// ─────────────────────────────────────────────────────────────────
+function TopDetail({ item, topColor }: { item?: WardrobeItem; topColor: string }) {
+  if (!item) return null;
+  const c = new THREE.Color(topColor);
+  const darker = new THREE.Color(topColor).multiplyScalar(0.78);
+  const ac = item.accentColor ? new THREE.Color(item.accentColor) : c;
+
+  if (item.id === "top_hoodie") return (
+    <group>
+      {/* 후드 — 목 뒤에 둥글게 */}
+      <mesh position={[0, 2.02, -0.19]} rotation={[-0.18, 0, 0]}>
+        <sphereGeometry args={[0.23, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
+        <meshStandardMaterial color={c} roughness={0.65} />
+      </mesh>
+      {/* 후드 앞 테두리 */}
+      <mesh position={[0, 1.9, 0.06]} rotation={[0.35, 0, 0]}>
+        <torusGeometry args={[0.14, 0.025, 6, 18, Math.PI]} />
+        <meshStandardMaterial color={darker} roughness={0.7} />
+      </mesh>
+      {/* 캥거루 주머니 */}
+      <mesh position={[0, 1.18, 0.133]}>
+        <boxGeometry args={[0.24, 0.13, 0.008]} />
+        <meshStandardMaterial color={darker} roughness={0.7} />
+      </mesh>
+    </group>
+  );
+
+  if (item.id === "top_shirt_tie") return (
+    <group>
+      {/* 왼쪽 칼라 */}
+      <mesh position={[-0.055, 1.77, 0.118]} rotation={[0.15, 0.25, 0.1]}>
+        <boxGeometry args={[0.08, 0.1, 0.009]} />
+        <meshStandardMaterial color="#FFFFFF" roughness={0.3} />
+      </mesh>
+      {/* 오른쪽 칼라 */}
+      <mesh position={[0.055, 1.77, 0.118]} rotation={[0.15, -0.25, -0.1]}>
+        <boxGeometry args={[0.08, 0.1, 0.009]} />
+        <meshStandardMaterial color="#FFFFFF" roughness={0.3} />
+      </mesh>
+      {/* 넥타이 매듭 */}
+      <mesh position={[0, 1.71, 0.128]}>
+        <boxGeometry args={[0.058, 0.065, 0.016]} />
+        <meshStandardMaterial color={ac} roughness={0.35} />
+      </mesh>
+      {/* 넥타이 몸통 */}
+      <mesh position={[0, 1.44, 0.133]}>
+        <boxGeometry args={[0.052, 0.52, 0.009]} />
+        <meshStandardMaterial color={ac} roughness={0.4} />
+      </mesh>
+      {/* 넥타이 끝 */}
+      <mesh position={[0, 1.17, 0.133]}>
+        <boxGeometry args={[0.044, 0.065, 0.009]} />
+        <meshStandardMaterial color={ac} roughness={0.4} />
+      </mesh>
+    </group>
+  );
+
+  if (item.id === "top_suit") return (
+    <group>
+      {/* 왼쪽 라펠 */}
+      <mesh position={[-0.1, 1.56, 0.126]} rotation={[0, 0, 0.32]}>
+        <boxGeometry args={[0.09, 0.24, 0.01]} />
+        <meshStandardMaterial color="#111" roughness={0.45} />
+      </mesh>
+      {/* 오른쪽 라펠 */}
+      <mesh position={[0.1, 1.56, 0.126]} rotation={[0, 0, -0.32]}>
+        <boxGeometry args={[0.09, 0.24, 0.01]} />
+        <meshStandardMaterial color="#111" roughness={0.45} />
+      </mesh>
+      {/* 포켓치프 */}
+      <mesh position={[-0.2, 1.62, 0.13]}>
+        <boxGeometry args={[0.038, 0.042, 0.006]} />
+        <meshStandardMaterial color="#FFFFFF" roughness={0.3} />
+      </mesh>
+      {/* 버튼 3개 */}
+      {[1.42, 1.3, 1.18].map((y, i) => (
+        <mesh key={i} position={[0, y, 0.133]}>
+          <cylinderGeometry args={[0.013, 0.013, 0.009, 8]} />
+          <meshStandardMaterial color="#333" metalness={0.5} roughness={0.4} />
+        </mesh>
+      ))}
+    </group>
+  );
+
+  if (item.id === "top_cardigan") return (
+    <group>
+      {/* V넥 왼쪽 패널 */}
+      <mesh position={[-0.042, 1.64, 0.126]} rotation={[0, 0, 0.16]}>
+        <boxGeometry args={[0.055, 0.22, 0.009]} />
+        <meshStandardMaterial color={c} roughness={0.55} />
+      </mesh>
+      {/* V넥 오른쪽 패널 */}
+      <mesh position={[0.042, 1.64, 0.126]} rotation={[0, 0, -0.16]}>
+        <boxGeometry args={[0.055, 0.22, 0.009]} />
+        <meshStandardMaterial color={c} roughness={0.55} />
+      </mesh>
+      {/* 버튼 */}
+      {[1.52, 1.38, 1.24].map((y, i) => (
+        <mesh key={i} position={[0, y, 0.128]}>
+          <sphereGeometry args={[0.013, 8, 6]} />
+          <meshStandardMaterial color="#a07878" roughness={0.35} />
+        </mesh>
+      ))}
+    </group>
+  );
+
+  if (item.id === "top_blouson") return (
+    <group>
+      {/* 밑단 립 밴드 */}
+      <mesh position={[0, 1.04, 0]}>
+        <boxGeometry args={[0.535, 0.09, 0.262]} />
+        <meshStandardMaterial color={darker} roughness={0.75} />
+      </mesh>
+      {/* 지퍼 선 */}
+      <mesh position={[0, 1.5, 0.126]}>
+        <boxGeometry args={[0.016, 0.52, 0.007]} />
+        <meshStandardMaterial color="#888" metalness={0.7} roughness={0.2} />
+      </mesh>
+      {/* 지퍼 풀 */}
+      <mesh position={[0, 1.4, 0.128]}>
+        <boxGeometry args={[0.022, 0.034, 0.009]} />
+        <meshStandardMaterial color="#bbb" metalness={0.85} roughness={0.15} />
+      </mesh>
+    </group>
+  );
+
+  if (item.id === "top_luxury_coat") return (
+    <group>
+      {/* 코트 스커트 (허리 아래 연장) */}
+      <mesh position={[0, 0.72, 0]}>
+        <boxGeometry args={[0.55, 0.52, 0.27]} />
+        <meshStandardMaterial color={c} roughness={0.5} />
+      </mesh>
+      {/* 벨트+버클 가리기 */}
+      <mesh position={[0, 0.98, 0]}>
+        <boxGeometry args={[0.555, 0.12, 0.275]} />
+        <meshStandardMaterial color={c} roughness={0.5} />
+      </mesh>
+      {/* 왼쪽 라펠 */}
+      <mesh position={[-0.09, 1.6, 0.127]} rotation={[0, 0, 0.28]}>
+        <boxGeometry args={[0.09, 0.28, 0.01]} />
+        <meshStandardMaterial color={darker} roughness={0.48} />
+      </mesh>
+      {/* 오른쪽 라펠 */}
+      <mesh position={[0.09, 1.6, 0.127]} rotation={[0, 0, -0.28]}>
+        <boxGeometry args={[0.09, 0.28, 0.01]} />
+        <meshStandardMaterial color={darker} roughness={0.48} />
+      </mesh>
+      {/* 큰 버튼 4개 */}
+      {[1.48, 1.3, 1.1, 0.88].map((y, i) => (
+        <mesh key={i} position={[0, y, 0.135]}>
+          <cylinderGeometry args={[0.018, 0.018, 0.01, 10]} />
+          <meshStandardMaterial color="#C19A6B" metalness={0.45} roughness={0.5} />
+        </mesh>
+      ))}
+    </group>
+  );
+
+  if (item.id === "top_fur") return (
+    <group>
+      {/* 퍼 칼라 — 목 주변 구슬들 */}
+      {Array.from({ length: 14 }, (_, i) => {
+        const ang = (i / 14) * Math.PI * 2;
+        const r = 0.19;
+        return (
+          <mesh key={i} position={[Math.sin(ang) * r, 1.76, Math.cos(ang) * 0.11 + 0.02]}>
+            <sphereGeometry args={[0.052, 8, 6]} />
+            <meshStandardMaterial color={c} roughness={0.92} />
+          </mesh>
+        );
+      })}
+      {/* 소매 끝 퍼 — 왼팔 */}
+      {Array.from({ length: 8 }, (_, i) => {
+        const ang = (i / 8) * Math.PI * 2;
+        return (
+          <mesh key={i} position={[-0.35 + Math.sin(ang) * 0.09, 1.31, Math.cos(ang) * 0.09]}>
+            <sphereGeometry args={[0.042, 7, 5]} />
+            <meshStandardMaterial color={c} roughness={0.92} />
+          </mesh>
+        );
+      })}
+      {/* 소매 끝 퍼 — 오른팔 */}
+      {Array.from({ length: 8 }, (_, i) => {
+        const ang = (i / 8) * Math.PI * 2;
+        return (
+          <mesh key={i} position={[0.35 + Math.sin(ang) * 0.09, 1.31, Math.cos(ang) * 0.09]}>
+            <sphereGeometry args={[0.042, 7, 5]} />
+            <meshStandardMaterial color={c} roughness={0.92} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+
+  if (item.id === "top_sweatshirt") return (
+    <mesh position={[0, 1.19, 0.132]}>
+      <boxGeometry args={[0.25, 0.14, 0.008]} />
+      <meshStandardMaterial color={darker} roughness={0.68} />
+    </mesh>
+  );
+
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 하의 아이템별 3D 디테일 오버레이
+// ─────────────────────────────────────────────────────────────────
+function BottomDetail({ item, btmColor, skinColor }: { item?: WardrobeItem; btmColor: string; skinColor: string }) {
+  if (!item) return null;
+
+  if (item.id === "bottom_shorts") return (
+    <group>
+      {([-0.15, 0.15] as const).map((x, i) => (
+        <group key={i} position={[x, 0, 0]}>
+          {/* 아랫다리 피부색으로 덮기 */}
+          <mesh position={[0, 0.22, 0]}>
+            <cylinderGeometry args={[0.087, 0.081, 0.46, 14]} />
+            <meshStandardMaterial color={skinColor} roughness={0.55} />
+          </mesh>
+          {/* 반바지 밑단 */}
+          <mesh position={[0, 0.51, 0]}>
+            <cylinderGeometry args={[0.103, 0.103, 0.024, 14]} />
+            <meshStandardMaterial color={new THREE.Color(btmColor).multiplyScalar(0.82)} roughness={0.68} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+
+  if (item.id === "bottom_jeans") return (
+    <group>
+      {/* 앞 주머니 스티칭 */}
+      {([-0.15, 0.15] as const).map((x, i) => (
+        <mesh key={i} position={[x, 0.75, 0.116]}>
+          <boxGeometry args={[0.09, 0.09, 0.005]} />
+          <meshStandardMaterial color={new THREE.Color(btmColor).multiplyScalar(0.76)} roughness={0.72} />
+        </mesh>
+      ))}
+    </group>
+  );
+
+  if (item.id === "bottom_leather") return (
+    <group>
+      {([-0.15, 0.15] as const).map((x, i) => (
+        <mesh key={i} position={[x, 0.42, 0.105]}>
+          <boxGeometry args={[0.011, 0.64, 0.006]} />
+          <meshStandardMaterial color={new THREE.Color(btmColor).addScalar(0.14)} roughness={0.25} metalness={0.25} />
+        </mesh>
+      ))}
+    </group>
+  );
+
+  if (item.id === "bottom_chino" || item.id === "bottom_slacks") return (
+    <group>
+      {([-0.15, 0.15] as const).map((x, i) => (
+        <mesh key={i} position={[x, 0.42, 0.104]}>
+          <boxGeometry args={[0.007, 0.74, 0.005]} />
+          <meshStandardMaterial color={new THREE.Color(btmColor).addScalar(0.07)} roughness={0.62} />
+        </mesh>
+      ))}
+    </group>
+  );
+
+  if (item.id === "bottom_formal") return (
+    <group>
+      {([-0.15, 0.15] as const).map((x, i) => (
+        <group key={i}>
+          <mesh position={[x, 0.42, 0.104]}>
+            <boxGeometry args={[0.007, 0.78, 0.005]} />
+            <meshStandardMaterial color="#555" roughness={0.5} />
+          </mesh>
+          {/* 밑단 커프 */}
+          <mesh position={[x, 0.01, 0]}>
+            <cylinderGeometry args={[0.096, 0.096, 0.022, 14]} />
+            <meshStandardMaterial color="#111827" roughness={0.5} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+
+  if (item.id === "bottom_luxury_jeans") return (
+    <group>
+      {([-0.15, 0.15] as const).map((x, i) => (
+        <group key={i}>
+          {/* 측면 솔기 */}
+          <mesh position={[x, 0.38, 0.108]}>
+            <boxGeometry args={[0.007, 0.7, 0.005]} />
+            <meshStandardMaterial color={new THREE.Color(btmColor).addScalar(0.08)} roughness={0.55} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────
 // 메인 아바타 — 어른스러운 비율 (머리 작게, 다리 길게)
 // ─────────────────────────────────────────────────────────────────
 function HumanoidAvatar({ equipped, avatar }: AvatarProps) {
@@ -414,6 +714,8 @@ function HumanoidAvatar({ equipped, avatar }: AvatarProps) {
       {/* ══ 아이템 ══ */}
       <Hat item={hatItem} />
       <Scarf item={scarfItem} />
+      <TopDetail item={topItem} topColor={topColor} />
+      <BottomDetail item={bottomItem} btmColor={btmColor} skinColor={skinColor} />
     </group>
   );
 }
