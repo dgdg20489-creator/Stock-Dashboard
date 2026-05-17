@@ -74,14 +74,14 @@
   --elevate-1: rgba(0,0,0,.015);
   --elevate-2: rgba(0,0,0,.04);
 
-  /* 배경: 따뜻한 그린 틴트 */
-  --background: 140 30% 97%;
+  /* 배경: 밝은 회백색 */
+  --background: 0 0% 96%;
 
-  /* 기본 텍스트 */
-  --foreground: 220 25% 10%;
+  /* 기본 텍스트 — 진하게 */
+  --foreground: 220 25% 8%;
 
   /* 경계선 */
-  --border: 140 15% 86%;
+  --border: 220 13% 82%;
 
   /* 카드: 흰색 */
   --card: 0 0% 100%;
@@ -112,8 +112,8 @@
   --secondary-foreground: 0 0% 100%;
 
   /* Muted */
-  --muted: 140 18% 93%;
-  --muted-foreground: 220 12% 46%;
+  --muted: 220 14% 92%;
+  --muted-foreground: 220 12% 38%;
 
   /* Accent */
   --accent: 140 18% 93%;

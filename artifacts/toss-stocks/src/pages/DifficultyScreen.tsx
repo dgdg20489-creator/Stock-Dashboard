@@ -194,24 +194,24 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50/30 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-[#f4f6f8] flex flex-col items-center justify-start">
+      {/* 짙은 초록 상단 헤더 */}
+      <div className="w-full bg-[#166534] pt-10 pb-12 px-4 flex flex-col items-center">
+        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/20 flex items-center justify-center mb-4 shadow-lg">
+          <img src="/seed-logo.png" alt="Seed 로고" className="w-full h-full object-contain p-1.5" />
+        </div>
+        <h1 className="text-2xl font-extrabold text-white mb-1.5 tracking-tight">seed 모의투자</h1>
+        <p className="text-sm text-green-200 font-medium">계정으로 투자를 시작하세요</p>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="w-full max-w-md"
+        className="w-full max-w-md px-4 -mt-6"
       >
-        {/* 헤더 */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white border border-green-100 shadow-md mx-auto flex items-center justify-center mb-4">
-            <img src="/seed-logo.png" alt="Seed 로고" className="w-full h-full object-contain p-1" />
-          </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-1.5 tracking-tight">seed 모의투자</h1>
-          <p className="text-sm text-gray-400 font-medium">계정으로 투자를 시작하세요</p>
-        </div>
-
         {/* 탭 */}
-        <div className="flex bg-gray-100 rounded-xl p-1 mb-4 gap-1">
+        <div className="flex bg-white rounded-xl p-1 mb-4 gap-1 shadow-md border border-gray-200">
           {([["signup", "회원가입", UserPlus], ["login", "로그인", LogIn]] as const).map(([key, label, Icon]) => (
             <button
               key={key}
@@ -219,8 +219,8 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
               className={cn(
                 "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200",
                 tab === key
-                  ? "bg-white text-gray-900 shadow-md"
-                  : "text-gray-400 hover:text-gray-700"
+                  ? "bg-[#166534] text-white shadow-sm"
+                  : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
               )}
             >
               <Icon className="w-4 h-4" />
