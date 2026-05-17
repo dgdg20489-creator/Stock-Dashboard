@@ -13,7 +13,6 @@ import {
   getVolume,
   getNews,
 } from "./stocksData.js";
-import { fetchMinuteCandles, fetchPeriodCandles, fetchOrderbook, fetchExecutions, fetchLivePrice } from "../kis.js";
 
 const router: IRouter = Router();
 
@@ -609,7 +608,6 @@ router.get("/market/status", (_req, res) => {
 });
 
 // ── 네이버 실시간 현재가 (단일 종목 즉시 조회) ─────────────────
-// 네이버 모바일 API → DB 업데이트 → 응답. KIS보다 안정적.
 router.get("/stocks/:ticker/live", async (req, res) => {
   const { ticker } = req.params;
   try {
@@ -676,66 +674,116 @@ router.get("/stocks/:ticker/live", async (req, res) => {
   }
 });
 
-// ── KIS: 일봉 / 주봉 / 월봉 / 년봉 ──────────────────────────────
+// ── 캔들 (일봉/주봉/월봉/년봉) — stocks_history DB 기반 ──────────
 router.get("/stocks/:ticker/candles", async (req, res) => {
   const { ticker } = req.params;
-  const period = (String(req.query.period ?? "D")).toUpperCase() as "D" | "W" | "M" | "Y";
+  const period = (String(req.query.period ?? "D")).toUpperCase();
   if (!["D","W","M","Y"].includes(period)) {
     return res.status(400).json({ message: "period must be D, W, M, or Y" });
   }
   try {
-    const candles = await fetchPeriodCandles(ticker, period);
-    if (!candles.length) {
-      return res.status(503).json({ message: "KIS 캔들 데이터 없음" });
+    // Fetch raw daily candles from DB
+    const result = await pool.query<{
+      date: string; open_price: string; high_price: string;
+      low_price: string; close_price: string; volume: string;
+    }>(
+      `SELECT date::text, open_price, high_price, low_price, close_price, volume
+       FROM stocks_history WHERE ticker = $1 ORDER BY date ASC`,
+      [ticker]
+    );
+    if (!result.rows.length) {
+      return res.status(503).json({ message: "캔들 데이터 없음 (데이터 로딩 중)" });
     }
+    let candles = result.rows.map(r => ({
+      date:   String(r.date).split("T")[0],
+      open:   Math.round(parseFloat(r.open_price)),
+      high:   Math.round(parseFloat(r.high_price)),
+      low:    Math.round(parseFloat(r.low_price)),
+      close:  Math.round(parseFloat(r.close_price)),
+      volume: parseInt(r.volume),
+    }));
+
+    // Aggregate for non-daily periods
+    if (period === "W") {
+      candles = aggregateCandles(candles, d => {
+        const dt = new Date(d);
+        const day = dt.getUTCDay();
+        const diff = dt.getUTCDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(dt);
+        mon.setUTCDate(diff);
+        return mon.toISOString().split("T")[0];
+      });
+    } else if (period === "M") {
+      candles = aggregateCandles(candles, d => d.slice(0, 7) + "-01");
+    } else if (period === "Y") {
+      candles = aggregateCandles(candles, d => d.slice(0, 4) + "-01-01");
+    }
+
     res.json(candles);
   } catch (e) {
-    console.error("[KIS] candles error:", e);
+    console.error("[candles] error:", e);
     res.status(500).json({ message: "Internal server error" });
   }
 });
 
-// ── KIS: 체결내역 ─────────────────────────────────────────────────
-router.get("/stocks/:ticker/executions", async (req, res) => {
-  const { ticker } = req.params;
-  try {
-    const ticks = await fetchExecutions(ticker);
-    res.json(ticks);
-  } catch (e) {
-    console.error("[KIS] executions error:", e);
-    res.status(500).json({ message: "Internal server error" });
+function aggregateCandles(
+  daily: Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }>,
+  keyFn: (date: string) => string
+) {
+  const map = new Map<string, typeof daily[0]>();
+  for (const c of daily) {
+    const key = keyFn(c.date);
+    const ex = map.get(key);
+    if (!ex) {
+      map.set(key, { ...c, date: key });
+    } else {
+      ex.high   = Math.max(ex.high,   c.high);
+      ex.low    = Math.min(ex.low,    c.low);
+      ex.close  = c.close;
+      ex.volume += c.volume;
+    }
   }
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ── 체결내역 — 네이버 기반 데이터 없음, 빈 배열 반환 ────────────
+router.get("/stocks/:ticker/executions", async (_req, res) => {
+  res.json([]);
 });
 
-// ── KIS 실시간: 당일 분봉 ────────────────────────────────────────
+// ── 당일 분봉 — stocks_history 최근 1일 데이터 활용 ────────────
 router.get("/stocks/:ticker/minute-candles", async (req, res) => {
   const { ticker } = req.params;
-  const pages = Math.min(8, Math.max(1, parseInt(String(req.query.pages ?? "4")) || 4));
   try {
-    const candles = await fetchMinuteCandles(ticker, pages);
-    if (!candles.length) {
-      return res.status(503).json({ message: "분봉 데이터를 가져올 수 없습니다 (장 시간 외 또는 API 오류)" });
+    const result = await pool.query<{
+      date: string; open_price: string; high_price: string;
+      low_price: string; close_price: string; volume: string;
+    }>(
+      `SELECT date::text, open_price, high_price, low_price, close_price, volume
+       FROM stocks_history WHERE ticker = $1 ORDER BY date DESC LIMIT 5`,
+      [ticker]
+    );
+    if (!result.rows.length) {
+      return res.status(503).json({ message: "분봉 데이터 없음" });
     }
+    const candles = result.rows.reverse().map(r => ({
+      date:   String(r.date).split("T")[0],
+      open:   Math.round(parseFloat(r.open_price)),
+      high:   Math.round(parseFloat(r.high_price)),
+      low:    Math.round(parseFloat(r.low_price)),
+      close:  Math.round(parseFloat(r.close_price)),
+      volume: parseInt(r.volume),
+    }));
     res.json(candles);
   } catch (e) {
-    console.error("[KIS] minute-candles error:", e);
+    console.error("[minute-candles] error:", e);
     res.status(500).json({ message: "Internal server error" });
   }
 });
 
-// ── KIS 실시간: 호가창 ───────────────────────────────────────────
-router.get("/stocks/:ticker/orderbook", async (req, res) => {
-  const { ticker } = req.params;
-  try {
-    const book = await fetchOrderbook(ticker);
-    if (!book) {
-      return res.status(503).json({ message: "호가 데이터를 가져올 수 없습니다" });
-    }
-    res.json(book);
-  } catch (e) {
-    console.error("[KIS] orderbook error:", e);
-    res.status(500).json({ message: "Internal server error" });
-  }
+// ── 호가창 — 네이버 기반 데이터 없음, 빈 구조 반환 ─────────────
+router.get("/stocks/:ticker/orderbook", async (_req, res) => {
+  res.json({ asks: [], bids: [], totalAskQty: 0, totalBidQty: 0 });
 });
 
 export default router;

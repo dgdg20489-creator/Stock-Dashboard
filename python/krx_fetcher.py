@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 원광증권 실시간 데이터 서비스
-- 한국투자증권 Open API: 실시간 주가 (1차 소스) — 시세 조회 전용, 실제 거래 없음
-- 네이버 금융 API: 실시간 주가 fallback + 뉴스 + 종목 목록
+- 네이버 금융 API: 실시간 주가 (1차 소스) + 뉴스 + 종목 목록
 - Yahoo Finance: 글로벌 지수
 - 동적 주식 목록: KOSPI 전체 + KOSDAQ 전체 (~2300종목)
 - 공모주(IPO): 상장 예정 종목 자동 수집 및 상장일 자동 반영
@@ -12,29 +11,6 @@ import os, time, math, random, logging, traceback, threading
 import psycopg2
 from psycopg2.extras import execute_values
 from datetime import datetime, timedelta, timezone
-
-# 한국투자증권 Open API 모듈 (시세 데이터 소스)
-try:
-    from kis_api import (
-        fetch_price as kis_fetch_price,
-        fetch_price_batch as kis_fetch_price_batch,
-        fetch_volume_ranking as kis_fetch_volume_ranking,
-        fetch_fluctuation_ranking as kis_fetch_fluctuation_ranking,
-        fetch_daily_ohlcv as kis_fetch_daily_ohlcv,
-        is_available as kis_is_available,
-        start_websocket as kis_start_websocket,
-        start_websocket_multi as kis_start_websocket_multi,
-        get_ws_prices as kis_get_ws_prices,
-        is_ws_connected as kis_is_ws_connected,
-    )
-    KIS_ENABLED = True
-except ImportError:
-    KIS_ENABLED = False
-    log_tmp = logging.getLogger(__name__)
-    log_tmp.warning("kis_api 모듈 없음 — 네이버 fallback 사용")
-
-    def kis_get_ws_prices(): return {}
-    def kis_is_ws_connected(): return False
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -346,6 +322,9 @@ def create_tables(conn):
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS per NUMERIC DEFAULT 0")
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS naver_change_pct NUMERIC DEFAULT 0")
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT ''")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS open_price NUMERIC DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS high_price NUMERIC DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS low_price NUMERIC DEFAULT 0")
 
         # 실시간 시장 순위 테이블 (거래대금 / 거래량)
         cur.execute("""
@@ -428,93 +407,17 @@ def seed_realtime(conn):
 
 def update_realtime_prices(conn):
     """
-    상위 종목 실시간 가격 업데이트.
-    0차: WebSocket 실시간 체결 캐시 (즉각 반영)
-    1차: 한국투자증권 REST API (실제 시세, 시세 조회 전용)
-    2차 fallback: 네이버 금융 개별 API
+    상위 종목 실시간 가격 업데이트 — 네이버 금융 개별 API (1차 소스).
     """
     tickers = get_all_tickers_from_db(conn)[:500]
     if not tickers:
         log.warning("DB에 종목이 없음 — 가격 업데이트 스킵")
         return
 
-    updated_ws     = 0
-    updated_kis    = 0
     updated_naver  = 0
-    updated_failed = 0
 
-    # ── 0차: WebSocket 실시간 체결 캐시 (지연 없음) ───────────────────────
-    ws_prices = kis_get_ws_prices()
-    if ws_prices:
-        ws_updated_tickers = set()
-        for ticker, d in ws_prices.items():
-            if ticker not in set(tickers):
-                continue
-            try:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE stocks_realtime
-                        SET current_price=%s,
-                            change_val=%s, change_pct=%s, naver_change_pct=%s,
-                            volume=%s, updated_at=NOW()
-                        WHERE ticker=%s
-                    """, (
-                        d["price"], d["change"], d["change_pct"], d["change_pct"],
-                        d.get("volume", 0) or 0, ticker,
-                    ))
-                ws_updated_tickers.add(ticker)
-                updated_ws += 1
-            except Exception as e:
-                log.debug(f"[KIS-WS] DB 반영 오류 {ticker}: {e}")
-        if ws_updated_tickers:
-            conn.commit()
-            log.info(f"[KIS-WS] 체결 캐시 DB 반영: {updated_ws}종목")
-        # WebSocket이 커버하지 못한 종목만 REST/Naver로 처리
-        remaining_ws = [t for t in tickers if t not in ws_updated_tickers]
-    else:
-        remaining_ws = tickers
-
-    # ── 1차: 한투 REST API ─────────────────────────────────────────────────
-    kis_ok = KIS_ENABLED and kis_is_available()
-    if kis_ok:
-        log.info("[KIS] 실시간 시세 업데이트 시작 (한국투자증권 Open API)")
-        kis_tickers = remaining_ws[:200]
-        for ticker in kis_tickers:
-            try:
-                d = kis_fetch_price(ticker)
-                if not d:
-                    updated_failed += 1
-                    continue
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE stocks_realtime
-                        SET current_price=%s, base_price=%s,
-                            change_val=%s, change_pct=%s, naver_change_pct=%s,
-                            volume=%s, updated_at=NOW()
-                        WHERE ticker=%s
-                    """, (
-                        d["price"], d.get("base", d["price"]),
-                        d["change"], d["change_pct"], d["change_pct"],
-                        d.get("volume", 0) or 0,
-                        ticker,
-                    ))
-                updated_kis += 1
-                time.sleep(0.05)  # 50ms — KIS rate limit 준수
-            except Exception as e:
-                log.debug(f"[KIS] price update {ticker}: {e}")
-                updated_failed += 1
-        conn.commit()
-        log.info(f"[KIS] 시세 업데이트: {updated_kis}종목 성공, {updated_failed}종목 실패")
-
-        # 200위 이후는 네이버로 보충
-        remaining = remaining_ws[200:]
-    else:
-        if KIS_ENABLED and not ws_prices:
-            log.warning("[KIS] API 사용 불가 — 네이버 fallback으로 전환")
-        remaining = remaining_ws
-
-    # ── 2차: 네이버 금융 (fallback or 200위 이후 종목) ────────────────────
-    for ticker in remaining:
+    # ── 네이버 금융 개별 종목 가격 업데이트 ──────────────────────────────
+    for ticker in tickers:
         try:
             naver = fetch_naver_price(ticker)
             if not naver:
@@ -534,7 +437,7 @@ def update_realtime_prices(conn):
         except Exception as e:
             log.debug(f"Naver price update {ticker}: {e}")
     conn.commit()
-    log.info(f"실시간 가격 업데이트 완료 — KIS: {updated_kis}종목, 네이버: {updated_naver}종목")
+    log.info(f"실시간 가격 업데이트 완료 — 네이버: {updated_naver}종목")
 
 
 def simulate_prices(conn):
@@ -1076,59 +979,8 @@ def refresh_all_news(conn):
 # ─────────────────────────────────────────────────
 
 def fetch_naver_rankings(conn):
-    """시장 순위 갱신:
-    1차: 한국투자증권 Open API (거래량 순위 / 등락률 순위)
-    2차: 네이버 sise_quant.naver 스크래핑 (KOSPI+KOSDAQ 합산, 100위까지)
-    """
-    # ── 1차: 한투 Open API 순위 ───────────────────────────────────────────
-    if KIS_ENABLED and kis_is_available():
-        try:
-            now = datetime.now(KST)
-            vol_items = kis_fetch_volume_ranking(top_n=50)
-            flu_items = kis_fetch_fluctuation_ranking(top_n=50)
-
-            if vol_items or flu_items:
-                # 가격 정보를 stocks_realtime에도 반영
-                all_items = {i["ticker"]: i for i in vol_items + flu_items}
-                with conn.cursor() as cur:
-                    for ticker, d in all_items.items():
-                        if d.get("price", 0) > 0:
-                            cur.execute("""
-                                UPDATE stocks_realtime
-                                SET current_price=%s, change_pct=%s,
-                                    naver_change_pct=%s,
-                                    volume=GREATEST(volume, %s), updated_at=NOW()
-                                WHERE ticker=%s
-                            """, (d["price"], d["change_pct"], d["change_pct"],
-                                  d.get("volume", 0), ticker))
-                conn.commit()
-
-                with conn.cursor() as cur:
-                    if vol_items:
-                        cur.execute("DELETE FROM market_rankings WHERE type='volume'")
-                        execute_values(cur, """
-                            INSERT INTO market_rankings
-                                (type, rank, ticker, name, price, change_pct, volume, trade_amount, updated_at)
-                            VALUES %s
-                        """, [("volume", i+1, s["ticker"], s["name"], s["price"],
-                                s["change_pct"], s.get("volume",0), s.get("trade_amount",0), now)
-                              for i, s in enumerate(vol_items)])
-                    if flu_items:
-                        cur.execute("DELETE FROM market_rankings WHERE type='fluctuation'")
-                        execute_values(cur, """
-                            INSERT INTO market_rankings
-                                (type, rank, ticker, name, price, change_pct, volume, trade_amount, updated_at)
-                            VALUES %s
-                        """, [("fluctuation", i+1, s["ticker"], s["name"], s["price"],
-                                s["change_pct"], s.get("volume",0), 0, now)
-                              for i, s in enumerate(flu_items)])
-                conn.commit()
-                log.info(f"[KIS] 순위 업데이트: 거래량 {len(vol_items)}개, 등락률 {len(flu_items)}개")
-                return  # 성공 시 네이버 스크래핑 스킵
-        except Exception as e:
-            log.warning(f"[KIS] 순위 업데이트 실패, 네이버 fallback: {e}")
-
-    # ── 2차: 네이버 스크래핑 (fallback) ──────────────────────────────────
+    """시장 순위 갱신: 네이버 sise_quant.naver 스크래핑 (KOSPI+KOSDAQ 합산, 100위까지)"""
+    # ── 네이버 스크래핑 ───────────────────────────────────────────────────
     import requests
     try:
         from bs4 import BeautifulSoup
@@ -1503,17 +1355,7 @@ def promote_ipo_to_realtime(conn):
 # ─────────────────────────────────────────────────
 
 def main():
-    log.info("=== 원광증권 KRX Fetcher 시작 ===")
-
-    # 한투 Open API 초기화 확인
-    if KIS_ENABLED:
-        if kis_is_available():
-            log.info("[KIS] 한국투자증권 Open API 연결 성공 — 실시간 시세 조회 활성화")
-            log.info("[KIS] ※ 시세 조회 전용, 모의투자 매수/매도는 내부 DB에서 처리")
-        else:
-            log.warning("[KIS] API 키 설정됨 but 토큰 발급 실패 — 네이버 fallback 사용")
-    else:
-        log.info("[KIS] kis_api 모듈 없음 — 네이버 금융으로 시세 조회")
+    log.info("=== 원광증권 KRX Fetcher 시작 (네이버 금융 기반) ===")
 
     conn = get_conn()
     create_tables(conn)
@@ -1524,8 +1366,7 @@ def main():
         bg = get_conn()
         try:
             seed_history(bg)
-            src = "한국투자증권 Open API + 네이버 금융" if (KIS_ENABLED and kis_is_available()) else "네이버 금융"
-            log.info(f"초기 실시간 가격 로딩 ({src}, 백그라운드)...")
+            log.info("초기 실시간 가격 로딩 (네이버 금융, 백그라운드)...")
             update_realtime_prices(bg)
             update_indices(bg)
             refresh_all_news(bg)
@@ -1542,73 +1383,6 @@ def main():
 
     threading.Thread(target=_init_bg, name="bg-init", daemon=True).start()
     log.info("초기화 백그라운드 시작 — 메인 루프 즉시 진입")
-
-    # ── WebSocket 실시간 체결 구독 (단일 연결: 상위 40종목) ─────────────
-    # KIS WebSocket은 승인키 1개당 연결 1개만 허용 → 단일 연결로 최대 40종목 구독
-    # 현재 보고 있는 종목은 /api/stocks/:ticker/live 엔드포인트로 직접 KIS REST 조회
-    if KIS_ENABLED and kis_is_available():
-        try:
-            ws_tickers = get_all_tickers_from_db(conn)[:40]
-            if ws_tickers:
-                _ws_db_conn = None
-                _ws_db_conn_lock = threading.Lock()
-
-                def _get_ws_db_conn():
-                    nonlocal _ws_db_conn
-                    with _ws_db_conn_lock:
-                        if _ws_db_conn is None:
-                            try:
-                                _ws_db_conn = get_conn()
-                            except Exception:
-                                return None
-                        return _ws_db_conn
-
-                def _ws_db_update(ticker: str, d: dict):
-                    """WebSocket 체결 수신 즉시 DB 반영 (고가/저가/시가도 업데이트)."""
-                    try:
-                        wc = _get_ws_db_conn()
-                        if not wc:
-                            return
-                        with wc.cursor() as cur:
-                            cur.execute("""
-                                UPDATE stocks_realtime
-                                SET current_price=%s, change_val=%s,
-                                    change_pct=%s, naver_change_pct=%s,
-                                    volume=%s,
-                                    high_price=GREATEST(COALESCE(high_price,0), %s),
-                                    low_price=CASE
-                                        WHEN low_price IS NULL OR low_price=0 THEN %s
-                                        ELSE LEAST(low_price, %s)
-                                    END,
-                                    open_price=COALESCE(NULLIF(open_price,0), %s),
-                                    updated_at=NOW()
-                                WHERE ticker=%s
-                            """, (
-                                d["price"], d["change"], d["change_pct"],
-                                d["change_pct"], d.get("volume", 0) or 0,
-                                d["price"],                     # high_price GREATEST
-                                d["price"],                     # low_price NULL case
-                                d["price"],                     # low_price LEAST
-                                d.get("open", d["price"]),     # open_price COALESCE
-                                ticker,
-                            ))
-                        wc.commit()
-                    except Exception as e:
-                        log.debug(f"[KIS-WS] DB 즉시반영 오류 {ticker}: {e}")
-                        nonlocal _ws_db_conn
-                        with _ws_db_conn_lock:
-                            try:
-                                if _ws_db_conn:
-                                    _ws_db_conn.close()
-                            except Exception:
-                                pass
-                            _ws_db_conn = None
-
-                kis_start_websocket(ws_tickers, on_price_update=_ws_db_update)
-                log.info(f"[KIS-WS] 상위 {len(ws_tickers)}종목 실시간 체결 구독 시작")
-                log.info("[KIS] 나머지 종목: /live REST 엔드포인트 + Brownian 시뮬레이션으로 실시간 제공")
-        except Exception as e:
-            log.warning(f"[KIS-WS] WebSocket 시작 실패: {e}")
 
     # ── 백그라운드 스레드 헬퍼 ──────────────────────────────────────────────
     # 각 느린 작업은 자체 DB 커넥션을 갖는 데몬 스레드에서 실행.
