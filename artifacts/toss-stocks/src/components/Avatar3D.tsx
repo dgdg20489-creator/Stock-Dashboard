@@ -317,8 +317,8 @@ function HumanoidAvatar({ equipped, avatar }: AvatarProps) {
   const scarfItem   = getItem(equipped.scarf);
 
   const skinColor   = avatar === "male" ? "#F0C090" : "#F8D4B8";
-  const topColor    = topItem    ? topItem.color    : avatar === "male" ? "#2d3f6e" : "#6d2899";
-  const btmColor    = bottomItem ? bottomItem.color : avatar === "male" ? "#1a2f52" : "#4a1880";
+  const topColor    = topItem    ? topItem.color    : avatar === "male" ? "#1a4d2e" : "#6d2899";
+  const btmColor    = bottomItem ? bottomItem.color : avatar === "male" ? "#14391f" : "#4a1880";
   const shoeColor   = "#4a2808";
   const soleColor   = "#6b3c12";
 
@@ -432,15 +432,15 @@ function Scene({ equipped, avatar, difficulty = "beginner" }: AvatarProps) {
       <PerspectiveCamera makeDefault position={[0, 0.6, 3.6]} fov={48} />
 
       <ambientLight intensity={0.75} />
-      <directionalLight position={[2.5, 5.5, 4]} intensity={2.4} color="#fff8f2" />
-      <directionalLight position={[-2, 2.5, -3]} intensity={0.55} color="#aac4ff" />
+      <directionalLight position={[2.5, 5.5, 4]} intensity={2.4} color="#f0fff4" />
+      <directionalLight position={[-2, 2.5, -3]} intensity={0.55} color="#a8d5b8" />
       <pointLight position={[0, -0.2, 1.8]} intensity={0.9} color={accentColor} distance={4.5} />
-      <directionalLight position={[0, 0.5, -5]} intensity={0.4} color="#b8a4ff" />
+      <directionalLight position={[0, 0.5, -5]} intensity={0.4} color="#b8dfc8" />
 
       {/* 배경 */}
       <mesh position={[0, 0.5, -4.2]}>
         <planeGeometry args={[16, 14]} />
-        <meshBasicMaterial color="#110e22" />
+        <meshBasicMaterial color="#071a10" />
       </mesh>
 
       <HumanoidAvatar equipped={equipped} avatar={avatar} />
@@ -471,7 +471,7 @@ export function Avatar3D({ equipped, avatar = "male", difficulty = "beginner", c
   return (
     <div
       className={className ?? "w-full h-full"}
-      style={{ background: "linear-gradient(170deg, #0d0a1f 0%, #1c1432 45%, #0f2040 100%)" }}
+      style={{ background: "linear-gradient(170deg, #071a10 0%, #0d2b1a 45%, #071a10 100%)" }}
     >
       <Canvas>
         <Suspense fallback={null}>

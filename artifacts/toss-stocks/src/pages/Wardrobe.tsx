@@ -189,7 +189,7 @@ export default function Wardrobe({ userId: _userId, userDifficulty, avatarId = "
                 className={cn(
                   "flex-1 py-2.5 text-sm font-bold rounded-xl transition-all",
                   activeCategory === id
-                    ? "bg-white text-red-600 shadow-sm"
+                    ? "bg-white text-green-700 shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -218,7 +218,7 @@ export default function Wardrobe({ userId: _userId, userDifficulty, avatarId = "
                     className={cn(
                       "relative w-full rounded-2xl p-4 text-left border-2 transition-all duration-200",
                       !diffUnlocked ? "opacity-45 cursor-not-allowed bg-muted border-border/30" :
-                      isEquipped ? "border-red-400 bg-red-50 shadow-sm shadow-red-100" :
+                      isEquipped ? "border-green-500 bg-green-50 shadow-sm shadow-green-100" :
                       !coinUnlocked ? "border-amber-200 bg-amber-50/50 cursor-pointer hover:border-amber-300" :
                       "border-border/50 bg-card cursor-pointer hover:border-border hover:shadow-sm"
                     )}
@@ -265,7 +265,7 @@ export default function Wardrobe({ userId: _userId, userDifficulty, avatarId = "
 
                     {/* 착용 중 배지 */}
                     {isEquipped && (
-                      <div className="absolute top-3 right-3 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                      <div className="absolute top-3 right-3 w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
                         <Check className="w-3.5 h-3.5 text-white" />
                       </div>
                     )}
