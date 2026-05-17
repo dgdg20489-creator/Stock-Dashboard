@@ -171,7 +171,7 @@ function SlideWelcome() {
         transition={{ type: "spring", delay: 0.1 }}
         className="w-20 h-20 rounded-2xl bg-white border border-green-100 shadow-lg flex items-center justify-center mb-5"
       >
-        <img src="/phoenix-logo.svg" alt="원광증권" className="w-16 h-16 object-contain p-1" />
+        <img src="/seed-logo.png" alt="seed" className="w-16 h-16 object-contain p-1" />
       </motion.div>
 
       <motion.h1

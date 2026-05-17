@@ -216,56 +216,77 @@ function aggregateYearly(daily: OHLCPoint[]): OHLCPoint[] {
   return years;
 }
 
-// ── 분봉 데이터 생성 (일봉 → N분봉 시뮬레이션) ─────────────────────
-function genIntradayCandles(daily: OHLCPoint[], tf: TFKey): OHLCPoint[] {
-  if (!daily.length) return [];
-  const bpd = TF_BARS[tf];
+// ── 분봉 데이터 생성 (오늘 하루 실제 OHLCV 기반, HH:MM 형식) ────────
+function genIntradayCandles(
+  todayOpen: number,
+  todayHigh: number,
+  todayLow: number,
+  todayClose: number,
+  tf: TFKey
+): OHLCPoint[] {
+  const refPrice = todayClose > 0 ? todayClose : todayOpen;
+  if (refPrice <= 0) return [];
+
+  const open  = todayOpen  > 0 ? todayOpen  : refPrice;
+  const high  = todayHigh  > 0 ? Math.max(todayHigh,  refPrice) : refPrice * 1.01;
+  const low   = todayLow   > 0 ? Math.min(todayLow,   refPrice) : refPrice * 0.99;
+  const close = todayClose > 0 ? todayClose : open;
+
+  const tfMins = ({ "1m": 1, "5m": 5, "15m": 15, "30m": 30, "60m": 60 } as Record<TFKey, number>)[tf] ?? 1;
+
+  // KST = UTC+9, 장 시간: 09:00 ~ 15:30
+  const MARKET_OPEN  = 9 * 60;       // 540분
+  const MARKET_CLOSE = 15 * 60 + 30; // 930분
+
+  const nowKST  = new Date(Date.now() + 9 * 3_600_000);
+  const nowMins = nowKST.getUTCHours() * 60 + nowKST.getUTCMinutes();
+  const curMins = Math.min(Math.max(nowMins, MARKET_OPEN + tfMins), MARKET_CLOSE);
+
+  // 현재까지 완성된 봉 수
+  const elapsedBars = Math.max(1, Math.floor((curMins - MARKET_OPEN) / tfMins));
+  const totalBars   = Math.floor((MARKET_CLOSE - MARKET_OPEN) / tfMins);
+  const numBars     = Math.min(elapsedBars, totalBars);
+
   const result: OHLCPoint[] = [];
-  let seed = 42;
-  const rng = () => { seed = (seed * 16807 + 7) % 2147483647; return (seed - 1) / 2147483646; };
-  // Box-Muller 정규분포 (현실적인 가격 변동 시뮬레이션)
+  let rngSeed = 12345;
+  const rng = () => { rngSeed = (rngSeed * 16807 + 7) % 2147483647; return (rngSeed - 1) / 2147483646; };
   const randn = () => {
     const u1 = Math.max(1e-10, rng()), u2 = rng();
     return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   };
 
-  for (const day of daily) {
-    if (day.close <= 0) continue;
-    let price = day.open > 0 ? day.open : day.close;
-    const dailyRange = (day.high - day.low) || day.close * 0.015;
-    // TF별 변동성 계수: 큰 TF(30m·60m)는 봉당 노이즈가 너무 커지지 않도록 축소
-    const volFactor = ({ "1m": 0.60, "5m": 0.60, "15m": 0.55, "30m": 0.28, "60m": 0.18 } as Record<TFKey, number>)[tf] ?? 0.50;
-    const barVol = (dailyRange / Math.sqrt(bpd)) * volFactor;
+  const totalRange = Math.max(high - low, refPrice * 0.005);
+  const barVol = (totalRange / Math.sqrt(numBars)) * 0.45;
 
-    for (let j = 0; j < bpd; j++) {
-      const isLast = j === bpd - 1;
-      const open = price;
-      // 종가 방향으로의 드리프트 (남은 봉 수에 비례)
-      const remaining = bpd - j;
-      const drift = (day.close - price) / remaining * (0.4 + rng() * 0.6);
-      // 정규분포 노이즈로 현실적인 가격 움직임
-      const noise = randn() * barVol;
-      const close = isLast
-        ? day.close
-        : Math.max(day.low * 0.998, Math.min(day.high * 1.002, open + drift + noise));
+  let price = open;
+  for (let j = 0; j < numBars; j++) {
+    const barStartMin = MARKET_OPEN + j * tfMins;
+    const hh = Math.floor(barStartMin / 60).toString().padStart(2, "0");
+    const mm = (barStartMin % 60).toString().padStart(2, "0");
 
-      // 꼬리: 봉 크기에 비례 (body 범위의 30~80%)
-      const bodyHigh = Math.max(open, close);
-      const bodyLow  = Math.min(open, close);
-      const wickSize = Math.abs(noise) * (0.3 + rng() * 0.5);
-      const high = Math.min(day.high, bodyHigh + wickSize);
-      const low  = Math.max(day.low,  bodyLow  - wickSize);
+    const isLast    = j === numBars - 1;
+    const remaining = numBars - j;
+    const drift     = (close - price) / remaining * (0.4 + rng() * 0.6);
+    const noise     = randn() * barVol;
 
-      result.push({
-        date: `${day.date} ${String(j).padStart(4, "0")}`,
-        open,
-        high: Math.max(high, bodyHigh),
-        low:  Math.min(low,  bodyLow),
-        close,
-        volume: Math.round(day.volume / bpd * (0.3 + rng() * 1.4)),
-      });
-      price = close;
-    }
+    const barOpen  = price;
+    const barClose = isLast
+      ? close
+      : Math.max(low * 0.999, Math.min(high * 1.001, price + drift + noise));
+
+    const bodyHigh = Math.max(barOpen, barClose);
+    const bodyLow  = Math.min(barOpen, barClose);
+    const wickSize = Math.abs(noise) * (0.3 + rng() * 0.5);
+
+    result.push({
+      date:   `${hh}:${mm}`,
+      open:   barOpen,
+      high:   Math.min(high, Math.max(bodyHigh + wickSize, bodyHigh)),
+      low:    Math.max(low,  Math.min(bodyLow  - wickSize, bodyLow)),
+      close:  barClose,
+      volume: Math.round((1_000_000 / numBars) * (0.3 + rng() * 1.4)),
+    });
+    price = barClose;
   }
   return result;
 }
@@ -817,22 +838,14 @@ function TimeAxis({ data, containerWidth, period, tf }: {
   const yearLines: { x: number; year: string }[] = [];
 
   if (isIntraday) {
-    // 분봉: 시:분 표시
-    const targetLabels = Math.max(4, Math.min(8, Math.floor(chartW / 60)));
+    // 분봉: "HH:MM" 형식 직접 표시
+    const targetLabels = Math.max(4, Math.min(10, Math.floor(chartW / 55)));
     const labelInterval = Math.max(1, Math.round(n / targetLabels));
     for (let i = 0; i < n; i += labelInterval) {
       const x = PAD_L + i * slotW + slotW / 2;
-      const d = data[i];
-      const parts = d.date.split(" ");
-      const barJ = parseInt(parts[1] ?? "0");
-      if (barJ === 0) {
-        labels.push({ x, text: parts[0]?.slice(5, 10) ?? "", bold: true, isYear: false });
-      } else {
-        const totalMins = 9 * 60 + barJ * tfMin;
-        const hh = Math.floor(totalMins / 60).toString().padStart(2, "0");
-        const mm = (totalMins % 60).toString().padStart(2, "0");
-        labels.push({ x, text: `${hh}:${mm}`, bold: false, isYear: false });
-      }
+      const text = (data[i]?.date ?? "").slice(0, 5);
+      const bold = text === "09:00";
+      labels.push({ x, text, bold, isYear: false });
     }
   } else if (period === "week" || period === "month") {
     // 주봉/월봉: 연-월 표시
@@ -1001,7 +1014,7 @@ const TF_DEFAULT_SPANS: Record<TFKey, number> = {
   "1m": 120, "5m": 78, "15m": 52, "30m": 39, "60m": 30,
 };
 
-export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockChartProps) {
+export function StockChart({ ticker, isPositive, currentPrice, openPrice, highPrice, lowPrice, avgCost }: StockChartProps) {
   const [period, setPeriod] = useState<PeriodKey>("day");
   const [chartType, setChartType] = useState<ChartType>("candle");
   const [tf, setTF] = useState<TFKey>("1m");
@@ -1098,16 +1111,13 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
   // ── 최종 차트 데이터 산출 ─────────────────────────────────────
   const chartData = useMemo<OHLCPoint[]>(() => {
     if (period === "realtime") {
-      // 분봉: KIS 실시간 또는 시뮬레이션 폴백
+      // 분봉: 실시간 API 데이터 또는 오늘 OHLCV 기반 시뮬레이션
       if (kisRaw1m.length) {
         const mins: Record<TFKey, number> = { "1m":1, "5m":5, "15m":15, "30m":30, "60m":60 };
         return aggregateMinutes(kisRaw1m, mins[tf]);
       }
-      // 폴백: 일봉 데이터로 시뮬레이션
-      const base = kisPeriod.length ? kisPeriod : fallbackData;
-      if (!base.length) return [];
-      const bpd = TF_BARS[tf];
-      return genIntradayCandles(base.slice(-Math.ceil(120/bpd)+5), tf);
+      // 오늘 실제 OHLCV로 분봉 시뮬레이션
+      return genIntradayCandles(openPrice, highPrice, lowPrice, currentPrice, tf);
     }
 
     // 일봉/주봉/월봉: KIS 직접 또는 DB 폴백
@@ -1144,7 +1154,7 @@ export function StockChart({ ticker, isPositive, currentPrice, avgCost }: StockC
     }
 
     return base;
-  }, [period, tf, kisRaw1m, kisPeriod, fallbackData, currentPrice]);
+  }, [period, tf, kisRaw1m, kisPeriod, fallbackData, currentPrice, openPrice, highPrice, lowPrice]);
 
   // period/tf 바뀌면 뷰 리셋
   useEffect(() => {
