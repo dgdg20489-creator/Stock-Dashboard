@@ -24,10 +24,10 @@ export function Navbar() {
             {/* 로고 */}
             <Link href="/" className="flex items-center gap-2.5 group cursor-pointer flex-shrink-0">
               <div className="w-8 h-8 rounded-lg overflow-hidden bg-white/15 flex items-center justify-center group-hover:bg-white/25 transition-colors">
-                <img src="/seed-logo.png" alt="Seed 로고" className="w-full h-full object-contain p-0.5" />
+                <img src="/phoenix-logo.svg" alt="원광증권 로고" className="w-full h-full object-contain p-0.5" />
               </div>
               <div className="hidden sm:flex flex-col leading-none gap-0.5">
-                <span className="font-extrabold text-[15px] tracking-tight text-white">seed</span>
+                <span className="font-extrabold text-[15px] tracking-tight text-white">원광증권</span>
                 <span className="text-[9px] font-semibold text-white/50 tracking-widest uppercase">Mock Trading</span>
               </div>
             </Link>

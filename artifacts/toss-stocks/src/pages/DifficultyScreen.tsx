@@ -198,9 +198,9 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
       {/* 짙은 초록 상단 헤더 */}
       <div className="w-full bg-[#166534] pt-10 pb-12 px-4 flex flex-col items-center">
         <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/20 flex items-center justify-center mb-4 shadow-lg">
-          <img src="/seed-logo.png" alt="Seed 로고" className="w-full h-full object-contain p-1.5" />
+          <img src="/phoenix-logo.svg" alt="원광증권 로고" className="w-full h-full object-contain p-1.5" />
         </div>
-        <h1 className="text-2xl font-extrabold text-white mb-1.5 tracking-tight">seed 모의투자</h1>
+        <h1 className="text-2xl font-extrabold text-white mb-1.5 tracking-tight">원광증권 모의투자</h1>
         <p className="text-sm text-green-200 font-medium">계정으로 투자를 시작하세요</p>
       </div>
 
