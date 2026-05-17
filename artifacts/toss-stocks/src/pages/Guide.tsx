@@ -561,7 +561,7 @@ export default function Guide() {
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-foreground">배운 내용을 실전에 적용해보세요!</p>
-          <p className="text-xs text-muted-foreground mt-0.5">원광증권 모의거래로 연습하면 실력이 더 빠르게 늡니다 🚀</p>
+          <p className="text-xs text-muted-foreground mt-0.5">seed 모의거래로 연습하면 실력이 더 빠르게 늡니다 🚀</p>
         </div>
       </motion.div>
     </div>

@@ -194,7 +194,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50/30 flex flex-col items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -203,15 +203,15 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
       >
         {/* 헤더 */}
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white/10 mx-auto flex items-center justify-center mb-5">
-            <img src="/wonkwang-logo.png" alt="원광대학교 로고" className="w-10 h-10 object-contain" />
+          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white border border-green-100 shadow-md mx-auto flex items-center justify-center mb-4">
+            <img src="/seed-logo.png" alt="Seed 로고" className="w-full h-full object-contain p-1" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-1.5 tracking-tight">원광증권 모의투자</h1>
-          <p className="text-sm text-white/40 font-medium">계정으로 투자를 시작하세요</p>
+          <h1 className="text-2xl font-extrabold text-gray-900 mb-1.5 tracking-tight">seed 모의투자</h1>
+          <p className="text-sm text-gray-400 font-medium">계정으로 투자를 시작하세요</p>
         </div>
 
         {/* 탭 */}
-        <div className="flex bg-white/10 rounded-xl p-1 mb-4 gap-1">
+        <div className="flex bg-gray-100 rounded-xl p-1 mb-4 gap-1">
           {([["signup", "회원가입", UserPlus], ["login", "로그인", LogIn]] as const).map(([key, label, Icon]) => (
             <button
               key={key}
@@ -219,8 +219,8 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
               className={cn(
                 "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200",
                 tab === key
-                  ? "bg-white text-[#0f172a] shadow-md"
-                  : "text-white/60 hover:text-white"
+                  ? "bg-white text-gray-900 shadow-md"
+                  : "text-gray-400 hover:text-gray-700"
               )}
             >
               <Icon className="w-4 h-4" />
@@ -297,7 +297,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
                       "px-4 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap",
                       phoneStep === "verified"
                         ? "bg-emerald-100 text-emerald-600 cursor-default"
-                        : "bg-[#0f172a] text-white hover:bg-[#1e293b] disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
+                        : "bg-green-600 text-white hover:bg-green-700 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
                     )}
                   >
                     {phoneStep === "verified" ? "완료" : "인증번호 발송"}
@@ -499,7 +499,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
                   className={cn(
                     "w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2",
                     canSignup
-                      ? "bg-[#0f172a] text-white hover:bg-[#1e293b] active:scale-[0.99] shadow-lg"
+                      ? "bg-green-600 text-white hover:bg-green-700 active:scale-[0.99] shadow-lg shadow-green-200"
                       : "bg-muted text-muted-foreground cursor-not-allowed"
                   )}
                 >
@@ -573,7 +573,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
                         className={cn(
                           "w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2",
                           loginPhone.trim() && loginPassword.trim()
-                            ? "bg-[#0f172a] text-white hover:bg-[#1e293b] active:scale-[0.99] shadow-lg"
+                            ? "bg-green-600 text-white hover:bg-green-700 active:scale-[0.99] shadow-lg shadow-green-200"
                             : "bg-muted text-muted-foreground cursor-not-allowed"
                         )}
                       >
@@ -615,7 +615,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
                           <p className="text-xs text-muted-foreground">새 비밀번호로 로그인해 주세요.</p>
                           <button
                             onClick={() => { setShowRecovery(false); setRecoveryDone(false); }}
-                            className="w-full py-3 rounded-xl bg-[#0f172a] text-white font-bold text-sm hover:bg-[#1e293b] transition-colors"
+                            className="w-full py-3 rounded-xl bg-green-600 text-white font-bold text-sm hover:bg-green-700 transition-colors"
                           >
                             로그인 화면으로
                           </button>
@@ -644,7 +644,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
                               <button
                                 onClick={handleRecoverySendCode}
                                 disabled={recoveryPhoneStep === "verified" || !recoveryPhone.trim()}
-                                className="px-3 py-3 rounded-xl text-sm font-bold bg-[#0f172a] text-white hover:bg-[#1e293b] disabled:bg-muted disabled:text-muted-foreground transition-all whitespace-nowrap"
+                                className="px-3 py-3 rounded-xl text-sm font-bold bg-green-600 text-white hover:bg-green-700 disabled:bg-muted disabled:text-muted-foreground transition-all whitespace-nowrap"
                               >
                                 {recoveryPhoneStep === "verified" ? "완료" : "인증번호"}
                               </button>
@@ -693,7 +693,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
                             <button
                               onClick={handleRecoverySubmit}
                               disabled={!recoveryNewPw || recoveryNewPw.length < 4 || recoveryNewPw !== recoveryNewPwConfirm || recoveryLoading}
-                              className="w-full py-3.5 rounded-xl font-bold text-sm bg-[#0f172a] text-white hover:bg-[#1e293b] disabled:bg-muted disabled:text-muted-foreground transition-all"
+                              className="w-full py-3.5 rounded-xl font-bold text-sm bg-green-600 text-white hover:bg-green-700 disabled:bg-muted disabled:text-muted-foreground transition-all"
                             >
                               {recoveryLoading ? "처리 중..." : "비밀번호 변경하기"}
                             </button>

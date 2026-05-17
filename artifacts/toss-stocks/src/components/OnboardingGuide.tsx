@@ -147,20 +147,20 @@ export default function OnboardingGuide({ onComplete }: Props) {
 /* ── 슬라이드 1: 환영 ───────────────────────────────── */
 function SlideWelcome() {
   return (
-    <div className="h-full bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#0f172a] rounded-2xl flex flex-col items-center justify-center p-7 text-center relative overflow-hidden">
-      {/* 별 배경 */}
-      {[...Array(18)].map((_, i) => (
+    <div className="h-full bg-gradient-to-br from-green-50 via-white to-green-100/40 rounded-2xl flex flex-col items-center justify-center p-7 text-center relative overflow-hidden border border-green-100">
+      {/* 씨앗 장식 배경 */}
+      {[...Array(12)].map((_, i) => (
         <motion.div
           key={i}
-          className="absolute rounded-full bg-white"
+          className="absolute rounded-full"
           style={{
-            width: 2 + (i % 3),
-            height: 2 + (i % 3),
+            width: 4 + (i % 3) * 2,
+            height: 4 + (i % 3) * 2,
             left: `${(i * 37 + 11) % 95}%`,
             top: `${(i * 53 + 7) % 90}%`,
-            opacity: 0.15 + (i % 4) * 0.1,
+            backgroundColor: i % 2 === 0 ? "hsl(142 65% 36% / 0.12)" : "hsl(262 75% 56% / 0.10)",
           }}
-          animate={{ opacity: [0.1, 0.5, 0.1] }}
+          animate={{ opacity: [0.3, 0.8, 0.3], scale: [1, 1.2, 1] }}
           transition={{ duration: 2 + i * 0.3, repeat: Infinity, delay: i * 0.2 }}
         />
       ))}
@@ -169,25 +169,25 @@ function SlideWelcome() {
         initial={{ scale: 0.5, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", delay: 0.1 }}
-        className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center mb-5 shadow-2xl"
+        className="w-20 h-20 rounded-2xl bg-white border border-green-100 shadow-lg flex items-center justify-center mb-5"
       >
-        <img src="/wonkwang-logo.png" alt="원광증권" className="w-14 h-14 object-contain" />
+        <img src="/seed-logo.png" alt="Seed" className="w-16 h-16 object-contain p-1" />
       </motion.div>
 
       <motion.h1
         initial={{ y: 16, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="text-2xl font-extrabold text-white mb-2 leading-tight"
+        className="text-2xl font-extrabold text-gray-900 mb-2 leading-tight"
       >
-        원광증권<br />모의투자에 오신 것을<br />환영합니다! 🎉
+        seed<br />모의투자에 오신 것을<br />환영합니다! 🌱
       </motion.h1>
 
       <motion.p
         initial={{ y: 12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="text-white/60 text-sm leading-relaxed mb-6"
+        className="text-gray-500 text-sm leading-relaxed mb-6"
       >
         실제 한국 주식 시장 데이터로<br />투자 실력을 키워보세요
       </motion.p>
@@ -203,10 +203,10 @@ function SlideWelcome() {
           { icon: "🏆", label: "랭킹", sub: "경쟁 시스템" },
           { icon: "🤖", label: "AI 비서", sub: "투자 조언" },
         ].map((item) => (
-          <div key={item.label} className="bg-white/10 rounded-xl px-2 py-3 text-center">
+          <div key={item.label} className="bg-green-50 border border-green-100 rounded-xl px-2 py-3 text-center">
             <div className="text-xl mb-1">{item.icon}</div>
-            <div className="text-white text-xs font-bold">{item.label}</div>
-            <div className="text-white/50 text-[10px]">{item.sub}</div>
+            <div className="text-gray-800 text-xs font-bold">{item.label}</div>
+            <div className="text-gray-400 text-[10px]">{item.sub}</div>
           </div>
         ))}
       </motion.div>
