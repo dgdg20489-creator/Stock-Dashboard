@@ -51,7 +51,7 @@ function MissionRow({ icon, title, desc, points, done, actionLabel, onAction, co
       {!done && !onAction && quizLink && actionLabel && (
         <button
           onClick={() => navigate("/tips?tab=quiz")}
-          className="flex-shrink-0 px-4 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
+          className="flex-shrink-0 px-4 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all shadow-sm"
         >
           {actionLabel}
         </button>
@@ -65,11 +65,12 @@ interface DailyMissionsProps {
 }
 
 export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
-  const { missions, coins, justEarnedCoin, checkAttendance, completeTrade } = useMissions();
+  const { missions, coins, justEarnedCoin, claimCoin, checkAttendance } = useMissions();
 
   const totalRequired = 100;
   const pct = Math.min(100, (missions.points / totalRequired) * 100);
   const isComplete = missions.points >= totalRequired;
+  const canClaim = isComplete && !missions.coinClaimed;
 
   return (
     <div className="max-w-xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -107,8 +108,10 @@ export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
           />
         </div>
 
-        {isComplete ? (
-          <p className="mt-3 text-sm font-bold text-white/90">✅ 오늘 미션 완료! 코인을 획득했습니다.</p>
+        {missions.coinClaimed ? (
+          <p className="mt-3 text-sm font-bold text-white/90">✅ 오늘 코인을 이미 받았습니다!</p>
+        ) : isComplete ? (
+          <p className="mt-3 text-sm font-bold text-yellow-200">🎉 미션 완료! 아래에서 코인을 받으세요.</p>
         ) : (
           <p className="mt-3 text-sm font-semibold text-white/80">
             {totalRequired - missions.points}P 더 모으면 🪙 코인 1개 획득!
@@ -120,18 +123,34 @@ export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
         <div className="absolute -bottom-4 right-8 w-20 h-20 bg-white/5 rounded-full" />
       </motion.div>
 
-      {/* 코인 획득 축하 */}
+      {/* 코인 받기 버튼 */}
+      <AnimatePresence>
+        {canClaim && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            onClick={claimCoin}
+            className="w-full py-4 bg-gradient-to-r from-yellow-400 to-amber-400 text-white rounded-2xl font-extrabold text-base shadow-lg shadow-amber-300/30 hover:from-yellow-500 hover:to-amber-500 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <Gift className="w-5 h-5" />
+            일일미션 완료 — 코인 1개 받기!
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* 코인 획득 알림 */}
       <AnimatePresence>
         {justEarnedCoin && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
+            initial={{ opacity: 0, scale: 0.8, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: -10 }}
             className="bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-4 flex items-center gap-3"
           >
             <Gift className="w-8 h-8 text-yellow-500 flex-shrink-0" />
             <div>
-              <p className="font-extrabold text-yellow-700">🎉 아바타 코인 1개 획득!</p>
+              <p className="font-extrabold text-yellow-700">🎉 아바타 코인 1개 지급!</p>
               <p className="text-xs text-yellow-600 font-medium">옷장에서 아바타 아이템을 구매하세요.</p>
             </div>
           </motion.div>
@@ -163,26 +182,26 @@ export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
         />
 
         <MissionRow
-          icon={<BookOpen className="w-6 h-6 text-blue-500" />}
+          icon={<BookOpen className="w-6 h-6 text-sky-500" />}
           title="투자 퀴즈 풀기"
           desc="주식 학습 퀴즈에서 2문제 이상 정답 맞추기"
           points={40}
           done={missions.quiz}
-          color="bg-blue-50"
+          color="bg-sky-50"
           actionLabel="퀴즈 풀기"
           quizLink={true}
         />
       </div>
 
       {/* 코인으로 아바타 아이템 구매 안내 */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-500 rounded-3xl p-5 text-white shadow-lg shadow-blue-500/20">
+      <div className="bg-gradient-to-r from-sky-400 to-blue-400 rounded-3xl p-5 text-white shadow-lg shadow-blue-300/20">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center">
             <Zap className="w-5 h-5 text-white" />
           </div>
           <div>
             <p className="font-extrabold">아바타 코인 사용처</p>
-            <p className="text-xs text-blue-100 font-medium">코인으로 아바타 아이템 잠금 해제!</p>
+            <p className="text-xs text-white/80 font-medium">코인으로 아바타 아이템 잠금 해제!</p>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2 mt-3 text-center text-xs font-bold">
@@ -191,14 +210,14 @@ export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
             { label: "중수 아이템", cost: "🪙 1~2개" },
             { label: "고수 아이템", cost: "🪙 3~5개" },
           ].map(({ label, cost }) => (
-            <div key={label} className="bg-white/10 rounded-xl p-2">
+            <div key={label} className="bg-white/15 rounded-xl p-2">
               <p className="text-white/80">{label}</p>
               <p className="text-white mt-0.5">{cost}</p>
             </div>
           ))}
         </div>
         <Link href="/wardrobe">
-          <button className="mt-4 w-full py-3 bg-white text-blue-600 rounded-2xl font-extrabold text-sm hover:bg-blue-50 active:scale-95 transition-all">
+          <button className="mt-4 w-full py-3 bg-white text-sky-500 rounded-2xl font-extrabold text-sm hover:bg-sky-50 active:scale-95 transition-all">
             옷장 바로 가기 →
           </button>
         </Link>

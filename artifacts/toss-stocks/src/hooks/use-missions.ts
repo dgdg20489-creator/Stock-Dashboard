@@ -6,6 +6,7 @@ export interface DailyMissionState {
   trade: boolean;
   quiz: boolean;
   points: number;
+  coinClaimed: boolean;
 }
 
 function uidSuffix() {
@@ -25,10 +26,10 @@ function loadMissions(): DailyMissionState {
     const raw = localStorage.getItem(missionsKey());
     if (raw) {
       const data = JSON.parse(raw) as DailyMissionState;
-      if (data.date === todayStr()) return data;
+      if (data.date === todayStr()) return { coinClaimed: false, ...data };
     }
   } catch {}
-  return { date: todayStr(), attendance: false, trade: false, quiz: false, points: 0 };
+  return { date: todayStr(), attendance: false, trade: false, quiz: false, points: 0, coinClaimed: false };
 }
 
 function loadCoins(): number {
@@ -68,16 +69,19 @@ export function useMissions() {
       if (prev[type]) return prev;
       awarded = true;
       const newPoints = prev.points + pts;
-      const newState = { ...prev, [type]: true, points: newPoints };
-
-      if (newPoints >= 100 && prev.points < 100) {
-        setJustEarnedCoin(true);
-        setCoins((c) => c + 1);
-        setTimeout(() => setJustEarnedCoin(false), 3000);
-      }
-      return newState;
+      return { ...prev, [type]: true, points: newPoints };
     });
     return awarded;
+  }, []);
+
+  const claimCoin = useCallback(() => {
+    setMissions((prev) => {
+      if (prev.points < 100 || prev.coinClaimed) return prev;
+      setCoins((c) => c + 1);
+      setJustEarnedCoin(true);
+      setTimeout(() => setJustEarnedCoin(false), 3000);
+      return { ...prev, coinClaimed: true };
+    });
   }, []);
 
   const checkAttendance = useCallback(() => {
@@ -112,6 +116,7 @@ export function useMissions() {
     checkAttendance,
     completeTrade,
     completeQuiz,
+    claimCoin,
     spendCoins,
     isItemUnlocked,
   };

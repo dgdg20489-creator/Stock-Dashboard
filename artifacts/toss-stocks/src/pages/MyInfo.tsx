@@ -441,14 +441,14 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         </Link>
 
         <Link href="/wardrobe">
-          <div className="bg-gradient-to-br from-green-700 to-green-600 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-green-600/20 hover:-translate-y-0.5 transition-all">
+          <div className="bg-gradient-to-br from-sky-400 to-blue-400 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-blue-300/20 hover:-translate-y-0.5 transition-all">
             <div className="flex items-center gap-2 mb-2">
-              <Shirt className="w-4 h-4 text-green-100" />
-              <span className="font-bold text-sm text-green-100">아바타 옷장</span>
+              <Shirt className="w-4 h-4 text-white/80" />
+              <span className="font-bold text-sm text-white/90">아바타 옷장</span>
             </div>
             <p className="text-2xl font-extrabold">🪙 {coins}</p>
-            <p className="text-xs text-green-200 font-semibold mt-2">보유 아바타 코인</p>
-            <p className="text-xs text-green-200 font-medium mt-0.5">아이템 잠금 해제 가능</p>
+            <p className="text-xs text-white/70 font-semibold mt-2">보유 아바타 코인</p>
+            <p className="text-xs text-white/60 font-medium mt-0.5">아이템 잠금 해제 가능</p>
           </div>
         </Link>
       </motion.div>
