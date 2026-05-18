@@ -848,23 +848,34 @@ def seed_history(conn):
 def fetch_yahoo(sym: str):
     try:
         import requests
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=2d"
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=5d"
         r = requests.get(url, headers=FALLBACK_HEADERS, timeout=8)
         if r.status_code != 200:
             return None
-        data  = r.json()
+        data   = r.json()
         result = data.get("chart", {}).get("result", [None])[0]
         if not result:
             return None
-        meta  = result["meta"]
-        price = float(meta.get("regularMarketPrice") or meta.get("previousClose") or 0)
-        prev  = float(meta.get("chartPreviousClose") or price or 1)
-        if price and prev:
-            return {
-                "price":      price,
-                "change":     price - prev,
-                "change_pct": (price - prev) / prev * 100,
-            }
+        meta   = result["meta"]
+        price  = float(meta.get("regularMarketPrice") or 0)
+        if not price:
+            return None
+        # 전일 종가: OHLCV 캔들 배열의 마지막 확정 종가 사용 (chartPreviousClose는 조정가라 부정확)
+        closes = result.get("indicators", {}).get("quote", [{}])[0].get("close", [])
+        closes = [c for c in closes if c is not None]
+        if len(closes) >= 2:
+            prev = float(closes[-2])          # 어제 종가
+        elif len(closes) == 1:
+            prev = float(closes[-1])
+        else:
+            prev = float(meta.get("regularMarketPreviousClose") or meta.get("chartPreviousClose") or price)
+        if prev <= 0:
+            prev = price
+        return {
+            "price":      price,
+            "change":     price - prev,
+            "change_pct": (price - prev) / prev * 100,
+        }
     except Exception as e:
         log.debug(f"Yahoo {sym}: {e}")
     return None
