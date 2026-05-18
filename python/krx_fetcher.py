@@ -114,37 +114,48 @@ def fetch_naver_stock_list(sosok: int, pages: int = 4) -> list:
                     continue
                 seen.add(code)
                 name = link.get_text(strip=True)
-                ct = [c.get_text(strip=True).replace(",", "").replace("+", "") for c in cols]
+                import re as _re
+                ct = [c.get_text(strip=True).replace(",", "") for c in cols]
                 try:
-                    price = int(ct[2]) if ct[2] and ct[2].lstrip('-').isdigit() else 0
+                    price = int(ct[2]) if ct[2] and ct[2].isdigit() else 0
                 except Exception:
                     price = 0
                 try:
-                    change_val = float(ct[3]) if ct[3] and ct[3].lstrip('-').replace('.','',1).isdigit() else 0.0
+                    # ct[3]: "상승12500" or "하락500" or "-12500" or "0"
+                    raw3 = ct[3] if len(ct) > 3 else ""
+                    sign3 = -1 if '하락' in raw3 else 1
+                    num3 = _re.sub(r'[^0-9.]', '', raw3)
+                    change_val = sign3 * float(num3) if num3 else 0.0
                 except Exception:
                     change_val = 0.0
                 try:
-                    change_pct_raw = ct[4].replace('%', '')
-                    change_pct = float(change_pct_raw) if change_pct_raw and change_pct_raw.lstrip('-').replace('.','',1).isdigit() else 0.0
+                    # ct[4]: "+4.62%" or "-2.13%" or "0.00%"
+                    raw4 = ct[4].replace('%', '').replace('+', '') if len(ct) > 4 else ""
+                    change_pct = float(raw4) if raw4 and raw4.lstrip('-').replace('.','',1).isdigit() else 0.0
                 except Exception:
                     change_pct = 0.0
                 try:
-                    mcap = int(ct[6]) if ct[6] and ct[6].isdigit() else 0
+                    mcap = int(ct[6]) if len(ct) > 6 and ct[6] and ct[6].isdigit() else 0
                 except Exception:
                     mcap = 0
                 try:
-                    volume = int(ct[9]) if ct[9] and ct[9].isdigit() else 0
+                    volume = int(ct[9]) if len(ct) > 9 and ct[9] and ct[9].isdigit() else 0
                 except Exception:
                     volume = 0
                 try:
-                    per = float(ct[10]) if ct[10] and ct[10] not in ["-", ""] and ct[10].lstrip('-').replace('.','',1).isdigit() else 0.0
+                    per = float(ct[10]) if len(ct) > 10 and ct[10] and ct[10] not in ["-", ""] and ct[10].lstrip('-').replace('.','',1).isdigit() else 0.0
                 except Exception:
                     per = 0.0
+                try:
+                    # ct[11]: 배당수익률(%) e.g. "10.85" or ""
+                    dividend_yield = float(ct[11]) if len(ct) > 11 and ct[11] and ct[11] not in ["-", ""] and ct[11].lstrip('-').replace('.','',1).isdigit() else 0.0
+                except Exception:
+                    dividend_yield = 0.0
                 stocks.append({
                     "ticker": code, "name": name, "market": market,
                     "market_cap": mcap, "price": price,
                     "change_val": change_val, "change_pct": change_pct,
-                    "volume": volume, "per": per
+                    "volume": volume, "per": per, "dividend_yield": dividend_yield
                 })
                 found += 1
             if found == 0:
@@ -186,19 +197,20 @@ def seed_all_stocks_dynamic(conn):
             s["ticker"], s["name"], base, base,
             s.get("change_val", 0), s.get("change_pct", 0),
             max(s.get("volume", 1_000_000), 1), s["market_cap"],
-            s["market"], s["per"]
+            s["market"], s["per"], s.get("dividend_yield", 0)
         ))
 
     with conn.cursor() as cur:
         execute_values(cur, """
             INSERT INTO stocks_realtime
                 (ticker, name, current_price, base_price, change_val, change_pct,
-                 volume, market_cap, market, per)
+                 volume, market_cap, market, per, dividend_yield)
             VALUES %s
             ON CONFLICT (ticker) DO UPDATE SET
-                name       = EXCLUDED.name,
-                market     = EXCLUDED.market,
-                market_cap = EXCLUDED.market_cap
+                name           = EXCLUDED.name,
+                market         = EXCLUDED.market,
+                market_cap     = EXCLUDED.market_cap,
+                dividend_yield = EXCLUDED.dividend_yield
         """, rows)
     conn.commit()
     log.info(f"=== {len(rows)}종목 DB 저장 완료 ===")
@@ -221,8 +233,13 @@ def update_all_prices_from_listing(conn):
             if s["price"] <= 0:
                 continue
             rows.append((
+                s["price"],
+                s.get("change_val", 0),
+                s.get("change_pct", 0),
                 max(s.get("volume", 0), 1),
                 s["market_cap"] or 0,
+                s.get("per", 0),
+                s.get("dividend_yield", 0),
                 s["ticker"]
             ))
         if rows:
@@ -232,7 +249,8 @@ def update_all_prices_from_listing(conn):
                     with conn.cursor() as cur:
                         cur.executemany("""
                             UPDATE stocks_realtime
-                            SET volume=%s, market_cap=%s,
+                            SET current_price=%s, change_val=%s, change_pct=%s,
+                                volume=%s, market_cap=%s, per=%s, dividend_yield=%s,
                                 updated_at=NOW()
                             WHERE ticker=%s
                         """, rows)
@@ -325,6 +343,7 @@ def create_tables(conn):
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS open_price NUMERIC DEFAULT 0")
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS high_price NUMERIC DEFAULT 0")
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS low_price NUMERIC DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS dividend_yield NUMERIC DEFAULT 0")
 
         # 실시간 시장 순위 테이블 (거래대금 / 거래량)
         cur.execute("""

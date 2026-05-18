@@ -197,7 +197,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
     <div className="min-h-screen bg-[#f4f6f8] flex flex-col items-center justify-start">
       {/* 짙은 초록 상단 헤더 */}
       <div className="w-full bg-[#166534] pt-10 pb-12 px-4 flex flex-col items-center">
-        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/20 flex items-center justify-center mb-4 shadow-lg">
+        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white flex items-center justify-center mb-4 shadow-lg">
           <img src="/seed-logo.png" alt="seed 로고" className="w-full h-full object-contain p-1.5" />
         </div>
         <h1 className="text-2xl font-extrabold text-white mb-1.5 tracking-tight">seed 모의투자</h1>

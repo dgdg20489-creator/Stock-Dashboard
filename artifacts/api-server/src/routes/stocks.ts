@@ -782,32 +782,39 @@ router.get("/stocks/:ticker/executions", async (_req, res) => {
   res.json([]);
 });
 
-// ── 당일 분봉 — 네이버 분봉 API → 시뮬레이션 fallback ──────────
+// ── 당일 분봉 — 네이버 차트 API → 시뮬레이션 fallback ──────────
 router.get("/stocks/:ticker/minute-candles", async (req, res) => {
   const { ticker } = req.params;
   try {
-    // 네이버 분봉 API 시도
+    // 네이버 차트 API (올바른 엔드포인트)
     try {
-      const naverUrl = `https://m.stock.naver.com/api/stock/${ticker}/candle/minute?count=200`;
+      const naverUrl = `https://api.stock.naver.com/chart/domestic/item/${ticker}/minute?chartType=minute&requestType=0&timeFrame=1`;
       const naverRes = await fetch(naverUrl, {
         headers: {
           "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
           "Referer": "https://m.stock.naver.com/",
+          "Origin": "https://m.stock.naver.com",
         },
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(5000),
       });
       if (naverRes.ok) {
         const raw = await naverRes.json() as any[];
         if (Array.isArray(raw) && raw.length > 0) {
-          const candles = raw.slice(-200).map(r => ({
-            date:   String(r.localDate ?? "").slice(0, 8).replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3")
-                    + "T" + String(r.localTime ?? "000000").replace(/(\d{2})(\d{2})(\d{2})/, "$1:$2:$3"),
-            open:   parseInt(String(r.openPrice ?? r.open ?? "0").replace(/,/g, "")) || 0,
-            high:   parseInt(String(r.highPrice ?? r.high ?? "0").replace(/,/g, "")) || 0,
-            low:    parseInt(String(r.lowPrice  ?? r.low  ?? "0").replace(/,/g, "")) || 0,
-            close:  parseInt(String(r.closePrice ?? r.close ?? r.price ?? "0").replace(/,/g, "")) || 0,
-            volume: parseInt(String(r.accumulatedTradingVolume ?? r.volume ?? "0").replace(/,/g, "")) || 0,
-          })).filter(c => c.close > 0);
+          // localDateTime 형식: "20260518090000" → "2026-05-18T09:00:00"
+          const candles = raw.map(r => {
+            const dt = String(r.localDateTime ?? "");
+            const date = dt.length >= 14
+              ? `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}T${dt.slice(8,10)}:${dt.slice(10,12)}:${dt.slice(12,14)}`
+              : dt;
+            return {
+              date,
+              open:   Math.round(r.openPrice  ?? 0),
+              high:   Math.round(r.highPrice  ?? 0),
+              low:    Math.round(r.lowPrice   ?? 0),
+              close:  Math.round(r.currentPrice ?? 0),
+              volume: Math.round(r.accumulatedTradingVolume ?? 0),
+            };
+          }).filter(c => c.close > 0);
           if (candles.length > 0) return res.json(candles);
         }
       }
