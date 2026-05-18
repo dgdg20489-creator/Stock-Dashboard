@@ -23,7 +23,7 @@ export function Navbar() {
           <div className="flex items-center gap-6">
             {/* 로고 */}
             <Link href="/" className="flex items-center gap-2.5 group cursor-pointer flex-shrink-0">
-              <div className="w-8 h-8 rounded-lg overflow-hidden bg-white flex items-center justify-center shadow-sm group-hover:bg-white/90 transition-colors">
+              <div className="w-8 h-8 rounded-lg overflow-hidden bg-emerald-100 flex items-center justify-center shadow-sm group-hover:bg-emerald-200 transition-colors">
                 <img src="/seed-logo.png" alt="seed 로고" className="w-full h-full object-contain p-0.5" />
               </div>
               <div className="hidden sm:flex flex-col leading-none gap-0.5">
