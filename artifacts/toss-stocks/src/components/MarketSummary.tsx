@@ -76,7 +76,7 @@ export function MarketSummary() {
                   "text-[12px] font-bold tabular-nums",
                   up ? "text-up" : down ? "text-down" : "text-muted-foreground"
                 )}>
-                  {up ? "▲" : down ? "▼" : "–"} {formatPercent(Math.abs(index.changePercent))}
+                  {up ? "▲" : down ? "▼" : "–"} {Math.abs(index.changePercent).toFixed(2)}%
                 </span>
                 <span className={cn(
                   "text-[10px] font-semibold tabular-nums",

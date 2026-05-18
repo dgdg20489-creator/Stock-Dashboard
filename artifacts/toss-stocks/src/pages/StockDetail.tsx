@@ -67,6 +67,8 @@ interface StockDetailProps {
 const BUY_PCTS  = [{ label: "25%", pct: 0.25 }, { label: "50%", pct: 0.5 }, { label: "75%", pct: 0.75 }, { label: "최대", pct: 1.0 }];
 const SELL_PCTS = [{ label: "25%", pct: 0.25 }, { label: "50%", pct: 0.5 }, { label: "75%", pct: 0.75 }, { label: "전량", pct: 1.0 }];
 
+type OrderType = "market" | "limit" | "scheduled_sell";
+
 type DetailTab = "trade" | "community" | "news";
 
 const TABS: { id: DetailTab; label: string; icon: React.ReactNode }[] = [
@@ -99,6 +101,10 @@ export default function StockDetail({ userId }: StockDetailProps) {
   const [activeTab, setActiveTab] = useState<DetailTab>("trade");
   const [sharesStr, setSharesStr] = useState("");
   const shares = parseInt(sharesStr) || 0;
+  const [orderType, setOrderType] = useState<OrderType>("market");
+  const [limitPriceStr, setLimitPriceStr] = useState("");
+  const [limitOrderStatus, setLimitOrderStatus] = useState<string | null>(null);
+  const limitPrice = parseInt(limitPriceStr.replace(/,/g, "")) || 0;
 
   const tradeMutation = useExecuteTrade({
     mutation: {
@@ -143,8 +149,37 @@ export default function StockDetail({ userId }: StockDetailProps) {
     tradeMutation.mutate({ data: { userId, ticker: stock.ticker, type, shares } });
   };
 
+  const handleLimitOrder = async (side: "buy" | "sell") => {
+    if (shares <= 0 || limitPrice <= 0) return;
+    try {
+      const res = await fetch(`/api/limit-orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          ticker: stock.ticker,
+          stockName: stock.name,
+          orderType: side,
+          priceType: orderType,
+          limitPrice,
+          shares,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLimitOrderStatus("✓ 예약주문이 등록되었습니다.");
+        setSharesStr("");
+        setLimitPriceStr("");
+      } else {
+        setLimitOrderStatus(`오류: ${data.message}`);
+      }
+    } catch {
+      setLimitOrderStatus("오류가 발생했습니다.");
+    }
+  };
+
   const setBuyPct = (pct: number) => {
-    const calc = Math.floor(cashBalance * pct / currentPrice);
+    const calc = Math.floor(cashBalance * pct / (orderType === "limit" && limitPrice > 0 ? limitPrice : currentPrice));
     setSharesStr(calc > 0 ? String(calc) : "0");
   };
   const setSellPct = (pct: number) => {
@@ -286,25 +321,57 @@ export default function StockDetail({ userId }: StockDetailProps) {
           {/* 기업 정보 */}
           <div className="bg-card rounded-3xl p-6 shadow-sm border border-border/50">
             <h3 className="text-base font-extrabold mb-5 text-foreground">기업 정보</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-6 gap-x-4">
+            <div className="grid grid-cols-3 gap-y-6 gap-x-4">
               <Metric label="시가총액" value={formatLargeNumber(stock.marketCap)} tooltip />
-              <Metric label="52주 최고" value={formatCurrency(stock.high52w)} tooltip />
-              <Metric label="52주 최저" value={formatCurrency(stock.low52w)} tooltip />
               <Metric label="배당수익률" value={stock.dividendYield > 0 ? `${stock.dividendYield.toFixed(2)}%` : "-"} tooltip />
+              <Metric label="PBR" value={stock.pbr > 0 ? `${stock.pbr.toFixed(2)}배` : "-"} tooltip />
               <Metric label="PER" value={stock.per > 0 ? `${stock.per.toFixed(2)}배` : "적자"} tooltip />
-              <Metric label="PBR" value={`${stock.pbr.toFixed(2)}배`} tooltip />
-              <Metric label="EPS" value={stock.eps >= 0 ? formatCurrency(stock.eps) : `▼${formatCurrency(Math.abs(stock.eps))}`} tooltip />
-              <Metric label="거래량" value={formatLargeNumber(stock.volume)} tooltip />
+              <Metric
+                label="ROE"
+                value={(() => {
+                  const eps = stock.eps ?? 0;
+                  const pbr = stock.pbr ?? 0;
+                  const price = currentPrice;
+                  if (eps > 0 && pbr > 0 && price > 0) {
+                    return `${((eps * pbr / price) * 100).toFixed(1)}%`;
+                  }
+                  return "-";
+                })()}
+                tooltip
+              />
+              <Metric label="PSR" value="-" tooltip />
             </div>
           </div>
 
           {/* 매수/매도 */}
           <div className="bg-card rounded-3xl p-6 shadow-sm border border-border/50">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-extrabold text-foreground">주문하기</h3>
               <span className="text-xs font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-full border border-red-100">
                 거래 완료 시 +30P 미션
               </span>
+            </div>
+
+            {/* 주문 방식 탭 */}
+            <div className="flex gap-1 bg-muted p-1 rounded-xl mb-4">
+              {([
+                { id: "market"        as OrderType, label: "시장가" },
+                { id: "limit"         as OrderType, label: "지정가" },
+                { id: "scheduled_sell" as OrderType, label: "예약매도" },
+              ] as const).map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => { setOrderType(t.id); setLimitOrderStatus(null); }}
+                  className={cn(
+                    "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
+                    orderType === t.id
+                      ? "bg-white text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
 
             <div className="flex justify-between text-sm font-medium text-muted-foreground mb-3 px-1">
@@ -316,69 +383,146 @@ export default function StockDetail({ userId }: StockDetailProps) {
               <span>보유: <span className="text-foreground font-bold">{ownedShares}주</span></span>
             </div>
 
-            <div className="relative">
-              <input
-                type="number"
-                value={sharesStr}
-                onChange={(e) => setSharesStr(e.target.value)}
-                placeholder="0"
-                className="w-full px-6 py-5 text-2xl font-bold rounded-2xl bg-muted border-none text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all text-right"
-              />
-              <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xl font-bold text-muted-foreground">주</span>
-            </div>
-
-            <div className="mt-3 space-y-2">
-              <p className="text-[11px] font-bold text-muted-foreground px-1">매수 기준 (현금)</p>
-              <div className="flex gap-2">
-                {BUY_PCTS.map(({ label, pct }) => (
-                  <button
-                    key={label}
-                    onClick={() => setBuyPct(pct)}
-                    className="flex-1 py-2 bg-red-50 text-xs font-extrabold text-up rounded-xl hover:bg-red-100 active:scale-95 transition-all border border-red-100"
-                  >
-                    {label}
-                  </button>
-                ))}
+            {/* 지정가 / 예약매도: 목표가 입력 */}
+            {(orderType === "limit" || orderType === "scheduled_sell") && (
+              <div className="mb-3">
+                <p className="text-[11px] font-bold text-muted-foreground mb-1.5 px-1">
+                  {orderType === "scheduled_sell" ? "목표 매도가 (원)" : "지정가 (원)"}
+                </p>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={limitPriceStr}
+                    onChange={(e) => setLimitPriceStr(e.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder={new Intl.NumberFormat("ko-KR").format(currentPrice)}
+                    className="w-full px-6 py-4 text-xl font-bold rounded-2xl bg-muted border-none text-foreground placeholder:text-muted-foreground/40 focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all text-right"
+                  />
+                  <span className="absolute left-6 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">가격</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1 px-1 text-right">
+                  현재가 {new Intl.NumberFormat("ko-KR").format(currentPrice)}원
+                  {limitPrice > 0 && currentPrice > 0 && (
+                    <span className={cn("ml-1 font-bold", limitPrice > currentPrice ? "text-up" : "text-down")}>
+                      ({limitPrice > currentPrice ? "+" : ""}{(((limitPrice - currentPrice) / currentPrice) * 100).toFixed(2)}%)
+                    </span>
+                  )}
+                </p>
               </div>
-              {ownedShares > 0 && (
-                <>
-                  <p className="text-[11px] font-bold text-muted-foreground px-1 pt-1">매도 기준 (보유주)</p>
-                  <div className="flex gap-2">
-                    {SELL_PCTS.map(({ label, pct }) => (
-                      <button
-                        key={label}
-                        onClick={() => setSellPct(pct)}
-                        className="flex-1 py-2 bg-blue-50 text-xs font-extrabold text-down rounded-xl hover:bg-blue-100 active:scale-95 transition-all border border-blue-100"
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            )}
 
-            <div className="flex justify-between items-center mt-4 px-1">
-              <span className="font-bold text-muted-foreground">예상 금액</span>
-              <span className="text-2xl font-extrabold text-foreground">{formatCurrency(estimatedAmount)}</span>
-            </div>
+            {/* 수량 입력 */}
+            {orderType !== "scheduled_sell" && (
+              <div className="relative">
+                <input
+                  type="number"
+                  value={sharesStr}
+                  onChange={(e) => setSharesStr(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-6 py-5 text-2xl font-bold rounded-2xl bg-muted border-none text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all text-right"
+                />
+                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xl font-bold text-muted-foreground">주</span>
+              </div>
+            )}
+            {orderType === "scheduled_sell" && (
+              <div className="relative">
+                <input
+                  type="number"
+                  value={sharesStr}
+                  onChange={(e) => setSharesStr(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-6 py-5 text-2xl font-bold rounded-2xl bg-muted border-none text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all text-right"
+                />
+                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xl font-bold text-muted-foreground">주</span>
+              </div>
+            )}
 
-            <div className="grid grid-cols-2 gap-4 mt-6">
-              <button
-                onClick={() => handleTrade(ExecuteTradeRequestType.sell)}
-                disabled={shares <= 0 || ownedShares < shares || tradeMutation.isPending}
-                className="py-5 rounded-2xl font-extrabold text-xl bg-down text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                매도
-              </button>
-              <button
-                onClick={() => handleTrade(ExecuteTradeRequestType.buy)}
-                disabled={shares <= 0 || cashBalance < estimatedAmount || tradeMutation.isPending}
-                className="py-5 rounded-2xl font-extrabold text-xl bg-up text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                매수
-              </button>
-            </div>
+            {orderType === "market" && (
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] font-bold text-muted-foreground px-1">매수 기준 (현금)</p>
+                <div className="flex gap-2">
+                  {BUY_PCTS.map(({ label, pct }) => (
+                    <button key={label} onClick={() => setBuyPct(pct)}
+                      className="flex-1 py-2 bg-red-50 text-xs font-extrabold text-up rounded-xl hover:bg-red-100 active:scale-95 transition-all border border-red-100">
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {ownedShares > 0 && (
+                  <>
+                    <p className="text-[11px] font-bold text-muted-foreground px-1 pt-1">매도 기준 (보유주)</p>
+                    <div className="flex gap-2">
+                      {SELL_PCTS.map(({ label, pct }) => (
+                        <button key={label} onClick={() => setSellPct(pct)}
+                          className="flex-1 py-2 bg-blue-50 text-xs font-extrabold text-down rounded-xl hover:bg-blue-100 active:scale-95 transition-all border border-blue-100">
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {orderType === "market" && (
+              <div className="flex justify-between items-center mt-4 px-1">
+                <span className="font-bold text-muted-foreground">예상 금액</span>
+                <span className="text-2xl font-extrabold text-foreground">{formatCurrency(estimatedAmount)}</span>
+              </div>
+            )}
+
+            {limitOrderStatus && (
+              <div className={cn(
+                "mt-3 px-4 py-2.5 rounded-xl text-sm font-bold text-center",
+                limitOrderStatus.startsWith("✓") ? "bg-green-50 text-green-700 border border-green-100" : "bg-red-50 text-red-700 border border-red-100"
+              )}>
+                {limitOrderStatus}
+              </div>
+            )}
+
+            {/* 주문 버튼 */}
+            {orderType === "market" && (
+              <div className="grid grid-cols-2 gap-4 mt-6">
+                <button onClick={() => handleTrade(ExecuteTradeRequestType.sell)}
+                  disabled={shares <= 0 || ownedShares < shares || tradeMutation.isPending}
+                  className="py-5 rounded-2xl font-extrabold text-xl bg-down text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                  매도
+                </button>
+                <button onClick={() => handleTrade(ExecuteTradeRequestType.buy)}
+                  disabled={shares <= 0 || cashBalance < estimatedAmount || tradeMutation.isPending}
+                  className="py-5 rounded-2xl font-extrabold text-xl bg-up text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                  매수
+                </button>
+              </div>
+            )}
+
+            {orderType === "limit" && (
+              <div className="grid grid-cols-2 gap-4 mt-6">
+                <button onClick={() => handleLimitOrder("sell")}
+                  disabled={shares <= 0 || limitPrice <= 0 || ownedShares < shares}
+                  className="py-5 rounded-2xl font-extrabold text-xl bg-down text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                  지정가 매도
+                </button>
+                <button onClick={() => handleLimitOrder("buy")}
+                  disabled={shares <= 0 || limitPrice <= 0 || cashBalance < limitPrice * shares}
+                  className="py-5 rounded-2xl font-extrabold text-xl bg-up text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                  지정가 매수
+                </button>
+              </div>
+            )}
+
+            {orderType === "scheduled_sell" && (
+              <div className="mt-6">
+                <button onClick={() => handleLimitOrder("sell")}
+                  disabled={shares <= 0 || limitPrice <= 0 || ownedShares < shares}
+                  className="w-full py-5 rounded-2xl font-extrabold text-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                  예약매도 등록
+                </button>
+                <p className="text-[10px] text-muted-foreground text-center mt-2 font-medium">
+                  목표가 도달 시 자동으로 매도됩니다
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

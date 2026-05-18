@@ -440,6 +440,130 @@ def update_realtime_prices(conn):
     log.info(f"실시간 가격 업데이트 완료 — 네이버: {updated_naver}종목")
 
 
+def execute_limit_orders(conn):
+    """
+    지정가/예약매도 주문 자동 체결.
+    - 지정가 매수: current_price <= limit_price → 체결
+    - 지정가 매도: current_price >= limit_price → 체결
+    - 예약매도(scheduled_sell): current_price >= limit_price → 체결
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT lo.id, lo.user_id, lo.ticker, lo.stock_name, lo.order_type,
+                       lo.price_type, lo.limit_price, lo.shares,
+                       sr.current_price
+                FROM limit_orders lo
+                JOIN stocks_realtime sr ON sr.ticker = lo.ticker
+                WHERE lo.status = 'pending'
+            """)
+            orders = cur.fetchall()
+
+        if not orders:
+            return
+
+        executed = 0
+        for (oid, user_id, ticker, stock_name, order_type,
+             price_type, limit_price, shares, current_price) in orders:
+
+            limit_price  = float(limit_price)
+            shares       = int(shares)
+            current_price = float(current_price) if current_price else 0.0
+            if current_price <= 0:
+                continue
+
+            # 체결 조건 판정
+            should_execute = False
+            if order_type == "buy" and price_type == "limit":
+                should_execute = current_price <= limit_price
+            elif order_type == "sell" or price_type == "scheduled_sell":
+                should_execute = current_price >= limit_price
+
+            if not should_execute:
+                continue
+
+            # 체결 처리 (트랜잭션)
+            try:
+                with conn.cursor() as cur:
+                    # 사용자 조회
+                    cur.execute("SELECT cash_balance FROM users WHERE id=%s FOR UPDATE", (user_id,))
+                    row = cur.fetchone()
+                    if not row:
+                        continue
+                    cash = float(row[0])
+                    total_cost = current_price * shares
+
+                    if order_type == "buy":
+                        if cash < total_cost:
+                            # 잔액 부족 → 취소
+                            cur.execute("UPDATE limit_orders SET status='cancelled' WHERE id=%s", (oid,))
+                            conn.commit()
+                            continue
+                        # 잔액 차감
+                        cur.execute("UPDATE users SET cash_balance = cash_balance - %s WHERE id=%s",
+                                    (total_cost, user_id))
+                        # 보유 주식 추가/업데이트
+                        cur.execute("""
+                            INSERT INTO holdings (user_id, ticker, stock_name, shares, avg_price)
+                            VALUES (%s, %s, %s, %s, %s)
+                            ON CONFLICT (user_id, ticker) DO UPDATE
+                              SET avg_price = (holdings.avg_price * holdings.shares + EXCLUDED.avg_price * EXCLUDED.shares)
+                                              / (holdings.shares + EXCLUDED.shares),
+                                  shares = holdings.shares + EXCLUDED.shares
+                        """, (user_id, ticker, stock_name, shares, current_price))
+                    else:  # sell
+                        # 보유 수량 확인
+                        cur.execute("SELECT shares FROM holdings WHERE user_id=%s AND ticker=%s FOR UPDATE",
+                                    (user_id, ticker))
+                        h = cur.fetchone()
+                        if not h or int(h[0]) < shares:
+                            cur.execute("UPDATE limit_orders SET status='cancelled' WHERE id=%s", (oid,))
+                            conn.commit()
+                            continue
+                        # 잔액 추가
+                        cur.execute("UPDATE users SET cash_balance = cash_balance + %s WHERE id=%s",
+                                    (total_cost, user_id))
+                        new_shares = int(h[0]) - shares
+                        if new_shares <= 0:
+                            cur.execute("DELETE FROM holdings WHERE user_id=%s AND ticker=%s",
+                                        (user_id, ticker))
+                        else:
+                            cur.execute("UPDATE holdings SET shares=%s WHERE user_id=%s AND ticker=%s",
+                                        (new_shares, user_id, ticker))
+
+                    # 거래 내역 기록
+                    cur.execute("""
+                        INSERT INTO trades (user_id, ticker, stock_name, type, shares, price)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (user_id, ticker, stock_name, order_type, shares, current_price))
+
+                    # 주문 상태 → 체결
+                    cur.execute(
+                        "UPDATE limit_orders SET status='executed', executed_at=NOW() WHERE id=%s",
+                        (oid,)
+                    )
+                    conn.commit()
+                    executed += 1
+                    log.info(f"지정가 체결: {stock_name}({ticker}) {order_type} {shares}주 "
+                             f"@ {current_price:,.0f}원 (목표: {limit_price:,.0f}원)")
+            except Exception as e:
+                log.warning(f"지정가 체결 오류 [{oid}]: {e}")
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+
+        if executed:
+            log.info(f"지정가 주문 체결 완료: {executed}건")
+
+    except Exception as e:
+        log.warning(f"execute_limit_orders 오류: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
+
 def simulate_prices(conn):
     """
     Brownian-motion simulation (random walk from current price).
@@ -1454,6 +1578,10 @@ def main():
 
             # ★ 매 1s: 브라운 운동 시뮬레이션 — 절대 블로킹 없음
             simulate_prices(conn)
+
+            # 매 5s: 지정가/예약매도 주문 자동 체결
+            if cycle % 5 == 0:
+                _bg_run("limit_orders", execute_limit_orders)
 
             # 매 10s: 단기 동적 순위 시뮬레이션 (장 중에만 변동)
             if cycle % 10 == 0:

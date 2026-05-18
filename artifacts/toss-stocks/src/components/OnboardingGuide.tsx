@@ -53,17 +53,8 @@ export default function OnboardingGuide({ onComplete }: Props) {
 
       {/* 카드 */}
       <div className="relative w-full max-w-sm mx-4 flex flex-col" style={{ height: 560 }}>
-        {/* 상단: 진행 바 + 건너뛰기 */}
-        <div className="flex items-center gap-3 mb-3">
-          <div className="flex gap-1.5 flex-1">
-            {slides.map((_, i) => (
-              <div
-                key={i}
-                className="h-1 flex-1 rounded-full transition-all duration-400"
-                style={{ background: i <= page ? "#3b82f6" : "rgba(255,255,255,0.25)" }}
-              />
-            ))}
-          </div>
+        {/* 상단: 건너뛰기 버튼만 */}
+        <div className="flex items-center justify-end mb-3">
           <button
             onClick={onComplete}
             className="flex items-center gap-1 text-white/50 text-xs font-semibold hover:text-white/80 transition-colors"
@@ -115,20 +106,7 @@ export default function OnboardingGuide({ onComplete }: Props) {
               이전
             </button>
 
-            {/* 점 인디케이터 */}
-            <div className="flex gap-1.5">
-              {slides.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => go(i)}
-                  className="w-2 h-2 rounded-full transition-all"
-                  style={{
-                    background: i === page ? "#3b82f6" : "rgba(255,255,255,0.3)",
-                    transform: i === page ? "scale(1.3)" : "scale(1)",
-                  }}
-                />
-              ))}
-            </div>
+            <div />
 
             <button
               onClick={() => go(page + 1)}

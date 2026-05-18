@@ -213,6 +213,16 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const { data: stockCount } = useQuery<{ count: number }>({
+    queryKey: ["stocks-count"],
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/api/stocks/count`);
+      if (!r.ok) return { count: 0 };
+      return r.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: ipoData, isLoading: ipoLoading } = useQuery<IpoStock[]>({
     queryKey: ["ipo-stocks"],
     queryFn: async () => {
@@ -338,7 +348,7 @@ export default function Home() {
             <h2 className="text-xl font-extrabold text-foreground">실시간 시장</h2>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground font-medium">
-                총 {stocks?.length ?? 0}종목
+                총 {(stockCount?.count ?? stocks?.length ?? 0).toLocaleString("ko-KR")}종목
               </span>
               <Link href="/watchlist" className="flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
                 <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
