@@ -6,7 +6,7 @@ import {
   useExecuteTrade,
   ExecuteTradeRequestType
 } from "@workspace/api-client-react";
-import { formatCurrency, formatPercent, formatLargeNumber, getColorClass, cn } from "@/lib/utils";
+import { formatCurrency, formatPercent, formatLargeNumber, formatMarketCap, getColorClass, cn } from "@/lib/utils";
 import { StockChart } from "@/components/StockChart";
 import { StockLogo } from "@/components/StockLogo";
 import { OrderBook } from "@/components/OrderBook";
@@ -328,7 +328,7 @@ export default function StockDetail({ userId }: StockDetailProps) {
               const roe = ext.roe ?? 0;
               return (
                 <div className="grid grid-cols-2 gap-y-5 gap-x-6">
-                  <Metric label="시가총액" value={formatLargeNumber(stock.marketCap)} tooltip />
+                  <Metric label="시가총액" value={formatMarketCap(stock.marketCap)} tooltip />
                   <Metric label="배당수익률" value={stock.dividendYield > 0 ? `${stock.dividendYield.toFixed(2)}%` : "-"} tooltip />
                   <Metric label="PER" value={stock.per > 0 ? `${stock.per.toFixed(2)}배` : "적자"} tooltip />
                   <Metric label="EPS" value={stock.eps > 0 ? `${stock.eps.toLocaleString()}원` : "-"} tooltip />

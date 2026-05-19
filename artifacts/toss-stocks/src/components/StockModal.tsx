@@ -1,5 +1,5 @@
 import { useGetStockByTicker } from "@workspace/api-client-react";
-import { formatCurrency, formatPercent, formatLargeNumber, cn } from "@/lib/utils";
+import { formatCurrency, formatPercent, formatLargeNumber, formatMarketCap, cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Star, Share } from "lucide-react";
 import { StockChart } from "./StockChart";
@@ -102,7 +102,7 @@ export function StockModal({ ticker, onClose }: StockModalProps) {
                   <div className="mt-8 border-t border-border/50 pt-6">
                     <h3 className="text-lg font-bold mb-4">투자 정보</h3>
                     <div className="grid grid-cols-2 gap-y-6 gap-x-4">
-                      <Metric label="시가총액" value={formatLargeNumber(stock.marketCap)} />
+                      <Metric label="시가총액" value={formatMarketCap(stock.marketCap)} />
                       <Metric label="거래량" value={formatLargeNumber(stock.volume)} />
                       <Metric label="52주 최고" value={formatCurrency(stock.high52w)} />
                       <Metric label="52주 최저" value={formatCurrency(stock.low52w)} />

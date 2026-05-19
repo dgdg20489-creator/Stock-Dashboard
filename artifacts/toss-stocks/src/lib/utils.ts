@@ -30,6 +30,18 @@ export function formatLargeNumber(num: number): string {
   return new Intl.NumberFormat("ko-KR").format(num);
 }
 
+/** 시가총액 포맷 — DB는 억원 단위로 저장됨 (예: 15989572 → "1,598조 9,572억원") */
+export function formatMarketCap(ukNum: number): string {
+  if (!ukNum || ukNum <= 0) return "-";
+  if (ukNum >= 10_000) {
+    const jo = Math.floor(ukNum / 10_000);
+    const uk = ukNum % 10_000;
+    const joStr = jo.toLocaleString("ko-KR");
+    return uk > 0 ? `${joStr}조 ${uk.toLocaleString("ko-KR")}억원` : `${joStr}조원`;
+  }
+  return `${ukNum.toLocaleString("ko-KR")}억원`;
+}
+
 export function getColorClass(value: number, type: 'text' | 'bg' | 'bg-light' = 'text'): string {
   if (value > 0) return `${type}-up`;
   if (value < 0) return `${type}-down`;
