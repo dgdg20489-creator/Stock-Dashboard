@@ -393,29 +393,38 @@ router.get("/news", async (req, res) => {
 
 router.get("/ipo", async (_req, res) => {
   try {
+    // listing_date nullable 대응: NULL인 종목도 반환 (상장일 미정)
     const { rows } = await pool.query<{
       ticker: string; name: string; market: string;
-      ipo_price: string | null; listing_date: string;
+      ipo_price: string | null; listing_date: string | null;
+      sub_start: string | null;
     }>(`
-      SELECT ticker, name, market, ipo_price, listing_date::text
+      SELECT ticker, name, market, ipo_price,
+             listing_date::text, sub_start::text
       FROM ipo_stocks
-      ORDER BY listing_date
+      ORDER BY listing_date ASC NULLS LAST, sub_start ASC NULLS LAST
     `);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const items = rows.map((r) => {
-      const listing = new Date(r.listing_date);
-      listing.setHours(0, 0, 0, 0);
-      const diff = Math.round((listing.getTime() - today.getTime()) / 86400000);
-      const status = diff === 0 ? "today" : diff > 0 ? "upcoming" : "listed";
+      let status = "pending";
+      let dDay: number | null = null;
+      if (r.listing_date) {
+        const listing = new Date(r.listing_date);
+        listing.setHours(0, 0, 0, 0);
+        const diff = Math.round((listing.getTime() - today.getTime()) / 86400000);
+        status = diff === 0 ? "today" : diff > 0 ? "upcoming" : "listed";
+        dDay = diff;
+      }
       return {
         ticker: r.ticker,
         name: r.name,
         market: r.market,
         ipoPrice: r.ipo_price ? Number(r.ipo_price) : null,
-        listingDate: r.listing_date,
+        listingDate: r.listing_date ?? "미정",
+        subStart: r.sub_start ?? null,
         status,
-        dDay: diff,
+        dDay,
       };
     });
     res.json(items);

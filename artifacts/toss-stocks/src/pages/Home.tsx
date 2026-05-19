@@ -21,10 +21,10 @@ interface IpoStock {
   name: string;
   market: string;
   ipoPrice: number | null;
-  listingDate: string;
-  subscriptionStart: string | null;
-  subscriptionEnd: string | null;
-  status: "upcoming" | "listed";
+  listingDate: string;   // "미정" 또는 "YYYY-MM-DD"
+  subStart: string | null;
+  status: "upcoming" | "listed" | "today" | "pending";
+  dDay: number | null;
 }
 
 interface RankItem {
@@ -145,8 +145,16 @@ function StockRow({ stock, index }: { stock: any; index: number }) {
 }
 
 function IpoRow({ ipo, index }: { ipo: IpoStock; index: number }) {
-  const isUpcoming = ipo.status === "upcoming";
-  const daysLeft = Math.ceil((new Date(ipo.listingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const hasListing = ipo.listingDate !== "미정";
+  const isToday = ipo.status === "today";
+  const isUpcoming = ipo.status === "upcoming" || isToday;
+
+  const statusBadge = () => {
+    if (isToday) return <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-red-50 text-red-600">오늘 상장!</span>;
+    if (ipo.status === "upcoming") return <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600">상장예정</span>;
+    if (ipo.status === "listed") return <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-gray-100 text-gray-500">상장완료</span>;
+    return <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-purple-50 text-purple-600">심사중</span>;
+  };
 
   return (
     <motion.div
@@ -167,30 +175,32 @@ function IpoRow({ ipo, index }: { ipo: IpoStock; index: number }) {
             )}>
               {ipo.market}
             </span>
-            {isUpcoming ? (
-              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-orange-50 text-orange-600">
-                상장예정
-              </span>
-            ) : (
-              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-gray-100 text-gray-600">
-                상장완료
-              </span>
-            )}
+            {statusBadge()}
           </div>
+          {ipo.subStart && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              청약 {ipo.subStart.slice(5).replace("-", ".")}~
+            </p>
+          )}
         </div>
       </div>
       <div className="text-right">
         {ipo.ipoPrice ? (
           <p className="font-extrabold text-foreground">{formatCurrency(ipo.ipoPrice)}</p>
         ) : (
-          <p className="text-sm text-muted-foreground">미정</p>
+          <p className="text-sm text-muted-foreground font-medium">공모가 미정</p>
         )}
         <div className="flex items-center gap-1 justify-end mt-0.5">
           <Calendar className="w-3 h-3 text-orange-500" />
-          <p className="text-xs font-bold text-orange-500">{ipo.listingDate}</p>
+          <p className={cn("text-xs font-bold", hasListing ? "text-orange-500" : "text-muted-foreground")}>
+            {hasListing ? ipo.listingDate.slice(5).replace("-", ".") : "상장일 미정"}
+          </p>
         </div>
-        {isUpcoming && daysLeft > 0 && (
-          <p className="text-[10px] text-muted-foreground">D-{daysLeft}</p>
+        {isUpcoming && ipo.dDay !== null && ipo.dDay > 0 && (
+          <p className="text-[10px] font-bold text-orange-400">D-{ipo.dDay}</p>
+        )}
+        {isToday && (
+          <p className="text-[10px] font-bold text-red-500">D-Day</p>
         )}
       </div>
     </motion.div>

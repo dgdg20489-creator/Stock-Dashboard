@@ -1534,12 +1534,13 @@ def simulate_rankings_dynamic(conn):
 # ─────────────────────────────────────────────────
 
 def fetch_ipo_from_naver(conn):
-    """네이버 금융 공모주 페이지에서 상장 예정 종목 가져오기."""
+    """네이버 금융 공모주 페이지(sise/ipo.nhn)에서 상장 예정·심사 중 종목 가져오기."""
+    import re as _re
     try:
         import requests
         from bs4 import BeautifulSoup
 
-        url = "https://finance.naver.com/ipo/ipo_schedule.naver"
+        url = "https://finance.naver.com/sise/ipo.nhn"
         r = requests.get(url, headers=NAVER_WEB_HEADERS, timeout=10)
         if r.status_code != 200:
             log.warning(f"IPO page HTTP {r.status_code}")
@@ -1549,91 +1550,97 @@ def fetch_ipo_from_naver(conn):
         soup = BeautifulSoup(r.text, "html.parser")
 
         ipos = []
-        rows = soup.select("table.type_1 tr, table.type_2 tr")
-
-        for row in rows:
-            cols = row.select("td")
-            link = row.select_one('a[href*="code="], a[href*="ipoCode="]')
-            if not cols or len(cols) < 4:
+        # 각 공모주는 div.item_area 에 담겨 있고, id 속성이 "A종목코드"
+        for div in soup.select("div.item_area"):
+            raw_id = div.get("id", "")
+            ticker = raw_id.lstrip("A")  # "A477850" → "477850"
+            if not ticker:
                 continue
 
-            name = ""
-            ticker = ""
-            if link:
-                name = link.get_text(strip=True)
-                href = link.get("href", "")
-                for param in ["code=", "ipoCode="]:
-                    if param in href:
-                        ticker = href.split(param)[-1][:6]
-                        break
-
-            if not name:
-                name_col = cols[0].get_text(strip=True)
-                if name_col:
-                    name = name_col
-
-            if not name or not name[0].isalpha() and not name[0] in '가나다라마바사아자차카타파하':
+            name_el = div.select_one("h4.item_name a")
+            if not name_el:
                 continue
+            name = name_el.get_text(strip=True)
 
-            ct = [c.get_text(strip=True).replace(",", "") for c in cols]
+            market_el = div.select_one("h4.item_name .type")
+            market_text = market_el.get_text(strip=True) if market_el else "코스닥"
+            market = "KOSPI" if "코스피" in market_text else "KOSDAQ"
 
-            # 종목코드가 없으면 스킵
-            if not ticker or len(ticker) != 6:
-                continue
+            full = div.get_text(" ", strip=True)
 
-            # 상장일 파싱
-            listing_date = None
-            for val in ct:
-                for fmt in ("%Y.%m.%d", "%Y-%m-%d", "%Y/%m/%d"):
-                    try:
-                        listing_date = datetime.strptime(val, fmt).date()
-                        break
-                    except Exception:
-                        pass
-                if listing_date:
-                    break
-
-            if not listing_date:
-                continue
-
-            # 공모가
+            # 공모가 (확정: 단일 숫자 / 밴드: 하단 값 사용)
             ipo_price = None
-            for val in ct:
-                clean = val.replace(",", "").replace("원", "")
-                if clean.isdigit() and 1000 <= int(clean) <= 2000000:
-                    ipo_price = int(clean)
-                    break
+            m = _re.search(r"공모가\s*([\d,]+)", full)
+            if m:
+                try:
+                    ipo_price = int(m.group(1).replace(",", ""))
+                except Exception:
+                    pass
+
+            # 상장일: "상장일26.05.20" 또는 "상장일2026.05.20" 형식
+            listing_date = None
+            m2 = _re.search(r"상장일\s*(\d{2,4})[./](\d{2})[./](\d{2})", full)
+            if m2:
+                y, mo, d = m2.group(1), m2.group(2), m2.group(3)
+                if len(y) == 2:
+                    y = "20" + y
+                try:
+                    listing_date = datetime.strptime(f"{y}-{mo}-{d}", "%Y-%m-%d").date()
+                except Exception:
+                    pass
+
+            # 청약 시작일: "개인청약26.05.11~05.12" 형식
+            sub_start = None
+            m3 = _re.search(r"개인청약\s*(\d{2})[./](\d{2})[./](\d{2})", full)
+            if m3:
+                try:
+                    sub_start = datetime.strptime(
+                        f"20{m3.group(1)}-{m3.group(2)}-{m3.group(3)}", "%Y-%m-%d"
+                    ).date()
+                except Exception:
+                    pass
 
             ipos.append({
                 "ticker": ticker,
                 "name": name,
-                "market": "KOSPI",
+                "market": market,
                 "ipo_price": ipo_price,
-                "listing_date": listing_date,
+                "listing_date": listing_date,   # None = 미정
+                "sub_start": sub_start,
             })
 
-        if ipos:
-            with conn.cursor() as cur:
-                execute_values(cur, """
-                    INSERT INTO ipo_stocks (ticker, name, market, ipo_price, listing_date)
-                    VALUES %s
-                    ON CONFLICT (ticker) DO UPDATE SET
-                        name         = EXCLUDED.name,
-                        ipo_price    = COALESCE(EXCLUDED.ipo_price, ipo_stocks.ipo_price),
-                        listing_date = EXCLUDED.listing_date
-                """, [(s["ticker"], s["name"], s["market"], s["ipo_price"], s["listing_date"]) for s in ipos])
-            conn.commit()
-            log.info(f"IPO 데이터 저장: {len(ipos)}건")
-        else:
-            log.info("IPO 파싱 결과 없음 — 대체 방식 시도")
-            _seed_ipo_from_naver_api(conn)
+        if not ipos:
+            log.info("IPO 파싱 결과 없음")
+            return
 
-    except ImportError:
-        log.warning("BeautifulSoup not available for IPO fetch")
-        _seed_ipo_from_naver_api(conn)
+        with conn.cursor() as cur:
+            # listing_date 컬럼이 nullable이도록 보장
+            cur.execute("""
+                ALTER TABLE ipo_stocks
+                    ALTER COLUMN listing_date DROP NOT NULL
+            """)
+            # sub_start 컬럼 추가 (없으면)
+            cur.execute("""
+                ALTER TABLE ipo_stocks
+                    ADD COLUMN IF NOT EXISTS sub_start DATE
+            """)
+            execute_values(cur, """
+                INSERT INTO ipo_stocks (ticker, name, market, ipo_price, listing_date, sub_start)
+                VALUES %s
+                ON CONFLICT (ticker) DO UPDATE SET
+                    name         = EXCLUDED.name,
+                    market       = EXCLUDED.market,
+                    ipo_price    = COALESCE(EXCLUDED.ipo_price, ipo_stocks.ipo_price),
+                    listing_date = COALESCE(EXCLUDED.listing_date, ipo_stocks.listing_date),
+                    sub_start    = COALESCE(EXCLUDED.sub_start, ipo_stocks.sub_start)
+            """, [(s["ticker"], s["name"], s["market"], s["ipo_price"],
+                   s["listing_date"], s["sub_start"]) for s in ipos])
+        conn.commit()
+        log.info(f"IPO 데이터 저장: {len(ipos)}건 (상장일 확정: {sum(1 for s in ipos if s['listing_date'])}건)")
+
     except Exception as e:
         log.warning(f"IPO fetch: {e}")
-        _seed_ipo_from_naver_api(conn)
+        import traceback; log.debug(traceback.format_exc())
 
 
 def _seed_ipo_from_naver_api(conn):
