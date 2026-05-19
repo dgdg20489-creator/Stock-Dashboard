@@ -971,24 +971,33 @@ router.get("/stocks/:ticker/orderbook", async (req, res) => {
   // 현재가를 호가 단위로 정렬 (예: 272,350원 → 272,000원)
   const roundedBase = Math.round(basePrice / unit) * unit;
 
-  // 평균 잔량 기준: 하루 거래량의 약 2~5% 가 각 호가에 걸려 있음
-  const avgBase = Math.round(dailyVolume * 0.03);
-  const seed    = ticker.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-  const t       = Date.now();
+  // 20분 지연 호가: 가격 기반 고정 시드 → 값이 안정적으로 유지됨
+  // 잔량 기준: 하루 거래량의 약 2~6% 가 각 호가에 걸려 있음
+  const avgBase = Math.round(dailyVolume * 0.04);
+  // 고정 시드: ticker 문자 + 현재가를 500원 단위로 버림 → 가격 큰 변동 없으면 고정
+  const seedStr = ticker + String(Math.floor(basePrice / 500));
+  const seed    = seedStr.split("").reduce((a, c, i2) => (a * 31 + c.charCodeAt(0) + i2) >>> 0, 17);
+
+  // LCG 난수 (시드 기반, 호출마다 순서 고정)
+  let rngState = seed;
+  const rng = () => {
+    rngState = (rngState * 1664525 + 1013904223) >>> 0;
+    return rngState / 0x100000000;
+  };
 
   const asks = Array.from({ length: 5 }, (_, i) => {
     const price = roundedBase + unit * (i + 1);
-    // 가격이 멀수록 잔량 증가 (자연스러운 분포)
-    const factor = 1 + i * 0.4;
-    const noise  = 0.5 + Math.abs(Math.sin(t / 15000 + seed + i * 2.3)) * 1.0;
+    // 가격 멀수록 잔량 증가 + 약간의 불규칙성
+    const factor = 1 + i * 0.5;
+    const noise  = 0.6 + rng() * 0.9;
     const qty    = Math.round(avgBase * factor * noise);
     return { price, qty };
   });
 
   const bids = Array.from({ length: 5 }, (_, i) => {
-    const price = Math.max(roundedBase - unit * (i + 1), 1);
-    const factor = 1 + i * 0.3;
-    const noise  = 0.5 + Math.abs(Math.cos(t / 15000 + seed + i * 1.7)) * 1.0;
+    const price = Math.max(roundedBase - unit * i, 1);
+    const factor = 1 + i * 0.4;
+    const noise  = 0.6 + rng() * 0.9;
     const qty    = Math.round(avgBase * factor * noise);
     return { price, qty };
   });

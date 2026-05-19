@@ -51,7 +51,7 @@ export function OrderBook({ ticker, currentPrice }: OrderBookProps) {
   const [ticks, setTicks] = useState<Tick[]>([]);
   const tickIdBase = useRef(0);
 
-  // 호가창: 3초마다 KIS 실시간 데이터
+  // 호가창: 최초 1회 로드 후 20분마다 갱신 (20분 지연 데이터)
   useEffect(() => {
     let alive = true;
     async function refresh() {
@@ -59,17 +59,16 @@ export function OrderBook({ ticker, currentPrice }: OrderBookProps) {
       if (alive && data) setBook(data);
     }
     refresh();
-    const id = setInterval(refresh, 3000);
+    const id = setInterval(refresh, 20 * 60 * 1000);
     return () => { alive = false; clearInterval(id); };
   }, [ticker]);
 
-  // 체결내역: 3초마다 KIS 실제 체결 데이터
+  // 체결내역: 30초마다 갱신
   useEffect(() => {
     let alive = true;
     async function refresh() {
       const newTicks = await loadExecutions(ticker);
       if (!alive || !newTicks.length) return;
-      // ID를 고유하게 부여
       tickIdBase.current += newTicks.length;
       const stamped = newTicks.slice(0, 20).map((t, i) => ({
         ...t, id: tickIdBase.current - i
@@ -77,7 +76,7 @@ export function OrderBook({ ticker, currentPrice }: OrderBookProps) {
       setTicks(stamped);
     }
     refresh();
-    const id = setInterval(refresh, 3000);
+    const id = setInterval(refresh, 30000);
     return () => { alive = false; clearInterval(id); };
   }, [ticker]);
 
@@ -108,11 +107,8 @@ export function OrderBook({ ticker, currentPrice }: OrderBookProps) {
       <div className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-extrabold text-foreground">호가창</h3>
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[9px] font-extrabold text-green-600">KIS LIVE</span>
-            </div>
+            <h3 className="text-base font-extrabold text-foreground">호가</h3>
+            <span className="text-[9px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">20분 지연</span>
           </div>
           <div className="flex items-center gap-1 text-[11px] font-bold">
             <span className="text-down">{100 - bidRatio}%</span>
@@ -173,7 +169,7 @@ export function OrderBook({ ticker, currentPrice }: OrderBookProps) {
         <div className="px-5 py-4 border-t border-border/30 bg-muted/20 mt-1">
           <div className="flex items-center justify-between text-[11px] font-bold mb-2">
             <span className="text-down">매도 압력</span>
-            <span className="text-muted-foreground text-[10px]">실시간 에너지</span>
+            <span className="text-muted-foreground text-[10px]">매도/매수 비중</span>
             <span className="text-up">매수 압력</span>
           </div>
           <div className="relative h-7 flex rounded-xl overflow-hidden bg-muted">
