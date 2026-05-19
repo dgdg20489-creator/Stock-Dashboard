@@ -266,8 +266,9 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
 
   const uid = String(userId);
   const collected = getCollectedCards(uid, user.avatar);
-  const activeCardId = profileCard ?? (collected.length > 0 ? collected[0] : null);
-  const cardDef = activeCardId ? ALL_CARDS.find(c => c.id === activeCardId) : null;
+  const profileCardValid = profileCard && ALL_CARDS.some(c => c.id === profileCard) ? profileCard : null;
+  const activeCardId = profileCardValid ?? (collected.length > 0 ? collected[0] : null);
+  const cardDef = activeCardId ? ALL_CARDS.find(c => c.id === activeCardId) ?? null : null;
   const investmentTypeLabel =
     user.avatar.startsWith("defensive") ? "안정형" :
     user.avatar.startsWith("aggressive") ? "공격형" :
