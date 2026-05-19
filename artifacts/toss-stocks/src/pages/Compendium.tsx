@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { Lock, CheckCircle2, BookOpen, Star } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { BookOpen, X, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface CardDef {
@@ -11,6 +11,7 @@ export interface CardDef {
   image: string | null;
   avatarTypes: string[];
   description: string;
+  group: "defensive" | "aggressive" | "neutral" | "basic";
 }
 
 export const ALL_CARDS: CardDef[] = [
@@ -22,6 +23,7 @@ export const ALL_CARDS: CardDef[] = [
     image: "/card_defensive_basic.png",
     avatarTypes: ["defensive_m", "defensive_f"],
     description: "냉정한 판단력과 강한 책임감. 데이터와 흐름을 읽어 최적의 전략을 제시한다.",
+    group: "defensive",
   },
   {
     id: "defensive_ssr",
@@ -31,6 +33,7 @@ export const ALL_CARDS: CardDef[] = [
     image: "/card_defensive_ssr.png",
     avatarTypes: ["defensive_m", "defensive_f"],
     description: "파도 위에서도 흔들리지 않는 분석력. 어떤 시장에서도 최적의 타이밍을 찾아낸다.",
+    group: "defensive",
   },
   {
     id: "aggressive_basic",
@@ -40,6 +43,7 @@ export const ALL_CARDS: CardDef[] = [
     image: null,
     avatarTypes: ["aggressive_m", "aggressive_f"],
     description: "과감한 결단력으로 시장을 공략하는 선봉장. 리스크를 두려워하지 않는다.",
+    group: "aggressive",
   },
   {
     id: "aggressive_ssr",
@@ -49,6 +53,7 @@ export const ALL_CARDS: CardDef[] = [
     image: null,
     avatarTypes: ["aggressive_m", "aggressive_f"],
     description: "하락장에서도 수익을 창출하는 전설의 트레이더. 곰도 무릎 꿇게 만든다.",
+    group: "aggressive",
   },
   {
     id: "neutral_basic",
@@ -58,6 +63,7 @@ export const ALL_CARDS: CardDef[] = [
     image: null,
     avatarTypes: ["neutral_m", "neutral_f"],
     description: "수익과 안정 사이에서 균형을 잡는 전략가. 포트폴리오의 중심을 지킨다.",
+    group: "neutral",
   },
   {
     id: "neutral_ssr",
@@ -67,6 +73,7 @@ export const ALL_CARDS: CardDef[] = [
     image: null,
     avatarTypes: ["neutral_m", "neutral_f"],
     description: "알고리즘과 직관을 결합한 퀀트 전략가. 수학적 아름다움으로 시장을 정복한다.",
+    group: "neutral",
   },
   {
     id: "basic_basic",
@@ -76,8 +83,15 @@ export const ALL_CARDS: CardDef[] = [
     image: null,
     avatarTypes: ["basic_m", "basic_f"],
     description: "투자를 시작하는 모든 이의 첫걸음. 성장의 씨앗을 품고 있다.",
+    group: "basic",
   },
 ];
+
+const GROUPS = [
+  { key: "defensive", label: "안정형", emoji: "🛡️" },
+  { key: "aggressive", label: "공격형", emoji: "⚔️" },
+  { key: "neutral", label: "균형형", emoji: "⚖️" },
+] as const;
 
 function profileCardKey(uid: string | number) {
   return `wonkwang_profile_card_${uid}`;
@@ -124,135 +138,108 @@ interface CompendiumProps {
 export default function Compendium({ userId, avatarId }: CompendiumProps) {
   const uid = String(userId);
   const collected = getCollectedCards(uid, avatarId);
-  const [profileCard, setProfileCard] = useState<string | null>(() => loadProfileCard(uid));
-  const [justSet, setJustSet] = useState<string | null>(null);
-
-  const handleSelectCard = (cardId: string) => {
-    saveProfileCard(uid, cardId);
-    setProfileCard(cardId);
-    setJustSet(cardId);
-    setTimeout(() => setJustSet(null), 1500);
-  };
+  const [zoomCard, setZoomCard] = useState<CardDef | null>(null);
 
   const totalCollected = collected.length;
-  const total = ALL_CARDS.length;
+  const totalWithImage = ALL_CARDS.filter(c => c.image !== null).length;
 
   return (
-    <div className="max-w-md mx-auto px-4 py-6 space-y-4">
-      <div className="flex items-center gap-3 mb-1">
+    <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+      {/* 헤더 */}
+      <div className="flex items-center gap-3">
         <BookOpen className="w-6 h-6 text-primary" />
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">카드 도감</h1>
           <p className="text-xs text-muted-foreground font-medium">
-            수집 {totalCollected}/{total}
+            수집 {totalCollected}/{totalWithImage}장
           </p>
         </div>
         <div className="ml-auto">
-          <div className="text-right">
-            <div className="text-xs text-muted-foreground font-semibold mb-1">수집률</div>
-            <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-violet-500 to-purple-600 rounded-full transition-all"
-                style={{ width: `${(totalCollected / total) * 100}%` }}
-              />
-            </div>
+          <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-violet-500 to-purple-600 rounded-full transition-all"
+              style={{ width: `${(totalCollected / Math.max(1, totalWithImage)) * 100}%` }}
+            />
           </div>
         </div>
       </div>
 
-      {profileCard && (
-        <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-2xl px-4 py-2.5">
-          <Star className="w-4 h-4 text-violet-500 flex-shrink-0" />
-          <p className="text-sm font-bold text-violet-700">
-            프로필에 표시 중: {ALL_CARDS.find(c => c.id === profileCard)?.sublabel ?? profileCard}
-          </p>
-        </div>
-      )}
+      {/* 그룹별 섹션 */}
+      {GROUPS.map((group) => {
+        const groupCards = ALL_CARDS.filter(c => c.group === group.key);
+        const groupCollected = groupCards.filter(c => collected.includes(c.id));
 
-      <div className="grid grid-cols-2 gap-3">
-        {ALL_CARDS.map((card, idx) => {
-          const isCollected = collected.includes(card.id);
-          const isSelected = profileCard === card.id;
-          const wasJustSet = justSet === card.id;
+        return (
+          <div key={group.key}>
+            {/* 섹션 헤더 */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">{group.emoji}</span>
+              <h2 className="font-extrabold text-foreground">{group.label}</h2>
+              <span className="text-xs text-muted-foreground font-semibold ml-auto">
+                {groupCollected.length}/{groupCards.length}
+              </span>
+            </div>
 
-          return (
-            <motion.div
-              key={card.id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.06 }}
-              onClick={() => isCollected && handleSelectCard(card.id)}
-              className={cn(
-                "rounded-3xl overflow-hidden border transition-all",
-                isCollected ? "cursor-pointer hover:scale-[1.02] active:scale-[0.98]" : "cursor-not-allowed",
-                isSelected
-                  ? "ring-2 ring-yellow-400 border-yellow-300 shadow-lg shadow-yellow-200/50"
-                  : isCollected
-                  ? "border-border/50 shadow-sm hover:shadow-md"
-                  : "border-border/30 opacity-70"
-              )}
-            >
-              <div className="relative aspect-[2/3] bg-muted/40">
-                {card.image && isCollected ? (
-                  <img
-                    src={card.image}
-                    alt={`${card.label} ${card.sublabel}`}
-                    className="w-full h-full object-cover"
-                  />
-                ) : card.image && !isCollected ? (
-                  <>
-                    <img
-                      src={card.image}
-                      alt=""
-                      className="w-full h-full object-cover brightness-[0.15] grayscale"
-                    />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                      <Lock className="w-8 h-8 text-white/60" />
-                      <span className="text-white/50 text-xs font-bold">미획득</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-800 to-slate-900">
-                    <Lock className="w-8 h-8 text-white/30" />
-                    <span className="text-white/30 text-xs font-bold">준비 중</span>
-                  </div>
-                )}
-
-                {isSelected && (
-                  <div className="absolute top-2 right-2 bg-yellow-400 rounded-full p-1 shadow-md">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-yellow-900" />
-                  </div>
-                )}
-                {wasJustSet && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-3xl"
-                  >
-                    <span className="text-white font-extrabold text-sm bg-black/50 px-3 py-1.5 rounded-xl">
-                      프로필 적용됨!
-                    </span>
-                  </motion.div>
-                )}
-              </div>
-
-              <div className="p-3 bg-card">
-                <div className="flex items-start justify-between gap-1 mb-0.5">
-                  <p className="font-extrabold text-sm text-foreground leading-tight">{card.sublabel}</p>
-                  <span className={cn("text-[10px] font-extrabold px-1.5 py-0.5 rounded-md flex-shrink-0 leading-none", RARITY_STYLE[card.rarity])}>
-                    {card.rarity}
-                  </span>
+            {(() => {
+              const visibleCards = groupCards.filter(c => c.image !== null);
+              if (visibleCards.length === 0) return null;
+              return (
+                <div className="grid grid-cols-2 gap-3">
+                  {visibleCards.map((card, idx) => {
+                    const isCollected = collected.includes(card.id);
+                    return (
+                      <motion.div
+                        key={card.id}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        onClick={() => isCollected && setZoomCard(card)}
+                        className={cn(
+                          "rounded-3xl overflow-hidden border transition-all",
+                          isCollected
+                            ? "cursor-pointer hover:scale-[1.02] active:scale-[0.97] border-border/50 shadow-sm hover:shadow-md"
+                            : "border-border/20 opacity-50"
+                        )}
+                      >
+                        <div className="relative aspect-[2/3]">
+                          {isCollected ? (
+                            <img
+                              src={card.image!}
+                              alt={`${card.label} ${card.sublabel}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <>
+                              <img
+                                src={card.image!}
+                                alt=""
+                                className="w-full h-full object-cover brightness-[0.12] grayscale"
+                              />
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                                <Lock className="w-8 h-8 text-white/50" />
+                                <span className="text-white/40 text-xs font-bold">미획득</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        <div className="p-3 bg-card">
+                          <div className="flex items-start justify-between gap-1 mb-0.5">
+                            <p className="font-extrabold text-sm text-foreground leading-tight">{card.sublabel}</p>
+                            <span className={cn("text-[10px] font-extrabold px-1.5 py-0.5 rounded-md flex-shrink-0 leading-none mt-0.5", RARITY_STYLE[card.rarity])}>
+                              {card.rarity}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground font-semibold">{card.label}</p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
-                <p className="text-[11px] text-muted-foreground font-semibold">{card.label}</p>
-                {isCollected && !isSelected && (
-                  <p className="text-[10px] text-violet-500 font-bold mt-1.5">탭하여 프로필 적용</p>
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+              );
+            })()}
+          </div>
+        );
+      })}
 
       <div className="bg-muted/40 rounded-2xl p-4 border border-border/40 text-center">
         <p className="text-xs text-muted-foreground font-medium">
@@ -260,6 +247,48 @@ export default function Compendium({ userId, avatarId }: CompendiumProps) {
           <span className="font-bold text-foreground/60">뽑기 상점에서 SSR 카드를 획득하세요!</span>
         </p>
       </div>
+
+      {/* 카드 확대 모달 */}
+      <AnimatePresence>
+        {zoomCard && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/92 flex items-center justify-center p-4"
+            onClick={() => setZoomCard(null)}
+          >
+            <button
+              className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
+              onClick={() => setZoomCard(null)}
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", bounce: 0.3 }}
+              className="max-w-xs w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={zoomCard.image!}
+                alt={zoomCard.sublabel}
+                className="w-full rounded-3xl shadow-2xl"
+              />
+              <div className="text-center mt-4">
+                <p className="text-white font-extrabold text-lg">{zoomCard.sublabel}</p>
+                <p className="text-white/60 text-sm font-semibold mt-0.5">{zoomCard.label} · {zoomCard.rarity}</p>
+                <p className="text-white/50 text-xs font-medium mt-2 leading-relaxed px-4">{zoomCard.description}</p>
+              </div>
+            </motion.div>
+            <div className="absolute bottom-6 text-center">
+              <p className="text-white/50 text-xs font-semibold">화면을 탭하면 닫힙니다</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
