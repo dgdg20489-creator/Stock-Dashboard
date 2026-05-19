@@ -30,9 +30,11 @@ export function Sidebar({ userId }: SidebarProps) {
   const uid = String(userId);
   const profileCardId = loadProfileCard(uid);
   const collectedCards = getCollectedCards(uid, avatarId);
-  const activeCardId = profileCardId && collectedCards.includes(profileCardId)
-    ? profileCardId
-    : collectedCards[0] ?? null;
+  // validate that the card still exists in ALL_CARDS (guards against deleted card IDs)
+  const isValidCard = (id: string | null) => !!id && ALL_CARDS.some(c => c.id === id);
+  const activeCardId = (isValidCard(profileCardId) && collectedCards.includes(profileCardId!))
+    ? profileCardId!
+    : collectedCards.find(id => isValidCard(id)) ?? null;
   const activeCard = activeCardId ? ALL_CARDS.find(c => c.id === activeCardId) ?? null : null;
 
   const returnPositive = portfolio && portfolio.totalReturnPercent > 0;
