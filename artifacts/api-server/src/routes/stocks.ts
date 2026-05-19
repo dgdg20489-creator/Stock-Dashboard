@@ -833,7 +833,44 @@ function aggregateCandles(
 }
 
 // ── 체결내역 — 네이버 기반 데이터 없음, 빈 배열 반환 ────────────
-router.get("/stocks/:ticker/executions", async (_req, res) => {
+// ── 체결내역 — 네이버 분봉 API에서 최근 분별 체결 추출 ──────────────
+router.get("/stocks/:ticker/executions", async (req, res) => {
+  const { ticker } = req.params;
+  try {
+    const naverUrl = `https://api.stock.naver.com/chart/domestic/item/${ticker}/minute?chartType=minute&requestType=0&timeFrame=1`;
+    const naverRes = await fetch(naverUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": "https://finance.naver.com/",
+      },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (naverRes.ok) {
+      const raw = await naverRes.json() as Array<{
+        localDateTime: string;
+        currentPrice: number;
+        openPrice: number;
+        accumulatedTradingVolume: number;
+      }>;
+      if (Array.isArray(raw) && raw.length > 0) {
+        // 최근 분봉에서 분별 체결량 계산 (누적거래량 차분)
+        const recent = raw.slice(-25).reverse(); // 최근 25분, 역순(최신 먼저)
+        const executions = recent.map((c, i) => {
+          const prev = recent[i + 1];
+          const volume = prev
+            ? Math.max(c.accumulatedTradingVolume - prev.accumulatedTradingVolume, 0)
+            : c.accumulatedTradingVolume;
+          const dt = String(c.localDateTime ?? "");
+          const time = dt.length >= 12
+            ? `${dt.slice(8,10)}:${dt.slice(10,12)}`
+            : dt;
+          const isBuy = c.currentPrice >= c.openPrice;
+          return { time, price: Math.round(c.currentPrice), volume, isBuy };
+        }).filter(e => e.price > 0);
+        return res.json(executions);
+      }
+    }
+  } catch { /* fallback */ }
   res.json([]);
 });
 
@@ -907,78 +944,58 @@ router.get("/stocks/:ticker/minute-candles", async (req, res) => {
   }
 });
 
-// ── 호가창 — 네이버 모바일 API 기반 ─────────────────────────────
+// ── 호가창 — 네이버 실시간 거래량 기반 현실적 시뮬레이션 ────────────
 router.get("/stocks/:ticker/orderbook", async (req, res) => {
   const { ticker } = req.params;
 
-  // 현재가 조회
+  // DB에서 현재가 + 거래량 조회
   let basePrice = 50000;
+  let dailyVolume = 1_000_000;
   try {
     const row = await getStockFromDB(ticker);
-    if (row) basePrice = Math.round(parseFloat(row.current_price) || 50000);
+    if (row) {
+      basePrice    = Math.round(parseFloat(row.current_price) || 50000);
+      dailyVolume  = parseInt(row.volume) || 1_000_000;
+    }
   } catch { /* fallback */ }
 
-  // 호가 시뮬레이션 (5단계 매도/매수 호가)
-  function genOrderBook(base: number) {
-    const unit = base < 1000 ? 1 : base < 5000 ? 5 : base < 10000 ? 10 : base < 50000 ? 50 : base < 100000 ? 100 : base < 500000 ? 500 : 1000;
-    const seed = ticker.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-    const t = Date.now();
+  // 호가 단위 (한국거래소 기준)
+  const unit =
+    basePrice <    1_000 ? 1 :
+    basePrice <    5_000 ? 5 :
+    basePrice <   10_000 ? 10 :
+    basePrice <   50_000 ? 50 :
+    basePrice <  100_000 ? 100 :
+    basePrice <  500_000 ? 500 : 1_000;
 
-    const asks = Array.from({ length: 5 }, (_, i) => {
-      const price = base + unit * (i + 1);
-      const qty = Math.round(100 + Math.abs(Math.sin(t / 10000 + seed + i * 2.3)) * 900);
-      return { price, qty };
-    });
-    const bids = Array.from({ length: 5 }, (_, i) => {
-      const price = base - unit * (i + 1);
-      const qty = Math.round(100 + Math.abs(Math.cos(t / 10000 + seed + i * 1.7)) * 900);
-      return { price: Math.max(price, 1), qty };
-    });
+  // 현재가를 호가 단위로 정렬 (예: 272,350원 → 272,000원)
+  const roundedBase = Math.round(basePrice / unit) * unit;
 
-    const totalAskQty = asks.reduce((s, a) => s + a.qty, 0);
-    const totalBidQty = bids.reduce((s, b) => s + b.qty, 0);
-    return { asks, bids, totalAskQty, totalBidQty };
-  }
+  // 평균 잔량 기준: 하루 거래량의 약 2~5% 가 각 호가에 걸려 있음
+  const avgBase = Math.round(dailyVolume * 0.03);
+  const seed    = ticker.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const t       = Date.now();
 
-  // 네이버 호가 API 시도
-  try {
-    const naverUrl = `https://m.stock.naver.com/api/stock/${ticker}/currentprice/orderbook`;
-    const naverRes = await fetch(naverUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
-        "Referer": "https://m.stock.naver.com/",
-      },
-      signal: AbortSignal.timeout(3000),
-    });
+  const asks = Array.from({ length: 5 }, (_, i) => {
+    const price = roundedBase + unit * (i + 1);
+    // 가격이 멀수록 잔량 증가 (자연스러운 분포)
+    const factor = 1 + i * 0.4;
+    const noise  = 0.5 + Math.abs(Math.sin(t / 15000 + seed + i * 2.3)) * 1.0;
+    const qty    = Math.round(avgBase * factor * noise);
+    return { price, qty };
+  });
 
-    if (naverRes.ok) {
-      const raw = await naverRes.json() as Record<string, any>;
-      const sellBook: any[] = raw.sellOrderBook ?? raw.askList ?? [];
-      const buyBook: any[]  = raw.buyOrderBook  ?? raw.bidList  ?? [];
+  const bids = Array.from({ length: 5 }, (_, i) => {
+    const price = Math.max(roundedBase - unit * (i + 1), 1);
+    const factor = 1 + i * 0.3;
+    const noise  = 0.5 + Math.abs(Math.cos(t / 15000 + seed + i * 1.7)) * 1.0;
+    const qty    = Math.round(avgBase * factor * noise);
+    return { price, qty };
+  });
 
-      if (sellBook.length > 0 || buyBook.length > 0) {
-        const asks = sellBook.slice(0, 5).map((item: any) => ({
-          price: parseInt(String(item.price ?? item.stockExecPrice ?? "0").replace(/,/g, "")) || 0,
-          qty:   parseInt(String(item.quantity ?? item.remainQuantity ?? "0").replace(/,/g, "")) || 0,
-        })).filter(a => a.price > 0);
-        const bids = buyBook.slice(0, 5).map((item: any) => ({
-          price: parseInt(String(item.price ?? item.stockExecPrice ?? "0").replace(/,/g, "")) || 0,
-          qty:   parseInt(String(item.quantity ?? item.remainQuantity ?? "0").replace(/,/g, "")) || 0,
-        })).filter(b => b.price > 0);
-
-        if (asks.length > 0 || bids.length > 0) {
-          return res.json({
-            asks,
-            bids,
-            totalAskQty: asks.reduce((s, a) => s + a.qty, 0),
-            totalBidQty: bids.reduce((s, b) => s + b.qty, 0),
-          });
-        }
-      }
-    }
-  } catch { /* fallback to simulation */ }
-
-  res.json(genOrderBook(basePrice));
+  const totalAskQty = asks.reduce((s, a) => s + a.qty, 0);
+  const totalBidQty = bids.reduce((s, b) => s + b.qty, 0);
+  res.json({ asks, bids, totalAskQty, totalBidQty });
 });
 
 export default router;
