@@ -1,9 +1,9 @@
 import { useGetUser, useGetUserPortfolio } from "@workspace/api-client-react";
-import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
+import { formatCurrency, formatPercent } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { cn } from "@/lib/utils";
-import { BarChart2, TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 import { GameAvatar, getAvatarDef, INVEST_TYPES } from "@/components/GameAvatar";
 import { loadProfileCard, getCollectedCards, ALL_CARDS } from "@/pages/Compendium";
 
@@ -18,12 +18,10 @@ const DIFFICULTY_LABEL: Record<string, string> = {
 };
 
 export function Sidebar({ userId }: SidebarProps) {
-  const [location] = useLocation();
   const { data: user } = useGetUser(userId);
   const { data: portfolio } = useGetUserPortfolio(userId, {
     query: { refetchInterval: 3000, staleTime: 0 },
   });
-
 
   const avatarId = user?.avatar ?? "balanced_m";
   const avatarDef = getAvatarDef(avatarId);
@@ -42,50 +40,71 @@ export function Sidebar({ userId }: SidebarProps) {
 
   return (
     <aside className="w-56 flex-shrink-0 hidden lg:flex flex-col gap-3">
-      {/* 프로필 카드 */}
       {user && portfolio && (
         <motion.div
           initial={{ opacity: 0, x: -12 }}
           animate={{ opacity: 1, x: 0 }}
-          className="bg-card rounded-xl shadow-sm border border-border/60 overflow-hidden"
+          className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden"
         >
-          {/* 컬러 상단 띠 */}
-          <div
-            className="h-1 w-full"
-            style={{ background: `linear-gradient(90deg, ${investType?.themeColor ?? "#666"}, ${investType?.themeColor ?? "#666"}55)` }}
-          />
-          <div className="p-4">
-            <Link href="/my-info" className="flex items-center gap-3 mb-4 cursor-pointer group">
-              <div className="flex-shrink-0 rounded-xl overflow-hidden ring-1 ring-border group-hover:ring-primary/40 transition-all"
-                style={{ width: 44, height: 66 }}>
-                {activeCard?.image ? (
+          {/* 카드 일러스트 상단 영역 */}
+          <Link href="/my-info" className="block cursor-pointer group relative">
+            <div
+              className="relative w-full flex items-center justify-center overflow-hidden"
+              style={{
+                background: `linear-gradient(160deg, ${investType?.themeColor ?? "#4f46e5"}22, ${investType?.themeColor ?? "#4f46e5"}08)`,
+                minHeight: 180,
+              }}
+            >
+              {activeCard?.image ? (
+                <>
+                  {/* 배경 블러 */}
+                  <div
+                    className="absolute inset-0 opacity-10 blur-xl scale-110"
+                    style={{ backgroundImage: `url(${activeCard.image})`, backgroundSize: "cover", backgroundPosition: "center" }}
+                  />
+                  {/* 카드 이미지 */}
                   <img
                     src={activeCard.image}
                     alt={activeCard.sublabel}
-                    className="w-full h-full object-cover object-top"
+                    className="relative z-10 object-contain drop-shadow-xl group-hover:scale-[1.02] transition-transform duration-300"
+                    style={{ height: 170, maxWidth: "75%" }}
                   />
-                ) : (
-                  <GameAvatar avatarId={avatarId} size={44} rounded="rounded-xl" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-foreground text-sm truncate group-hover:text-primary transition-colors leading-tight">
-                  {user.username}
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span
-                    className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ background: investType?.themeColor ?? "#888" }}
-                  />
-                  <span className="text-[11px] text-muted-foreground font-medium truncate">
-                    {investType?.label ?? "균형형"} · {DIFFICULTY_LABEL[user.difficulty ?? "beginner"]}
-                  </span>
+                  {/* 레어리티 뱃지 */}
+                  {activeCard.rarity !== "기본" && (
+                    <div className="absolute top-2.5 right-2.5 z-20 bg-yellow-400 text-yellow-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
+                      {activeCard.rarity}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="py-6">
+                  <GameAvatar avatarId={avatarId} size={80} rounded="rounded-2xl" />
                 </div>
+              )}
+              {/* 호버 오버레이 */}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+            </div>
+          </Link>
+
+          {/* 사용자 정보 */}
+          <div className="px-4 pt-3 pb-4 space-y-3">
+            <Link href="/my-info" className="block group cursor-pointer">
+              <p className="font-bold text-foreground text-sm group-hover:text-primary transition-colors leading-tight">
+                {user.username}
+              </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span
+                  className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ background: investType?.themeColor ?? "#888" }}
+                />
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  {investType?.label ?? "균형형"} · {DIFFICULTY_LABEL[user.difficulty ?? "beginner"]}
+                </span>
               </div>
             </Link>
 
             {/* 자산 요약 */}
-            <div className="bg-muted/60 rounded-lg p-3 space-y-2">
+            <div className="bg-muted/60 rounded-xl p-3 space-y-2">
               <div>
                 <p className="text-[10px] text-muted-foreground font-medium mb-0.5">총 자산</p>
                 <p className="text-base font-bold text-foreground tracking-tight">
@@ -111,7 +130,6 @@ export function Sidebar({ userId }: SidebarProps) {
           </div>
         </motion.div>
       )}
-
     </aside>
   );
 }
