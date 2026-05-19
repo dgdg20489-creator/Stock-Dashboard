@@ -23,9 +23,6 @@ export function Sidebar({ userId }: SidebarProps) {
     query: { refetchInterval: 3000, staleTime: 0 },
   });
 
-  const navItems = [
-    { label: "주식", path: "/", icon: BarChart2 },
-  ];
 
   const avatarId = user?.avatar ?? "balanced_m";
   const avatarDef = getAvatarDef(avatarId);
