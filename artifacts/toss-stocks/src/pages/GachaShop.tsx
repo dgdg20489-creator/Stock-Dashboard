@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Coins, Sparkles, Star, FlaskConical, History } from "lucide-react";
 import { useMissions } from "@/hooks/use-missions";
@@ -8,7 +8,6 @@ import cardSsrUrl from "/card_defensive_ssr.png";
 const PULL_COST = 10;
 const PULL_COUNT = 10;
 
-// SSR 등장 시 무작위로 표시할 캐릭터 대사
 const SSR_QUOTES = [
   { line1: "파도가 높을수록,", line2: "더 높이 날아오른다.", name: "서퍼 Analyst" },
   { line1: "시장을 지배하는 자,", line2: "이제 그 카드를 쥐어라.", name: "서퍼 Analyst" },
@@ -25,7 +24,6 @@ function loadCollected(): string[] {
   try { return JSON.parse(localStorage.getItem(collectedKey()) ?? "[]"); } catch { return []; }
 }
 function saveCollected(items: string[]) { localStorage.setItem(collectedKey(), JSON.stringify(items)); }
-
 type HistoryEntry = { timestamp: number; hasSsr: boolean; ssrName?: string };
 function loadHistory(): HistoryEntry[] {
   try { return JSON.parse(localStorage.getItem(historyKey()) ?? "[]"); } catch { return []; }
@@ -34,7 +32,7 @@ function saveHistory(h: HistoryEntry[]) { localStorage.setItem(historyKey(), JSO
 
 type PullResult = { idx: number; type: "ssr" | "miss" };
 function generatePull(): PullResult[] {
-  const results: PullResult[] = Array.from({ length: PULL_COUNT }, (_, i) => ({ idx: i, type: "miss" }));
+  const results: PullResult[] = Array.from({ length: PULL_COUNT }, (_, i) => ({ idx: i, type: "miss" as const }));
   const ssrPos = Math.floor(Math.random() * PULL_COUNT);
   results[ssrPos] = { idx: ssrPos, type: "ssr" };
   return results;
@@ -53,14 +51,16 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
   const { coins, deductCoins, addCoins } = useMissions();
   const [collected, setCollected] = useState<string[]>(loadCollected);
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
+
+  // 뽑기 모달
   const [results, setResults] = useState<PullResult[] | null>(null);
   const [revealed, setRevealed] = useState<boolean[]>([]);
   const [pulling, setPulling] = useState(false);
   const [showModal, setShowModal] = useState(false);
+
+  // SSR 시네마틱
   const [ssrCinematic, setSsrCinematic] = useState(false);
   const [currentQuote, setCurrentQuote] = useState(SSR_QUOTES[0]);
-  const [cinematicReady, setCinematicReady] = useState(false);
-  const shimmerRef = useRef<HTMLDivElement>(null);
 
   const totalPulls = history.length * PULL_COUNT;
   const totalSsr = history.filter(h => h.hasSsr).length;
@@ -72,46 +72,46 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
     setResults(pull);
     setRevealed(new Array(PULL_COUNT).fill(false));
     setSsrCinematic(false);
-    setCinematicReady(false);
     setShowModal(true);
     setPulling(true);
 
-    pull.forEach((r, i) => {
+    // 카드 순차 오픈
+    pull.forEach((_, i) => {
       setTimeout(() => {
         setRevealed(prev => { const n = [...prev]; n[i] = true; return n; });
         if (i === PULL_COUNT - 1) {
           setPulling(false);
           const gotSsr = pull.some(r => r.type === "ssr");
-          const newEntry: HistoryEntry = { timestamp: Date.now(), hasSsr: gotSsr, ssrName: gotSsr ? "서퍼 Analyst" : undefined };
-          const nextHistory = [newEntry, ...history];
-          setHistory(nextHistory);
-          saveHistory(nextHistory);
-          if (gotSsr) {
-            if (!collected.includes("defensive_ssr")) {
-              const next = [...collected, "defensive_ssr"];
-              setCollected(next);
-              saveCollected(next);
-            }
-            // SSR 연출 시작
-            const q = SSR_QUOTES[Math.floor(Math.random() * SSR_QUOTES.length)];
-            setCurrentQuote(q);
-            setTimeout(() => setSsrCinematic(true), 600);
+          const entry: HistoryEntry = { timestamp: Date.now(), hasSsr: gotSsr, ssrName: gotSsr ? "서퍼 Analyst" : undefined };
+          const next = [entry, ...history];
+          setHistory(next);
+          saveHistory(next);
+          if (gotSsr && !collected.includes("defensive_ssr")) {
+            const c = [...collected, "defensive_ssr"];
+            setCollected(c);
+            saveCollected(c);
           }
         }
-      }, i * 280 + 300);
+      }, i * 220 + 200);
     });
   };
 
-  const closeCinematic = () => {
-    setSsrCinematic(false);
-    setCinematicReady(false);
+  const handleSsrClick = () => {
+    const q = SSR_QUOTES[Math.floor(Math.random() * SSR_QUOTES.length)];
+    setCurrentQuote(q);
+    setSsrCinematic(true);
   };
+
+  const closeCinematic = () => setSsrCinematic(false);
+
   const closeModal = () => {
     setShowModal(false);
     setResults(null);
     setRevealed([]);
   };
+
   const allRevealed = revealed.length > 0 && revealed.every(Boolean);
+  const hasSsrInResults = results?.some(r => r.type === "ssr") ?? false;
 
   return (
     <div className="max-w-md mx-auto px-4 py-6 space-y-4">
@@ -218,14 +218,16 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
         )}
       </div>
 
-      {/* ═══ 뽑기 결과 모달 ═══ */}
+      {/* ══════════════════════════
+          뽑기 결과 모달
+      ══════════════════════════ */}
       <AnimatePresence>
         {showModal && results && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/88 flex flex-col items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -234,62 +236,110 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
               className="w-full max-w-sm"
             >
               <h2 className="text-white font-extrabold text-xl text-center mb-4">🎰 10연차 결과</h2>
-              <div className="grid grid-cols-5 gap-2 mb-4">
+
+              {/* 카드 그리드 */}
+              <div className="grid grid-cols-5 gap-2 mb-5">
                 {results.map((result, i) => (
                   <div key={result.idx} className="relative aspect-[2/3]">
                     <AnimatePresence mode="wait">
+                      {/* 뒷면 */}
                       {!revealed[i] ? (
                         <motion.div
                           key="back"
-                          initial={{ opacity: 1 }}
-                          exit={{ opacity: 0, scale: 0.8 }}
-                          transition={{ duration: 0.15 }}
-                          className="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-800 to-purple-900 flex items-center justify-center border border-violet-600/50"
+                          exit={{ rotateY: 90, opacity: 0 }}
+                          transition={{ duration: 0.18 }}
+                          className="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-800 to-purple-900 flex items-center justify-center border border-violet-600/40"
                         >
-                          <span className="text-white text-lg font-bold opacity-60">?</span>
+                          <span className="text-white/50 text-base font-bold">?</span>
                         </motion.div>
                       ) : result.type === "ssr" ? (
+                        /* ─── SSR 황금 카드 ─── */
                         <motion.div
                           key="ssr"
-                          initial={{ scale: 0.5, opacity: 0, rotate: -10 }}
-                          animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                          transition={{ type: "spring", bounce: 0.5 }}
-                          className="absolute inset-0 rounded-xl overflow-hidden"
-                          style={{ boxShadow: "0 0 20px 6px #FFD70099, 0 0 40px 12px #FFD70044" }}
+                          initial={{ rotateY: -90, scale: 0.8 }}
+                          animate={{ rotateY: 0, scale: 1 }}
+                          transition={{ type: "spring", bounce: 0.45, duration: 0.5 }}
+                          onClick={handleSsrClick}
+                          className="absolute inset-0 rounded-xl overflow-hidden cursor-pointer"
+                          style={{
+                            background: "linear-gradient(135deg, #7c5c00, #FFD700, #c8960c, #FFD700, #7c5c00)",
+                            backgroundSize: "200% 200%",
+                            boxShadow: "0 0 18px 5px #FFD70088, 0 0 6px 2px #FFD700",
+                          }}
                         >
-                          <img src={cardSsrUrl} alt="SSR" className="w-full h-full object-cover" />
-                          <div className="absolute top-0.5 right-0.5 bg-yellow-400 text-yellow-900 text-[7px] font-extrabold px-1 py-0.5 rounded leading-none">SSR</div>
+                          {/* 내부 빛 애니메이션 */}
                           <motion.div
-                            initial={{ opacity: 0.9 }}
-                            animate={{ opacity: 0 }}
-                            transition={{ duration: 0.6, delay: 0.1 }}
-                            className="absolute inset-0 bg-white"
+                            className="absolute inset-0"
+                            style={{
+                              background: "linear-gradient(110deg, transparent 30%, rgba(255,255,220,0.55) 50%, transparent 70%)",
+                            }}
+                            animate={{ x: ["-100%", "200%"] }}
+                            transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 0.8, ease: "easeInOut" }}
                           />
+                          {/* 황금 패턴 */}
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+                            <motion.div
+                              animate={{ scale: [1, 1.15, 1], opacity: [0.8, 1, 0.8] }}
+                              transition={{ duration: 1.6, repeat: Infinity }}
+                              className="text-xl"
+                            >
+                              ✦
+                            </motion.div>
+                            <p className="text-[9px] font-extrabold text-yellow-900/80 tracking-widest">SSR</p>
+                            <motion.div
+                              animate={{ scale: [1, 1.15, 1], opacity: [0.8, 1, 0.8] }}
+                              transition={{ duration: 1.6, repeat: Infinity, delay: 0.4 }}
+                              className="text-xl"
+                            >
+                              ✦
+                            </motion.div>
+                          </div>
+                          {/* 탭 힌트 */}
+                          <motion.div
+                            animate={{ opacity: [0, 1, 0] }}
+                            transition={{ duration: 1.2, repeat: Infinity, delay: 0.8 }}
+                            className="absolute bottom-1 left-0 right-0 text-center"
+                          >
+                            <span className="text-[8px] font-bold text-yellow-900/60">TAP</span>
+                          </motion.div>
                         </motion.div>
                       ) : (
+                        /* ─── 꽝 ─── */
                         <motion.div
                           key="miss"
-                          initial={{ scale: 0.8, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ duration: 0.2 }}
+                          initial={{ rotateY: -90, scale: 0.8 }}
+                          animate={{ rotateY: 0, scale: 1 }}
+                          transition={{ type: "spring", bounce: 0.3, duration: 0.4 }}
                           className="absolute inset-0 rounded-xl bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center border border-gray-600/30"
                         >
-                          <span className="text-gray-400 font-bold text-sm">꽝</span>
+                          <span className="text-gray-400 font-bold text-xs">꽝</span>
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
                 ))}
               </div>
-              {allRevealed && !ssrCinematic && (
+
+              {/* 안내 텍스트 */}
+              {allRevealed && hasSsrInResults && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center text-yellow-400 text-xs font-bold mb-3"
+                >
+                  ✨ 황금 카드를 탭해서 확인하세요!
+                </motion.p>
+              )}
+
+              {allRevealed && (
                 <motion.button
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
+                  transition={{ delay: 0.3 }}
                   onClick={closeModal}
-                  className="w-full bg-white text-gray-900 font-extrabold py-3 rounded-2xl hover:bg-gray-100 transition-colors"
+                  className="w-full bg-white/10 hover:bg-white/20 text-white font-extrabold py-3 rounded-2xl transition-colors border border-white/20"
                 >
-                  확인
+                  닫기
                 </motion.button>
               )}
             </motion.div>
@@ -297,197 +347,186 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
         )}
       </AnimatePresence>
 
-      {/* ═══ SSR 시네마틱 연출 ═══ */}
+      {/* ══════════════════════════
+          SSR 시네마틱 (황금 카드 탭 시)
+      ══════════════════════════ */}
       <AnimatePresence>
         {ssrCinematic && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.35 }}
             className="fixed inset-0 z-[60] flex items-center justify-center cursor-pointer overflow-hidden"
             style={{ background: "#000" }}
             onClick={closeCinematic}
           >
-            {/* 황금 빛줄기 배경 */}
+            {/* 황금 빛줄기 */}
             <div className="absolute inset-0 pointer-events-none">
-              {Array.from({ length: 12 }).map((_, i) => (
+              {Array.from({ length: 14 }).map((_, i) => (
                 <motion.div
                   key={i}
                   className="absolute"
                   style={{
-                    left: "50%",
-                    top: "50%",
-                    width: 2,
-                    height: "65vh",
-                    background: "linear-gradient(to bottom, #FFD70099, transparent)",
+                    left: "50%", top: "50%",
+                    width: 2, height: "70vh",
+                    background: "linear-gradient(to bottom, #FFD70077, transparent)",
                     transformOrigin: "top center",
-                    rotate: `${i * 30}deg`,
+                    rotate: `${i * (360 / 14)}deg`,
                     translateX: "-50%",
-                    translateY: "-10%",
+                    translateY: "-5%",
                   }}
                   initial={{ opacity: 0, scaleY: 0 }}
-                  animate={{ opacity: [0, 0.6, 0.3], scaleY: 1 }}
-                  transition={{ delay: 0.3 + i * 0.04, duration: 0.8 }}
+                  animate={{ opacity: [0, 0.7, 0.35], scaleY: 1 }}
+                  transition={{ delay: 0.15 + i * 0.03, duration: 0.7 }}
                 />
               ))}
             </div>
 
             {/* 파티클 */}
-            {Array.from({ length: 20 }).map((_, i) => (
+            {Array.from({ length: 22 }).map((_, i) => (
               <motion.div
                 key={`p${i}`}
                 className="absolute rounded-full pointer-events-none"
                 style={{
-                  width: Math.random() * 6 + 3,
-                  height: Math.random() * 6 + 3,
-                  background: i % 3 === 0 ? "#FFD700" : i % 3 === 1 ? "#FFF5B0" : "#FFAA00",
-                  left: `${20 + Math.random() * 60}%`,
+                  width: Math.random() * 5 + 3,
+                  height: Math.random() * 5 + 3,
+                  background: i % 3 === 0 ? "#FFD700" : i % 3 === 1 ? "#FFF8B0" : "#FFAA00",
+                  left: `${15 + Math.random() * 70}%`,
                   top: `${10 + Math.random() * 80}%`,
                 }}
                 initial={{ opacity: 0, scale: 0 }}
-                animate={{
-                  opacity: [0, 1, 0],
-                  scale: [0, 1.5, 0],
-                  y: [0, -(Math.random() * 60 + 20)],
-                }}
+                animate={{ opacity: [0, 1, 0], scale: [0, 1.4, 0], y: [0, -(40 + Math.random() * 60)] }}
                 transition={{
-                  delay: 0.4 + Math.random() * 0.8,
-                  duration: 1.2 + Math.random() * 0.8,
+                  delay: 0.2 + Math.random() * 0.8,
+                  duration: 1 + Math.random() * 0.8,
                   repeat: Infinity,
-                  repeatDelay: Math.random() * 1,
+                  repeatDelay: Math.random() * 1.2,
                 }}
               />
             ))}
 
-            {/* 레이아웃: 왼쪽 대사 / 오른쪽 카드 */}
-            <div className="relative z-10 flex items-center justify-center gap-6 px-8 w-full max-w-sm">
-              {/* 왼쪽: 캐릭터 대사 */}
+            {/* 레이아웃 */}
+            <div className="relative z-10 flex items-center justify-center gap-5 px-6 w-full max-w-sm">
+              {/* 왼쪽: 대사 */}
               <div className="flex-1 min-w-0">
-                <motion.div
-                  initial={{ opacity: 0, x: -30 }}
+                <motion.p
+                  initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5, duration: 0.6 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                  className="text-yellow-400/60 text-[10px] font-bold tracking-widest uppercase mb-3"
                 >
-                  <p className="text-yellow-400/60 text-[10px] font-bold tracking-widest uppercase mb-2">SSR CARD</p>
-                </motion.div>
+                  SSR CARD
+                </motion.p>
 
-                <motion.div
-                  initial={{ opacity: 0, x: -24 }}
+                <motion.p
+                  initial={{ opacity: 0, x: -22 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.7, duration: 0.5 }}
+                  transition={{ delay: 0.5, duration: 0.45 }}
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: 900,
+                    color: "#FFD700",
+                    textShadow: "0 0 18px #FFD700, 0 0 36px #FFD70066",
+                    lineHeight: 1.4,
+                  }}
                 >
-                  <p
-                    className="font-extrabold leading-snug mb-1"
-                    style={{
-                      fontSize: "1.15rem",
-                      color: "#FFD700",
-                      textShadow: "0 0 20px #FFD700, 0 0 40px #FFD70066",
-                    }}
-                  >
-                    {currentQuote.line1}
-                  </p>
-                </motion.div>
+                  {currentQuote.line1}
+                </motion.p>
 
-                <motion.div
-                  initial={{ opacity: 0, x: -24 }}
+                <motion.p
+                  initial={{ opacity: 0, x: -22 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.95, duration: 0.5 }}
+                  transition={{ delay: 0.78, duration: 0.45 }}
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: 900,
+                    color: "#FFD700",
+                    textShadow: "0 0 18px #FFD700, 0 0 36px #FFD70066",
+                    lineHeight: 1.4,
+                  }}
                 >
-                  <p
-                    className="font-extrabold leading-snug"
-                    style={{
-                      fontSize: "1.15rem",
-                      color: "#FFD700",
-                      textShadow: "0 0 20px #FFD700, 0 0 40px #FFD70066",
-                    }}
-                  >
-                    {currentQuote.line2}
-                  </p>
-                </motion.div>
+                  {currentQuote.line2}
+                </motion.p>
 
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: 1.4 }}
-                  className="text-yellow-200/50 text-[11px] font-semibold mt-3"
+                  transition={{ delay: 1.3 }}
+                  className="text-yellow-200/45 text-[11px] font-semibold mt-3"
                 >
                   — {currentQuote.name}
                 </motion.p>
 
                 <motion.p
                   initial={{ opacity: 0 }}
-                  animate={{ opacity: [0, 0.6, 0.3, 0.6] }}
-                  transition={{ delay: 2.2, duration: 1, repeat: Infinity, repeatType: "reverse" }}
-                  className="text-white/30 text-[10px] font-medium mt-6"
+                  animate={{ opacity: [0, 0.55, 0.2, 0.55] }}
+                  transition={{ delay: 2.2, duration: 1.2, repeat: Infinity, repeatType: "reverse" }}
+                  className="text-white/25 text-[10px] font-medium mt-7"
                 >
                   탭하여 닫기
                 </motion.p>
               </div>
 
-              {/* 오른쪽: SSR 카드 */}
-              <div className="flex-shrink-0" style={{ width: 130 }}>
+              {/* 오른쪽: 카드 풀 일러스트 */}
+              <div className="flex-shrink-0 relative" style={{ width: 136 }}>
+                {/* 후광 */}
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.4, y: 30, rotate: 8 }}
-                  animate={{ opacity: 1, scale: 1, y: 0, rotate: 0 }}
-                  transition={{ delay: 0.4, duration: 0.7, type: "spring", bounce: 0.4 }}
+                  className="absolute -inset-4 rounded-2xl"
+                  animate={{
+                    boxShadow: [
+                      "0 0 24px 10px #FFD70044",
+                      "0 0 48px 20px #FFD70099",
+                      "0 0 24px 10px #FFD70044",
+                    ],
+                  }}
+                  transition={{ duration: 1.6, repeat: Infinity }}
+                />
+
+                <motion.div
+                  initial={{ scale: 0.35, opacity: 0, y: 28, rotate: 6 }}
+                  animate={{ scale: 1, opacity: 1, y: 0, rotate: 0 }}
+                  transition={{ delay: 0.25, duration: 0.65, type: "spring", bounce: 0.38 }}
                   className="relative"
                 >
-                  {/* 카드 빛 후광 */}
-                  <motion.div
-                    className="absolute -inset-3 rounded-2xl"
-                    animate={{
-                      boxShadow: [
-                        "0 0 20px 8px #FFD70055",
-                        "0 0 40px 16px #FFD70099",
-                        "0 0 20px 8px #FFD70055",
-                      ],
-                    }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                  {/* 카드 */}
+                  <img
+                    src={cardSsrUrl}
+                    alt="SSR 카드"
+                    className="w-full rounded-xl"
+                    style={{ boxShadow: "0 6px 28px rgba(255,215,0,0.45)" }}
                   />
 
-                  {/* 황금 회전 shimmer */}
-                  <motion.div
-                    className="absolute inset-0 rounded-xl overflow-hidden z-10 pointer-events-none"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.6 }}
-                  >
+                  {/* shimmer 스캔라인 */}
+                  <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
                     <motion.div
                       className="absolute inset-0"
                       style={{
-                        background: "linear-gradient(105deg, transparent 30%, rgba(255,215,0,0.45) 50%, transparent 70%)",
+                        background: "linear-gradient(108deg, transparent 30%, rgba(255,245,150,0.5) 50%, transparent 70%)",
                       }}
-                      animate={{ x: ["-100%", "200%"] }}
-                      transition={{ delay: 0.8, duration: 1.2, repeat: Infinity, repeatDelay: 1.5 }}
+                      animate={{ x: ["-110%", "210%"] }}
+                      transition={{ delay: 0.7, duration: 1, repeat: Infinity, repeatDelay: 1.3 }}
                     />
-                  </motion.div>
+                  </div>
 
-                  <img
-                    src={cardSsrUrl}
-                    alt="SSR"
-                    className="w-full rounded-xl relative z-0"
-                    style={{ boxShadow: "0 8px 32px rgba(255,215,0,0.4)" }}
+                  {/* 등장 플래시 */}
+                  <motion.div
+                    initial={{ opacity: 1 }}
+                    animate={{ opacity: 0 }}
+                    transition={{ delay: 0.25, duration: 0.4 }}
+                    className="absolute inset-0 bg-white rounded-xl pointer-events-none"
                   />
 
                   {/* SSR 뱃지 */}
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    transition={{ delay: 0.9, type: "spring", bounce: 0.6 }}
-                    className="absolute -top-2 -right-2 z-20 bg-yellow-400 text-yellow-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-lg"
-                    style={{ boxShadow: "0 0 12px #FFD700" }}
+                    transition={{ delay: 0.8, type: "spring", bounce: 0.6 }}
+                    className="absolute -top-2 -right-2 z-20 bg-yellow-400 text-yellow-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full"
+                    style={{ boxShadow: "0 0 10px #FFD700" }}
                   >
                     SSR
                   </motion.div>
-
-                  {/* 등장 플래시 */}
-                  <motion.div
-                    initial={{ opacity: 1 }}
-                    animate={{ opacity: 0 }}
-                    transition={{ delay: 0.4, duration: 0.5 }}
-                    className="absolute inset-0 bg-white rounded-xl z-30"
-                  />
                 </motion.div>
               </div>
             </div>
