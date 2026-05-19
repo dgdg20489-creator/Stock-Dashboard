@@ -33,6 +33,8 @@ interface RealtimeRow {
   per: string | null;
   pbr: string | null;
   eps: string | null;
+  bps: string | null;
+  roe: string | null;
   dividend_yield: string | null;
   open_price: string | null;
   high_price: string | null;
@@ -40,12 +42,59 @@ interface RealtimeRow {
   logo_url: string | null;
 }
 
+// ── 네이버 integration API 실시간 재무지표 캐시 (10분) ──────────────────
+const _naverFinCache = new Map<string, { data: NaverFinData; ts: number }>();
+interface NaverFinData {
+  per: number; eps: number; pbr: number; bps: number;
+  dividendYield: number; high52w: number; low52w: number;
+}
+const NAVER_FIN_TTL = 10 * 60 * 1000; // 10분
+
+async function fetchNaverIntegration(ticker: string): Promise<NaverFinData | null> {
+  const cached = _naverFinCache.get(ticker);
+  if (cached && Date.now() - cached.ts < NAVER_FIN_TTL) return cached.data;
+  try {
+    const url = `https://m.stock.naver.com/api/stock/${ticker}/integration`;
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+        "Referer": "https://m.stock.naver.com/",
+      },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return null;
+    const d = await res.json() as { totalInfos?: Array<{ code: string; value: string }> };
+    const infos: Record<string, string> = {};
+    for (const item of d.totalInfos ?? []) {
+      if (item.code) infos[item.code] = item.value ?? "";
+    }
+    const parseNum = (s: string) => {
+      if (!s) return 0;
+      const n = parseFloat(s.replace(/[^0-9.]/g, ""));
+      return isNaN(n) ? 0 : n;
+    };
+    const data: NaverFinData = {
+      per:           parseNum(infos.per            ?? ""),
+      eps:           parseNum(infos.eps            ?? ""),
+      pbr:           parseNum(infos.pbr            ?? ""),
+      bps:           parseNum(infos.bps            ?? ""),
+      dividendYield: parseNum(infos.dividendYieldRatio ?? ""),
+      high52w:       parseNum(infos.highPriceOf52Weeks ?? ""),
+      low52w:        parseNum(infos.lowPriceOf52Weeks  ?? ""),
+    };
+    _naverFinCache.set(ticker, { data, ts: Date.now() });
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 async function getAllStocksFromDB(): Promise<RealtimeRow[]> {
   try {
     const result = await pool.query<RealtimeRow>(`
       SELECT ticker, name, current_price, change_val, change_pct, volume,
              market_cap, sector, market,
-             high52w, low52w, per, pbr, eps, dividend_yield,
+             high52w, low52w, per, pbr, eps, bps, roe, dividend_yield,
              open_price, high_price, low_price, logo_url
       FROM stocks_realtime
       ORDER BY COALESCE(market_cap, 0) DESC
@@ -61,7 +110,7 @@ async function getStockFromDB(ticker: string): Promise<RealtimeRow | null> {
     const result = await pool.query<RealtimeRow>(`
       SELECT ticker, name, current_price, change_val, change_pct, volume,
              market_cap, sector, market,
-             high52w, low52w, per, pbr, eps, dividend_yield,
+             high52w, low52w, per, pbr, eps, bps, roe, dividend_yield,
              open_price, high_price, low_price, logo_url
       FROM stocks_realtime
       WHERE ticker = $1
@@ -378,9 +427,11 @@ router.get("/ipo", async (_req, res) => {
 
 router.get("/stocks/:ticker", async (req, res) => {
   const ticker = req.params.ticker;
-  // Try DB first
-  const dbRow = await getStockFromDB(ticker);
-  // STOCKS_DATA fallback for metadata
+  // DB + Naver integration API 동시 조회 (빠른 응답)
+  const [dbRow, naverFin] = await Promise.all([
+    getStockFromDB(ticker),
+    fetchNaverIntegration(ticker),
+  ]);
   const legacy = STOCKS_DATA.find((s) => s.ticker === ticker);
 
   if (!dbRow && !legacy) {
@@ -394,17 +445,20 @@ router.get("/stocks/:ticker", async (req, res) => {
   const volume       = dbRow ? (parseInt(dbRow.volume) || 1_000_000) : getVolume(ticker);
   const mcap         = dbRow ? (parseInt(dbRow.market_cap) || 0)    : (legacy?.marketCap ?? 0);
   const sector       = dbRow?.sector || legacy?.sector || "종합";
-  const high52w      = dbRow?.high52w ? parseFloat(dbRow.high52w) : (legacy?.high52w ?? currentPrice * 1.3);
-  const low52w       = dbRow?.low52w  ? parseFloat(dbRow.low52w)  : (legacy?.low52w  ?? currentPrice * 0.7);
-  const per          = dbRow?.per     ? parseFloat(dbRow.per)     : (legacy?.per     ?? 0);
-  const pbr          = dbRow?.pbr     ? parseFloat(dbRow.pbr)     : (legacy?.pbr     ?? 0);
-  const eps          = dbRow?.eps     ? parseFloat(dbRow.eps)     : (legacy?.eps     ?? 0);
-  const dividendYield = dbRow?.dividend_yield ? parseFloat(dbRow.dividend_yield) : (legacy?.dividendYield ?? 0);
-  const openPrice    = dbRow?.open_price ? Math.round(parseFloat(dbRow.open_price)) : Math.round(currentPrice * 1.001);
-  const highOffset   = currentPrice * 0.015;
-  const lowOffset    = currentPrice * 0.012;
-  const highPrice    = dbRow?.high_price ? Math.round(parseFloat(dbRow.high_price)) : Math.round(currentPrice + highOffset);
-  const lowPrice     = dbRow?.low_price  ? Math.round(parseFloat(dbRow.low_price))  : Math.round(currentPrice - lowOffset);
+
+  // 재무지표: 네이버 실시간 API 우선, DB fallback
+  const per           = naverFin?.per           || (dbRow?.per  ? parseFloat(dbRow.per)  : (legacy?.per     ?? 0));
+  const eps           = naverFin?.eps           || (dbRow?.eps  ? parseFloat(dbRow.eps)  : (legacy?.eps     ?? 0));
+  const pbr           = naverFin?.pbr           || (dbRow?.pbr  ? parseFloat(dbRow.pbr)  : (legacy?.pbr     ?? 0));
+  const bps           = naverFin?.bps           || (dbRow?.bps  ? parseFloat(dbRow.bps)  : 0);
+  const dividendYield = naverFin?.dividendYield || (dbRow?.dividend_yield ? parseFloat(dbRow.dividend_yield) : (legacy?.dividendYield ?? 0));
+  const high52w       = naverFin?.high52w       || (dbRow?.high52w ? parseFloat(dbRow.high52w) : (legacy?.high52w ?? currentPrice * 1.3));
+  const low52w        = naverFin?.low52w        || (dbRow?.low52w  ? parseFloat(dbRow.low52w)  : (legacy?.low52w  ?? currentPrice * 0.7));
+  const roe           = dbRow?.roe ? parseFloat(dbRow.roe) : 0;
+
+  const openPrice = dbRow?.open_price ? Math.round(parseFloat(dbRow.open_price)) : Math.round(currentPrice * 1.001);
+  const highPrice = dbRow?.high_price ? Math.round(parseFloat(dbRow.high_price)) : Math.round(currentPrice * 1.015);
+  const lowPrice  = dbRow?.low_price  ? Math.round(parseFloat(dbRow.low_price))  : Math.round(currentPrice * 0.988);
 
   const detail = {
     ticker,
@@ -426,7 +480,8 @@ router.get("/stocks/:ticker", async (req, res) => {
     lowPrice,
   };
   const parsed = GetStockByTickerResponse.parse(detail);
-  res.json(parsed);
+  // bps, roe는 스키마에 없으므로 별도 추가
+  res.json({ ...parsed, bps, roe });
 });
 
 // ─── 실시간 시장 순위 (거래대금 / 거래량) ───────────────────────────────

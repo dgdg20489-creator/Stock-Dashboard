@@ -321,26 +321,34 @@ export default function StockDetail({ userId }: StockDetailProps) {
           {/* 기업 정보 */}
           <div className="bg-card rounded-3xl p-6 shadow-sm border border-border/50">
             <h3 className="text-base font-extrabold mb-5 text-foreground">기업 정보</h3>
-            <div className="grid grid-cols-3 gap-y-6 gap-x-4">
-              <Metric label="시가총액" value={formatLargeNumber(stock.marketCap)} tooltip />
-              <Metric label="배당수익률" value={stock.dividendYield > 0 ? `${stock.dividendYield.toFixed(2)}%` : "-"} tooltip />
-              <Metric label="PBR" value={stock.pbr > 0 ? `${stock.pbr.toFixed(2)}배` : "-"} tooltip />
-              <Metric label="PER" value={stock.per > 0 ? `${stock.per.toFixed(2)}배` : "적자"} tooltip />
-              <Metric
-                label="ROE"
-                value={(() => {
-                  const eps = stock.eps ?? 0;
-                  const pbr = stock.pbr ?? 0;
-                  const price = currentPrice;
-                  if (eps > 0 && pbr > 0 && price > 0) {
-                    return `${((eps * pbr / price) * 100).toFixed(1)}%`;
-                  }
-                  return "-";
-                })()}
-                tooltip
-              />
-              <Metric label="PSR" value="-" tooltip />
-            </div>
+            {(() => {
+              // bps, roe는 OpenAPI 스키마 외 필드 — any cast로 접근
+              const ext = stock as unknown as { bps?: number; roe?: number };
+              const bps = ext.bps ?? 0;
+              const roe = ext.roe ?? 0;
+              return (
+                <div className="grid grid-cols-2 gap-y-5 gap-x-6">
+                  <Metric label="시가총액" value={formatLargeNumber(stock.marketCap)} tooltip />
+                  <Metric label="배당수익률" value={stock.dividendYield > 0 ? `${stock.dividendYield.toFixed(2)}%` : "-"} tooltip />
+                  <Metric label="PER" value={stock.per > 0 ? `${stock.per.toFixed(2)}배` : "적자"} tooltip />
+                  <Metric label="EPS" value={stock.eps > 0 ? `${stock.eps.toLocaleString()}원` : "-"} tooltip />
+                  <Metric label="PBR" value={stock.pbr > 0 ? `${stock.pbr.toFixed(2)}배` : "-"} tooltip />
+                  <Metric label="BPS" value={bps > 0 ? `${bps.toLocaleString()}원` : "-"} tooltip />
+                  <Metric label="ROE" value={roe > 0 ? `${roe.toFixed(1)}%` : "-"} tooltip />
+                  <Metric
+                    label="52주 최고"
+                    value={stock.high52w > 0 ? `${stock.high52w.toLocaleString()}원` : "-"}
+                    tooltip
+                  />
+                  <Metric
+                    label="52주 최저"
+                    value={stock.low52w > 0 ? `${stock.low52w.toLocaleString()}원` : "-"}
+                    tooltip
+                  />
+                  <Metric label="섹터" value={stock.sector || "-"} tooltip />
+                </div>
+              );
+            })()}
           </div>
 
           {/* 매수/매도 */}

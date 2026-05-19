@@ -511,8 +511,21 @@ def _parse_52w_from_totalinfos(total_infos: list) -> tuple:
     return high52w, low52w
 
 
+def _parse_num(s: str) -> float:
+    """숫자 문자열 파싱 — '41.74배', '6,564원', '0.61%' 등에서 숫자만 추출."""
+    if not s:
+        return 0.0
+    cleaned = s.replace(",", "").replace("원", "").replace("배", "").replace("%", "").strip()
+    try:
+        return float(cleaned)
+    except Exception:
+        return 0.0
+
+
 def _fetch_naver_integration(ticker: str) -> dict:
-    """네이버 integration API에서 52주 최고/최저 + 섹터 가져오기."""
+    """네이버 integration API totalInfos에서 전체 재무지표 가져오기.
+    Returns: high52w, low52w, sector, per, eps, pbr, bps, dividend_yield
+    """
     import requests
     try:
         url = f"https://m.stock.naver.com/api/stock/{ticker}/integration"
@@ -520,70 +533,77 @@ def _fetch_naver_integration(ticker: str) -> dict:
         if r.status_code != 200:
             return {}
         d = r.json()
-        total_infos = d.get("totalInfos", [])
-        high52w, low52w = _parse_52w_from_totalinfos(total_infos)
+
+        # totalInfos → code→value 딕셔너리로 변환
+        infos: dict = {}
+        for item in d.get("totalInfos", []):
+            code = item.get("code", "")
+            val  = str(item.get("value", ""))
+            if code:
+                infos[code] = val
+
+        # 52주 최고/최저
+        high52w = _parse_num(infos.get("highPriceOf52Weeks", ""))
+        low52w  = _parse_num(infos.get("lowPriceOf52Weeks", ""))
+
+        # 섹터
         industry_code = str(d.get("industryCode", ""))
         sector = NAVER_INDUSTRY_MAP.get(industry_code, "")
-        return {"high52w": high52w, "low52w": low52w, "sector": sector}
+
+        # 재무지표
+        per           = _parse_num(infos.get("per", ""))
+        eps           = _parse_num(infos.get("eps", ""))
+        pbr           = _parse_num(infos.get("pbr", ""))
+        bps           = _parse_num(infos.get("bps", ""))
+        dividend_yield = _parse_num(infos.get("dividendYieldRatio", ""))
+
+        return {
+            "high52w": high52w, "low52w": low52w, "sector": sector,
+            "per": per, "eps": eps, "pbr": pbr, "bps": bps,
+            "dividend_yield": dividend_yield,
+        }
     except Exception:
         return {}
 
 
-def _fetch_naver_eps(ticker: str) -> float:
-    """네이버 finance/summary API에서 최근 분기 EPS 가져오기."""
-    import requests
-    try:
-        url = f"https://m.stock.naver.com/api/stock/{ticker}/finance/summary"
-        r = requests.get(url, headers=NAVER_HEADERS, timeout=6)
-        if r.status_code != 200:
-            return 0.0
-        d = r.json()
-        chart_eps = d.get("chartEps", {})
-        cols = chart_eps.get("columns", [])
-        if len(cols) >= 2:
-            eps_row = cols[1]
-            if len(eps_row) >= 2:
-                try:
-                    return float(str(eps_row[-1]).replace(",", ""))
-                except Exception:
-                    pass
-        return 0.0
-    except Exception:
-        return 0.0
-
-
 def fetch_stock_details_batch(conn):
-    """상위 200종목의 sector, EPS, 52주 최고/최저를 네이버에서 가져와 DB 업데이트."""
-    log.info("=== 종목 상세 재무정보 수집 시작 (상위 200종목) ===")
-    tickers = get_all_tickers_from_db(conn)[:200]
+    """상위 300종목의 재무정보(PER/EPS/PBR/BPS/배당수익률/52주/섹터)를
+    네이버 integration API에서 가져와 DB 업데이트 (2시간마다 실행)."""
+    log.info("=== 종목 상세 재무정보 수집 시작 (상위 300종목) ===")
+    tickers = get_all_tickers_from_db(conn)[:300]
     updated = 0
     for ticker in tickers:
         try:
             info = _fetch_naver_integration(ticker)
-            eps = _fetch_naver_eps(ticker)
-            high52w = info.get("high52w", 0)
-            low52w  = info.get("low52w",  0)
-            sector  = info.get("sector",  "")
-            if high52w > 0 or low52w > 0 or eps > 0 or sector:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE stocks_realtime
-                        SET
-                          high52w  = CASE WHEN %s > 0 THEN %s ELSE high52w END,
-                          low52w   = CASE WHEN %s > 0 THEN %s ELSE low52w  END,
-                          eps      = CASE WHEN %s > 0 THEN %s ELSE eps     END,
-                          sector   = CASE WHEN %s <> '' THEN %s ELSE sector END
-                        WHERE ticker = %s
-                    """, (
-                        high52w, high52w,
-                        low52w,  low52w,
-                        eps,     eps,
-                        sector,  sector,
-                        ticker,
-                    ))
-                conn.commit()
-                updated += 1
-            time.sleep(0.15)
+            if not info:
+                time.sleep(0.1)
+                continue
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE stocks_realtime SET
+                      high52w        = CASE WHEN %(h)s > 0 THEN %(h)s ELSE high52w  END,
+                      low52w         = CASE WHEN %(l)s > 0 THEN %(l)s ELSE low52w   END,
+                      per            = CASE WHEN %(per)s > 0 THEN %(per)s ELSE per  END,
+                      eps            = CASE WHEN %(eps)s > 0 THEN %(eps)s ELSE eps  END,
+                      pbr            = CASE WHEN %(pbr)s > 0 THEN %(pbr)s ELSE pbr  END,
+                      bps            = CASE WHEN %(bps)s > 0 THEN %(bps)s ELSE bps  END,
+                      dividend_yield = CASE WHEN %(dy)s > 0 THEN %(dy)s ELSE dividend_yield END,
+                      sector         = CASE WHEN %(sec)s <> '' THEN %(sec)s ELSE sector END
+                    WHERE ticker = %(ticker)s
+                """, {
+                    "h":      info.get("high52w", 0),
+                    "l":      info.get("low52w",  0),
+                    "per":    info.get("per",     0),
+                    "eps":    info.get("eps",     0),
+                    "pbr":    info.get("pbr",     0),
+                    "bps":    info.get("bps",     0),
+                    "dy":     info.get("dividend_yield", 0),
+                    "sec":    info.get("sector",  ""),
+                    "ticker": ticker,
+                })
+            conn.commit()
+            updated += 1
+            time.sleep(0.2)
         except Exception as e:
             log.debug(f"상세정보 fetch 실패 {ticker}: {e}")
             try:
