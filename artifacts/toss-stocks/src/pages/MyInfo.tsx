@@ -7,7 +7,7 @@ import { GameAvatar } from "@/components/GameAvatar";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, LogOut, AlertTriangle, Pencil, Trash2, X, Check, Star, Trophy, User } from "lucide-react";
+import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, Sparkles, LogOut, AlertTriangle, Pencil, Trash2, X, Check, Star, Trophy, User } from "lucide-react";
 import { useMissions } from "@/hooks/use-missions";
 import { AiAdvisor } from "@/components/AiAdvisor";
 import { InvestmentStyleAnalyzer } from "@/components/InvestmentStyleAnalyzer";
@@ -443,15 +443,15 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
           </div>
         </Link>
 
-        <Link href="/wardrobe">
-          <div className="bg-gradient-to-br from-sky-400 to-blue-400 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-blue-300/20 hover:-translate-y-0.5 transition-all">
+        <Link href="/gacha">
+          <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-purple-300/20 hover:-translate-y-0.5 transition-all">
             <div className="flex items-center gap-2 mb-2">
-              <Shirt className="w-4 h-4 text-white/80" />
-              <span className="font-bold text-sm text-white/90">아바타 옷장</span>
+              <Sparkles className="w-4 h-4 text-white/80" />
+              <span className="font-bold text-sm text-white/90">뽑기 상점</span>
             </div>
             <p className="text-2xl font-extrabold">🪙 {coins}</p>
             <p className="text-xs text-white/70 font-semibold mt-2">보유 아바타 코인</p>
-            <p className="text-xs text-white/60 font-medium mt-0.5">아이템 잠금 해제 가능</p>
+            <p className="text-xs text-white/60 font-medium mt-0.5">10코인으로 10연차 뽑기!</p>
           </div>
         </Link>
       </motion.div>

@@ -151,7 +151,7 @@ export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
             <Gift className="w-8 h-8 text-yellow-500 flex-shrink-0" />
             <div>
               <p className="font-extrabold text-yellow-700">🎉 아바타 코인 1개 지급!</p>
-              <p className="text-xs text-yellow-600 font-medium">옷장에서 아바타 아이템을 구매하세요.</p>
+              <p className="text-xs text-yellow-600 font-medium">뽑기 상점에서 캐릭터 카드를 뽑아보세요!</p>
             </div>
           </motion.div>
         )}
@@ -216,9 +216,9 @@ export default function DailyMissions({ userId: _userId }: DailyMissionsProps) {
             </div>
           ))}
         </div>
-        <Link href="/wardrobe">
-          <button className="mt-4 w-full py-3 bg-white text-sky-500 rounded-2xl font-extrabold text-sm hover:bg-sky-50 active:scale-95 transition-all">
-            옷장 바로 가기 →
+        <Link href="/gacha">
+          <button className="mt-4 w-full py-3 bg-white text-violet-600 rounded-2xl font-extrabold text-sm hover:bg-violet-50 active:scale-95 transition-all">
+            뽑기 상점 바로 가기 →
           </button>
         </Link>
       </div>

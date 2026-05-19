@@ -15,7 +15,7 @@ import Rankings from "./pages/Rankings";
 import MyInfo from "./pages/MyInfo";
 import News from "./pages/News";
 import Watchlist from "./pages/Watchlist";
-import Wardrobe from "./pages/Wardrobe";
+import GachaShop from "./pages/GachaShop";
 import DailyMissions from "./pages/DailyMissions";
 import InvestorProfile from "./pages/InvestorProfile";
 import Tips from "./pages/Tips";
@@ -227,7 +227,7 @@ function Router() {
           <Route path="/profile/:userId" component={InvestorProfile} />
           <Route path="/news" component={News} />
           <Route path="/watchlist" component={Watchlist} />
-          <Route path="/wardrobe">{() => <Wardrobe userId={userId} userDifficulty={difficulty} avatarId={avatarId} />}</Route>
+          <Route path="/gacha">{() => <GachaShop userId={userId} />}</Route>
           <Route path="/missions">{() => <DailyMissions userId={userId} />}</Route>
           <Route path="/tips" component={Tips} />
           <Route path="/guide" component={Guide} />

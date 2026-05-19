@@ -103,6 +103,16 @@ export function useMissions() {
     return true;
   }, [coins]);
 
+  const deductCoins = useCallback((amount: number): boolean => {
+    if (coins < amount) return false;
+    setCoins((c) => c - amount);
+    return true;
+  }, [coins]);
+
+  const addCoins = useCallback((amount: number) => {
+    setCoins((c) => c + amount);
+  }, []);
+
   const isItemUnlocked = useCallback((itemId: string, coinCost: number) => {
     if (coinCost === 0) return true;
     return unlockedItems.includes(itemId);
@@ -118,6 +128,8 @@ export function useMissions() {
     completeQuiz,
     claimCoin,
     spendCoins,
+    deductCoins,
+    addCoins,
     isItemUnlocked,
   };
 }
