@@ -387,12 +387,6 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
               <Repeat2 className="w-3.5 h-3.5" />
               카드 변경
             </button>
-            {/* 등급 배지 */}
-            {cardDef.rarity === "SSR" && (
-              <div className="absolute top-3 left-3 bg-yellow-400 text-yellow-900 text-[10px] font-extrabold px-2 py-1 rounded-lg shadow">
-                ✨ SSR
-              </div>
-            )}
           </div>
         ) : (
           <div className="flex items-center justify-center py-10 bg-muted/30">
@@ -807,10 +801,11 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 320 }}
-              className="absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-card rounded-t-3xl p-6 pb-8"
+              className="absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-card rounded-t-3xl flex flex-col"
+              style={{ maxHeight: "80vh" }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
                 <h3 className="text-lg font-extrabold text-foreground">프로필 카드 변경</h3>
                 <button onClick={() => setShowCardChange(false)} className="p-1.5 rounded-xl bg-muted text-muted-foreground hover:bg-muted/70 transition-colors">
                   <X className="w-4 h-4" />
@@ -818,11 +813,12 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
               </div>
 
               {collected.length === 0 ? (
-                <div className="text-center py-8">
+                <div className="text-center py-8 px-6">
                   <p className="text-muted-foreground text-sm font-medium">획득한 카드가 없습니다.</p>
                   <p className="text-muted-foreground/60 text-xs mt-1">뽑기 상점에서 카드를 획득해보세요!</p>
                 </div>
               ) : (
+                <div className="overflow-y-auto flex-1 px-6 pb-8">
                 <div className="grid grid-cols-3 gap-3">
                   {collected.map((cardId) => {
                     const def = ALL_CARDS.find(c => c.id === cardId);
@@ -857,6 +853,7 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
                       </motion.div>
                     );
                   })}
+                </div>
                 </div>
               )}
             </motion.div>

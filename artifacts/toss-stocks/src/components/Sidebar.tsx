@@ -60,12 +60,6 @@ export function Sidebar({ userId }: SidebarProps) {
                   />
                   {/* 하단 그라데이션 */}
                   <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-card/90 to-transparent" />
-                  {/* 레어리티 뱃지 */}
-                  {activeCard.rarity !== "기본" && (
-                    <div className="absolute top-2.5 right-2.5 z-20 bg-yellow-400 text-yellow-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
-                      {activeCard.rarity}
-                    </div>
-                  )}
                 </>
               ) : (
                 <div
