@@ -7,14 +7,14 @@ import { GameAvatar } from "@/components/GameAvatar";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, Sparkles, BookOpen, LogOut, AlertTriangle, Pencil, Trash2, X, Check, Star, Trophy, User } from "lucide-react";
+import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, Sparkles, BookOpen, LogOut, AlertTriangle, Pencil, Trash2, X, Check, Star, Trophy, User, ZoomIn, Repeat2 } from "lucide-react";
 import { useMissions } from "@/hooks/use-missions";
 import { AiAdvisor } from "@/components/AiAdvisor";
 import { InvestmentStyleAnalyzer } from "@/components/InvestmentStyleAnalyzer";
 import { useQueryClient } from "@tanstack/react-query";
 import Watchlist from "@/pages/Watchlist";
 import Rankings from "@/pages/Rankings";
-import { loadProfileCard, getCollectedCards, ALL_CARDS } from "@/pages/Compendium";
+import { loadProfileCard, saveProfileCard, getCollectedCards, ALL_CARDS } from "@/pages/Compendium";
 
 type MyInfoTab = "info" | "watchlist" | "rankings";
 
@@ -155,6 +155,8 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
   const [profileCard, setProfileCard] = useState<string | null>(() =>
     loadProfileCard(userId)
   );
+  const [showCardZoom, setShowCardZoom] = useState(false);
+  const [showCardChange, setShowCardChange] = useState(false);
 
   const [editingNick, setEditingNick] = useState(false);
   const [nickValue, setNickValue] = useState("");
@@ -262,6 +264,21 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
 
   const missionsCompleted = [missions.attendance, missions.trade, missions.quiz].filter(Boolean).length;
 
+  const uid = String(userId);
+  const collected = getCollectedCards(uid, user.avatar);
+  const activeCardId = profileCard ?? (collected.length > 0 ? collected[0] : null);
+  const cardDef = activeCardId ? ALL_CARDS.find(c => c.id === activeCardId) : null;
+  const investmentTypeLabel =
+    user.avatar.startsWith("defensive") ? "안정형" :
+    user.avatar.startsWith("aggressive") ? "공격형" :
+    user.avatar.startsWith("neutral") ? "균형형" : "기본형";
+
+  const handleCardSelect = (cardId: string) => {
+    saveProfileCard(userId, cardId);
+    setProfileCard(cardId);
+    setShowCardChange(false);
+  };
+
   return (
     <div className="max-w-2xl mx-auto space-y-3 animate-in fade-in duration-500">
       {/* 헤더 */}
@@ -339,35 +356,55 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-card rounded-3xl p-4 border border-border/50 shadow-sm"
+        className="bg-card rounded-3xl overflow-hidden border border-border/50 shadow-sm"
       >
-        <div className="flex items-center gap-4">
-          {(() => {
-            const uid = String(userId);
-            const collected = getCollectedCards(uid, user.avatar);
-            const activeCard = profileCard ?? (collected.length > 0 ? collected[0] : null);
-            const cardDef = activeCard ? ALL_CARDS.find(c => c.id === activeCard) : null;
-            return cardDef?.image ? (
-              <div className="relative flex-shrink-0">
-                <img
-                  src={cardDef.image}
-                  alt={cardDef.sublabel}
-                  className="w-16 h-16 object-cover rounded-2xl shadow-md border border-border/30"
-                  style={{ objectPosition: "center top" }}
-                />
-                {cardDef.rarity === "SSR" && (
-                  <div className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-900 text-[8px] font-extrabold px-1 py-0.5 rounded-md leading-none">
-                    SSR
-                  </div>
-                )}
+        {/* 카드 이미지 전체 표시 */}
+        {cardDef?.image ? (
+          <div className="relative w-full cursor-pointer" onClick={() => setShowCardZoom(true)}>
+            <img
+              src={cardDef.image}
+              alt={cardDef.sublabel}
+              className="w-full object-cover"
+              style={{ maxHeight: 300, objectPosition: "center top" }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/5 to-transparent pointer-events-none" />
+            {/* 상단 버튼들 */}
+            <div className="absolute top-3 right-3 flex gap-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowCardZoom(true); }}
+                className="flex items-center gap-1 bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1.5 rounded-xl transition-colors"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+                확대
+              </button>
+            </div>
+            {/* 카드 변경 버튼 */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowCardChange(true); }}
+              className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-white/90 hover:bg-white backdrop-blur-sm text-gray-800 text-xs font-bold px-3 py-1.5 rounded-xl shadow-md transition-colors"
+            >
+              <Repeat2 className="w-3.5 h-3.5" />
+              카드 변경
+            </button>
+            {/* 등급 배지 */}
+            {cardDef.rarity === "SSR" && (
+              <div className="absolute top-3 left-3 bg-yellow-400 text-yellow-900 text-[10px] font-extrabold px-2 py-1 rounded-lg shadow">
+                ✨ SSR
               </div>
-            ) : (
-              <GameAvatar avatarId={user.avatar} size={64} rounded="rounded-2xl" className="shadow-inner flex-shrink-0" />
-            );
-          })()}
-          <div className="flex-1 min-w-0">
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-10 bg-muted/30">
+            <GameAvatar avatarId={user.avatar} size={120} rounded="rounded-3xl" className="shadow-inner" />
+          </div>
+        )}
+
+        {/* 프로필 정보 */}
+        <div className="p-4 space-y-3">
+          {/* 닉네임 */}
+          <div>
             {editingNick ? (
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2">
                 <input
                   autoFocus
                   type="text"
@@ -375,25 +412,18 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
                   onChange={(e) => { setNickValue(e.target.value); setNickError(""); }}
                   onKeyDown={(e) => { if (e.key === "Enter") handleNickSave(); if (e.key === "Escape") setEditingNick(false); }}
                   maxLength={16}
-                  className="text-lg font-extrabold border-b-2 border-primary outline-none bg-transparent w-full"
+                  className="text-xl font-extrabold border-b-2 border-primary outline-none bg-transparent flex-1"
                   placeholder="새 닉네임 입력"
                 />
-                <button
-                  onClick={handleNickSave}
-                  disabled={nickLoading}
-                  className="p-1.5 rounded-xl bg-primary text-white hover:bg-primary/80 transition-colors disabled:opacity-50"
-                >
+                <button onClick={handleNickSave} disabled={nickLoading} className="p-1.5 rounded-xl bg-primary text-white hover:bg-primary/80 transition-colors disabled:opacity-50">
                   <Check className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => { setEditingNick(false); setNickError(""); }}
-                  className="p-1.5 rounded-xl bg-muted text-muted-foreground hover:bg-muted/70 transition-colors"
-                >
+                <button onClick={() => { setEditingNick(false); setNickError(""); }} className="p-1.5 rounded-xl bg-muted text-muted-foreground hover:bg-muted/70 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 mb-0.5">
+              <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-extrabold text-foreground">{user.username}</h2>
                 <button
                   onClick={() => { setNickValue(user.username); setEditingNick(true); setNickError(""); }}
@@ -404,47 +434,70 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
                 </button>
               </div>
             )}
-            {nickError && <p className="text-xs text-red-500 font-semibold mb-1">{nickError}</p>}
-            <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-bold bg-red-50 text-red-600 mt-1">
+            {nickError && <p className="text-xs text-red-500 font-semibold mt-1">{nickError}</p>}
+          </div>
+
+          {/* 투자 성향 + 등급 배지 */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-violet-50 text-violet-700 border border-violet-200">
+              {investmentTypeLabel}
+            </span>
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-50 text-red-600 border border-red-100">
               {difficultyLabel}
             </span>
-
-            {promoteThreshold && (
-              <div className="mt-3">
-                <div className="flex justify-between text-xs font-semibold text-muted-foreground mb-1">
-                  <span>다음 단계까지</span>
-                  <span className={getColorClass(portfolio.totalReturnPercent)}>
-                    {portfolio.totalReturnPercent.toFixed(1)}%
-                    <span className="text-muted-foreground ml-1">/ {promoteThreshold}%</span>
-                  </span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{
-                      width: `${Math.abs(progressPct)}%`,
-                      background: portfolio.totalReturnPercent >= 0
-                        ? "linear-gradient(90deg, #F04452, #ff6b7a)"
-                        : "linear-gradient(90deg, #3182F6, #60a5fa)",
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {demoteThreshold !== null && (
-              <div className="mt-2">
-                <div className="flex justify-between text-[11px] font-semibold text-muted-foreground mb-1">
-                  <span className="text-muted-foreground/60">강등 기준</span>
-                  <span className="text-muted-foreground/60">-20%까지 {(20 + portfolio.totalReturnPercent).toFixed(1)}%p 여유</span>
-                </div>
-              </div>
-            )}
-
-            {!promoteThreshold && (
-              <p className="text-xs font-semibold text-red-500 mt-2">최고 등급 달성! 🎉</p>
+            {cardDef && (
+              <span className="text-sm text-muted-foreground font-semibold">
+                {cardDef.sublabel}
+              </span>
             )}
           </div>
+
+          {/* 총 자산 */}
+          <div className="bg-muted/40 rounded-2xl px-4 py-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">총 자산</p>
+              <p className="text-xl font-extrabold text-foreground">{formatCurrency(portfolio.totalAssets)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-semibold text-muted-foreground">수익률</p>
+              <p className={cn("text-base font-extrabold", isProfit ? "text-red-500" : "text-blue-500")}>
+                {isProfit ? "▲" : "▼"} {Math.abs(portfolio.totalReturnPercent).toFixed(2)}%
+              </p>
+            </div>
+          </div>
+
+          {/* 승급 진행 바 */}
+          {promoteThreshold && (
+            <div>
+              <div className="flex justify-between text-xs font-semibold text-muted-foreground mb-1.5">
+                <span>다음 단계까지</span>
+                <span className={getColorClass(portfolio.totalReturnPercent)}>
+                  {portfolio.totalReturnPercent.toFixed(1)}%
+                  <span className="text-muted-foreground ml-1">/ {promoteThreshold}%</span>
+                </span>
+              </div>
+              <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${Math.abs(progressPct)}%`,
+                    background: portfolio.totalReturnPercent >= 0
+                      ? "linear-gradient(90deg, #F04452, #ff6b7a)"
+                      : "linear-gradient(90deg, #3182F6, #60a5fa)",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {demoteThreshold !== null && (
+            <p className="text-[11px] text-muted-foreground/60 font-semibold">
+              강등 기준 -20% · 현재까지 {(20 + portfolio.totalReturnPercent).toFixed(1)}%p 여유
+            </p>
+          )}
+          {!promoteThreshold && (
+            <p className="text-xs font-semibold text-red-500">최고 등급 달성! 🎉</p>
+          )}
         </div>
       </motion.div>
 
@@ -702,6 +755,111 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
             onCancel={() => setShowWithdrawModal(false)}
             isLoading={withdrawLoading}
           />
+        )}
+      </AnimatePresence>
+
+      {/* 카드 확대 모달 */}
+      <AnimatePresence>
+        {showCardZoom && cardDef?.image && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/92 flex items-center justify-center p-4"
+            onClick={() => setShowCardZoom(false)}
+          >
+            <button
+              className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
+              onClick={() => setShowCardZoom(false)}
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <motion.img
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", bounce: 0.3 }}
+              src={cardDef.image}
+              alt={cardDef.sublabel}
+              className="max-w-xs w-full rounded-3xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div className="absolute bottom-6 text-center">
+              <p className="text-white/70 text-sm font-semibold">화면을 탭하면 닫힙니다</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 카드 변경 모달 (바텀시트) */}
+      <AnimatePresence>
+        {showCardChange && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/60"
+            onClick={() => setShowCardChange(false)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 320 }}
+              className="absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-card rounded-t-3xl p-6 pb-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-extrabold text-foreground">프로필 카드 변경</h3>
+                <button onClick={() => setShowCardChange(false)} className="p-1.5 rounded-xl bg-muted text-muted-foreground hover:bg-muted/70 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {collected.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground text-sm font-medium">획득한 카드가 없습니다.</p>
+                  <p className="text-muted-foreground/60 text-xs mt-1">뽑기 상점에서 카드를 획득해보세요!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  {collected.map((cardId) => {
+                    const def = ALL_CARDS.find(c => c.id === cardId);
+                    if (!def) return null;
+                    const isActive = activeCardId === cardId;
+                    return (
+                      <motion.div
+                        key={cardId}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleCardSelect(cardId)}
+                        className={cn(
+                          "rounded-2xl overflow-hidden cursor-pointer border-2 transition-all",
+                          isActive ? "border-yellow-400 shadow-lg shadow-yellow-200/50" : "border-border/30 hover:border-primary/40"
+                        )}
+                      >
+                        {def.image ? (
+                          <img src={def.image} alt={def.sublabel} className="w-full aspect-[2/3] object-cover" style={{ objectPosition: "center top" }} />
+                        ) : (
+                          <div className="w-full aspect-[2/3] bg-muted/50 flex items-center justify-center">
+                            <span className="text-xs text-muted-foreground">?</span>
+                          </div>
+                        )}
+                        <div className="px-2 py-1.5 bg-card">
+                          <p className="text-[10px] font-extrabold text-foreground truncate">{def.sublabel}</p>
+                          <p className="text-[9px] text-muted-foreground">{def.label}</p>
+                        </div>
+                        {isActive && (
+                          <div className="absolute top-1 right-1 bg-yellow-400 rounded-full p-0.5">
+                            <Check className="w-2.5 h-2.5 text-yellow-900" />
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
       </>)}
