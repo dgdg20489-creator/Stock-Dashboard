@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 // ── 타입 ──────────────────────────────────────────────────────────
 type ChartType = "line" | "candle";
 type PeriodKey = "realtime" | "day" | "week" | "month" | "year";
-type TFKey = "1m" | "5m" | "15m" | "30m" | "60m";
+type TFKey = "1m" | "3m" | "5m" | "10m" | "30m" | "60m";
 
 export interface OHLCPoint {
   date: string;
@@ -29,7 +29,8 @@ const DEFAULT_IND: Indicators = {
 };
 
 const MA_COLORS = { ma5: "#F97316", ma20: "#3182F6", ma60: "#22C55E", ma120: "#A855F7" };
-const TF_BARS: Record<TFKey, number> = { "1m": 390, "5m": 78, "15m": 26, "30m": 13, "60m": 7 };
+const TF_BARS: Record<TFKey, number> = { "1m": 390, "3m": 130, "5m": 78, "10m": 39, "30m": 13, "60m": 7 };
+const TF_MINS: Record<TFKey, number> = { "1m": 1,   "3m": 3,   "5m": 5,  "10m": 10, "30m": 30, "60m": 60 };
 
 // ── 데이터 정규화: 문자열 → 숫자, 0/NaN 제거 ─────────────────────
 function normalizeOHLC(raw: unknown[], fallbackPrice?: number): OHLCPoint[] {
@@ -232,7 +233,7 @@ function genIntradayCandles(
   const low   = todayLow   > 0 ? Math.min(todayLow,   refPrice) : refPrice * 0.99;
   const close = todayClose > 0 ? todayClose : open;
 
-  const tfMins = ({ "1m": 1, "5m": 5, "15m": 15, "30m": 30, "60m": 60 } as Record<TFKey, number>)[tf] ?? 1;
+  const tfMins = TF_MINS[tf] ?? 1;
 
   // KST = UTC+9, 장 시간: 09:00 ~ 15:30
   const MARKET_OPEN  = 9 * 60;       // 540분
@@ -292,6 +293,20 @@ function genIntradayCandles(
 }
 
 // ── 1분봉 → N분봉 집계 ────────────────────────────────────────────
+/** ISO 날짜("2026-05-19T09:00:00") 또는 "HH:MM" 형식에서 총 분을 추출 */
+function dateToMinutes(dateStr: string): number {
+  const tIdx = dateStr.indexOf("T");
+  const timePart = tIdx >= 0 ? dateStr.slice(tIdx + 1, tIdx + 6) : dateStr.slice(0, 5);
+  const [h, m] = timePart.split(":");
+  return (parseInt(h) || 0) * 60 + (parseInt(m) || 0);
+}
+
+/** ISO 날짜("2026-05-19T09:00:00") 또는 "HH:MM"에서 "HH:MM" 추출 */
+function dateToHHMM(dateStr: string): string {
+  const tIdx = dateStr.indexOf("T");
+  return tIdx >= 0 ? dateStr.slice(tIdx + 1, tIdx + 6) : dateStr.slice(0, 5);
+}
+
 function aggregateMinutes(candles1m: OHLCPoint[], minutes: number): OHLCPoint[] {
   if (!candles1m.length || minutes <= 1) return candles1m;
   const result: OHLCPoint[] = [];
@@ -299,11 +314,7 @@ function aggregateMinutes(candles1m: OHLCPoint[], minutes: number): OHLCPoint[] 
   let bucketKey = -1;
 
   for (const c of candles1m) {
-    // date 형식: "HH:MM" 또는 "HH:MM:SS"
-    const parts = c.date.split(":");
-    const hh = parseInt(parts[0]) || 0;
-    const mm = parseInt(parts[1]) || 0;
-    const totalMin = hh * 60 + mm;
+    const totalMin = dateToMinutes(c.date);
     const bucket = Math.floor(totalMin / minutes) * minutes;
 
     if (bucket !== bucketKey) {
@@ -826,7 +837,7 @@ function TimeAxis({ data, containerWidth, period, tf }: {
   if (n === 0 || chartW <= 0) return null;
   const slotW = chartW / n;
   const isIntraday = period === "realtime";
-  const tfMin = { "1m": 1, "5m": 5, "15m": 15, "30m": 30, "60m": 60 }[tf] ?? 1;
+  const tfMin = TF_MINS[tf] ?? 1;
 
   // 데이터 범위가 얼마나 긴지 계산
   const firstDate = data[0]?.date?.slice(0, 4) ?? "";
@@ -838,12 +849,12 @@ function TimeAxis({ data, containerWidth, period, tf }: {
   const yearLines: { x: number; year: string }[] = [];
 
   if (isIntraday) {
-    // 분봉: "HH:MM" 형식 직접 표시
+    // 분봉: "HH:MM" 형식 표시 (ISO 날짜도 처리)
     const targetLabels = Math.max(4, Math.min(10, Math.floor(chartW / 55)));
     const labelInterval = Math.max(1, Math.round(n / targetLabels));
     for (let i = 0; i < n; i += labelInterval) {
       const x = PAD_L + i * slotW + slotW / 2;
-      const text = (data[i]?.date ?? "").slice(0, 5);
+      const text = dateToHHMM(data[i]?.date ?? "");
       const bold = text === "09:00";
       labels.push({ x, text, bold, isYear: false });
     }
@@ -1009,9 +1020,9 @@ interface StockChartProps {
 const DEFAULT_SPANS: Record<PeriodKey, number> = {
   realtime: 120, day: 60, week: 52, month: 60, year: 30,
 };
-// 분봉별 기본 표시 봉 수 (1분:120봉=2시간 / 5분:78봉=1일 / 15분:52봉=2일 / 30분:39봉=3일 / 60분:30봉=5일)
+// 분봉별 기본 표시 봉 수 (1분:120봉=2시간 / 3분:90봉 / 5분:78봉=1일 / 10분:39봉 / 30분:13봉 / 60분:7봉)
 const TF_DEFAULT_SPANS: Record<TFKey, number> = {
-  "1m": 120, "5m": 78, "15m": 52, "30m": 39, "60m": 30,
+  "1m": 120, "3m": 90, "5m": 78, "10m": 39, "30m": 13, "60m": 7,
 };
 
 export function StockChart({ ticker, isPositive, currentPrice, openPrice, highPrice, lowPrice, avgCost }: StockChartProps) {
@@ -1113,8 +1124,7 @@ export function StockChart({ ticker, isPositive, currentPrice, openPrice, highPr
     if (period === "realtime") {
       // 분봉: 실시간 API 데이터 또는 오늘 OHLCV 기반 시뮬레이션
       if (kisRaw1m.length) {
-        const mins: Record<TFKey, number> = { "1m":1, "5m":5, "15m":15, "30m":30, "60m":60 };
-        return aggregateMinutes(kisRaw1m, mins[tf]);
+        return aggregateMinutes(kisRaw1m, TF_MINS[tf]);
       }
       // 오늘 실제 OHLCV로 분봉 시뮬레이션
       return genIntradayCandles(openPrice, highPrice, lowPrice, currentPrice, tf);
@@ -1216,8 +1226,8 @@ export function StockChart({ ticker, isPositive, currentPrice, openPrice, highPr
   ];
 
   const tfs: { key: TFKey; label: string }[] = [
-    { key: "1m", label: "1분" }, { key: "5m", label: "5분" },
-    { key: "15m", label: "15분" }, { key: "30m", label: "30분" }, { key: "60m", label: "60분" },
+    { key: "1m", label: "1분" }, { key: "3m", label: "3분" }, { key: "5m", label: "5분" },
+    { key: "10m", label: "10분" }, { key: "30m", label: "30분" }, { key: "60m", label: "60분" },
   ];
 
   return (
