@@ -8,6 +8,13 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+// 성향별 카드 이미지 — 나중에 이미지 추가 시 여기에 경로 넣으면 바로 적용됨
+const STYLE_CARD_IMAGE: Record<string, string | null> = {
+  defensive: "/card_defensive_basic.png",
+  aggressive: null,  // 이미지 받으면 "/card_aggressive_basic.png" 추가
+  neutral: null,     // 이미지 받으면 "/card_neutral_basic.png" 추가
+};
+
 interface StyleResult {
   styleType: "aggressive" | "defensive" | "neutral";
   styleLabel: string;
@@ -160,28 +167,6 @@ export function InvestmentStyleAnalyzer({ userId, currentAvatar, gender, firstTr
         )}
       </div>
 
-      {/* 현재 캐릭터 */}
-      <div className="flex items-center gap-3 bg-muted/40 rounded-2xl p-3 mb-3">
-        <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
-          <Avatar3D equipped={EMPTY_EQUIPPED} avatar={avatarGender} className="w-full h-full" />
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-0.5">현재 캐릭터</p>
-          <p className="text-sm font-bold text-foreground">
-            {isBasicAvatar ? "기본 캐릭터" :
-              currentAvatar?.startsWith("aggressive") ? "공격형" :
-              currentAvatar?.startsWith("defensive") ? "안정형" :
-              currentAvatar?.startsWith("neutral") ? "중립형" : "기본 캐릭터"}
-          </p>
-          {isBasicAvatar && (
-            <p className="text-[11px] text-muted-foreground mt-0.5">분석 후 전용 캐릭터를 잠금해제 해보세요</p>
-          )}
-        </div>
-        {!isBasicAvatar && (
-          <Lock className="w-4 h-4 text-violet-400 ml-auto" />
-        )}
-      </div>
-
       {/* 에러 */}
       {error && (
         <div className="mb-3 px-3 py-2 bg-red-50 rounded-xl border border-red-200">
@@ -201,10 +186,21 @@ export function InvestmentStyleAnalyzer({ userId, currentAvatar, gender, firstTr
             className="mb-3 rounded-2xl border overflow-hidden"
             style={{ borderColor: resultMeta.border }}
           >
-            {/* 3D 아바타 */}
-            <div className="w-full h-44" style={{ background: "linear-gradient(170deg, #071a10 0%, #0d2b1a 45%, #071a10 100%)" }}>
-              <Avatar3D equipped={EMPTY_EQUIPPED} avatar={avatarGender} className="w-full h-full" />
-            </div>
+            {/* 카드 이미지 or 3D 아바타 */}
+            {STYLE_CARD_IMAGE[result.styleType] ? (
+              <div className="w-full overflow-hidden" style={{ maxHeight: 220 }}>
+                <img
+                  src={STYLE_CARD_IMAGE[result.styleType]!}
+                  alt={`${result.styleLabel} 카드`}
+                  className="w-full object-cover object-top"
+                  style={{ maxHeight: 220 }}
+                />
+              </div>
+            ) : (
+              <div className="w-full h-44" style={{ background: "linear-gradient(170deg, #071a10 0%, #0d2b1a 45%, #071a10 100%)" }}>
+                <Avatar3D equipped={EMPTY_EQUIPPED} avatar={avatarGender} className="w-full h-full" />
+              </div>
+            )}
 
             {/* 성향 정보 */}
             <div className="p-3" style={{ background: resultMeta.bg }}>

@@ -35,7 +35,8 @@ function saveHistory(h: HistoryEntry[]) {
 type PullResult = { idx: number; type: "ssr" | "miss" };
 function generatePull(): PullResult[] {
   const results: PullResult[] = Array.from({ length: PULL_COUNT }, (_, i) => ({ idx: i, type: "miss" }));
-  results[Math.floor(Math.random() * PULL_COUNT)] = { idx: 0, type: "ssr" };
+  const ssrPos = Math.floor(Math.random() * PULL_COUNT);
+  results[ssrPos] = { idx: ssrPos, type: "ssr" };
   return results;
 }
 
