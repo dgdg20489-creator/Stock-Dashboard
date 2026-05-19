@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, RefreshCw, CheckCircle, Lock } from "lucide-react";
-import { GameAvatar, type AvatarId } from "@/components/GameAvatar";
+import { Sparkles, RefreshCw, CheckCircle, Lock, Clock } from "lucide-react";
+import { Avatar3D } from "@/components/Avatar3D";
+import type { EquippedItems } from "@/hooks/use-equipped";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -13,7 +14,7 @@ interface StyleResult {
   styleEmoji: string;
   styleColor: string;
   reason: string;
-  newAvatar: AvatarId;
+  newAvatar: string;
 }
 
 const STYLE_META = {
@@ -46,13 +47,16 @@ const STYLE_META = {
   },
 };
 
+const EMPTY_EQUIPPED: EquippedItems = {};
+
 interface InvestmentStyleAnalyzerProps {
   userId: number;
   currentAvatar: string;
   gender: string;
+  firstTradeDate?: string;
 }
 
-export function InvestmentStyleAnalyzer({ userId, currentAvatar, gender }: InvestmentStyleAnalyzerProps) {
+export function InvestmentStyleAnalyzer({ userId, currentAvatar, gender, firstTradeDate }: InvestmentStyleAnalyzerProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<StyleResult | null>(null);
   const [applying, setApplying] = useState(false);
@@ -61,8 +65,18 @@ export function InvestmentStyleAnalyzer({ userId, currentAvatar, gender }: Inves
   const qc = useQueryClient();
 
   const genderSuffix = gender === "여" || gender === "녀" || currentAvatar?.endsWith("_f") ? "f" : "m";
+  const avatarGender: "male" | "female" = genderSuffix === "f" ? "female" : "male";
+
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  const firstDate = firstTradeDate ? new Date(firstTradeDate) : null;
+  const elapsed = firstDate ? Date.now() - firstDate.getTime() : 0;
+  const isLocked = !firstDate || elapsed < sevenDaysMs;
+  const daysLeft = firstDate
+    ? Math.max(1, Math.ceil((sevenDaysMs - elapsed) / (24 * 60 * 60 * 1000)))
+    : 7;
 
   const analyze = async () => {
+    if (isLocked) return;
     setLoading(true);
     setResult(null);
     setApplied(false);
@@ -87,7 +101,7 @@ export function InvestmentStyleAnalyzer({ userId, currentAvatar, gender }: Inves
       else styleType = "neutral";
 
       const meta = STYLE_META[styleType];
-      const newAvatar = `${styleType}_${genderSuffix}` as AvatarId;
+      const newAvatar = `${styleType}_${genderSuffix}`;
 
       setResult({
         styleType,
@@ -148,7 +162,9 @@ export function InvestmentStyleAnalyzer({ userId, currentAvatar, gender }: Inves
 
       {/* 현재 캐릭터 */}
       <div className="flex items-center gap-3 bg-muted/40 rounded-2xl p-3 mb-3">
-        <GameAvatar avatarId={currentAvatar} size={48} rounded="rounded-xl" />
+        <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
+          <Avatar3D equipped={EMPTY_EQUIPPED} avatar={avatarGender} className="w-full h-full" />
+        </div>
         <div>
           <p className="text-xs font-semibold text-muted-foreground mb-0.5">현재 캐릭터</p>
           <p className="text-sm font-bold text-foreground">
@@ -182,86 +198,105 @@ export function InvestmentStyleAnalyzer({ userId, currentAvatar, gender }: Inves
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.25 }}
-            className="mb-3 rounded-2xl border p-3"
-            style={{ background: resultMeta.bg, borderColor: resultMeta.border }}
+            className="mb-3 rounded-2xl border overflow-hidden"
+            style={{ borderColor: resultMeta.border }}
           >
-            <div className="flex items-start gap-3">
-              <GameAvatar avatarId={result.newAvatar} size={56} rounded="rounded-xl" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-base">{result.styleEmoji}</span>
-                  <span className="font-extrabold text-sm" style={{ color: result.styleColor }}>
-                    {result.styleLabel}
-                  </span>
-                  <span
-                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-md text-white"
-                    style={{ background: result.styleColor }}
-                  >
-                    {resultMeta.tagline}
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed mb-1">{resultMeta.desc}</p>
-                <p className="text-[11px] text-foreground/80 leading-relaxed font-medium border-t border-border/30 pt-1 mt-1">
-                  {result.reason}
-                </p>
-              </div>
+            {/* 3D 아바타 */}
+            <div className="w-full h-44" style={{ background: "linear-gradient(170deg, #071a10 0%, #0d2b1a 45%, #071a10 100%)" }}>
+              <Avatar3D equipped={EMPTY_EQUIPPED} avatar={avatarGender} className="w-full h-full" />
             </div>
 
-            {/* 적용 버튼 */}
-            <div className="mt-3">
-              {applied ? (
-                <div className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-50 border border-green-200">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                  <span className="text-sm font-bold text-green-700">캐릭터가 적용되었어요!</span>
-                </div>
-              ) : (
-                <button
-                  onClick={applyAvatar}
-                  disabled={applying}
-                  className={cn(
-                    "w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all",
-                    applying ? "opacity-60 cursor-not-allowed" : "hover:opacity-90 active:scale-[0.98]"
-                  )}
-                  style={{ background: `linear-gradient(135deg, ${result.styleColor}, ${result.styleColor}CC)` }}
+            {/* 성향 정보 */}
+            <div className="p-3" style={{ background: resultMeta.bg }}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-base">{result.styleEmoji}</span>
+                <span className="font-extrabold text-sm" style={{ color: result.styleColor }}>
+                  {result.styleLabel}
+                </span>
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-md text-white"
+                  style={{ background: result.styleColor }}
                 >
-                  {applying ? (
-                    <span className="flex items-center justify-center gap-1.5">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      적용 중...
-                    </span>
-                  ) : (
-                    `이 캐릭터 적용하기 ${result.styleEmoji}`
-                  )}
-                </button>
-              )}
+                  {resultMeta.tagline}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed mb-1">{resultMeta.desc}</p>
+              <p className="text-[11px] text-foreground/80 leading-relaxed font-medium border-t border-border/30 pt-1 mt-1">
+                {result.reason}
+              </p>
+
+              {/* 적용 버튼 */}
+              <div className="mt-3">
+                {applied ? (
+                  <div className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-50 border border-green-200">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-bold text-green-700">캐릭터가 적용되었어요!</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={applyAvatar}
+                    disabled={applying}
+                    className={cn(
+                      "w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all",
+                      applying ? "opacity-60 cursor-not-allowed" : "hover:opacity-90 active:scale-[0.98]"
+                    )}
+                    style={{ background: `linear-gradient(135deg, ${result.styleColor}, ${result.styleColor}CC)` }}
+                  >
+                    {applying ? (
+                      <span className="flex items-center justify-center gap-1.5">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        적용 중...
+                      </span>
+                    ) : (
+                      `이 캐릭터 적용하기 ${result.styleEmoji}`
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* 분석 버튼 */}
-      <button
-        onClick={analyze}
-        disabled={loading}
-        className={cn(
-          "w-full py-3 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2",
-          loading
-            ? "bg-muted text-muted-foreground cursor-not-allowed"
-            : "bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:opacity-90 active:scale-[0.98] shadow-md shadow-violet-200"
-        )}
-      >
-        {loading ? (
-          <>
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            AI가 분석 중이에요...
-          </>
-        ) : (
-          <>
-            <Sparkles className="w-4 h-4" />
-            {result ? "다시 분석하기" : "내 투자 성향 분석하기"}
-          </>
-        )}
-      </button>
+      {isLocked ? (
+        <div className="w-full py-3 rounded-2xl border border-border/50 bg-muted/40 flex flex-col items-center justify-center gap-1">
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-bold text-muted-foreground">
+              {firstDate ? `${daysLeft}일 후 해금` : "첫 거래 후 7일 뒤 해금"}
+            </span>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            {firstDate
+              ? `거래 시작일로부터 7일이 지나야 분석할 수 있어요`
+              : "먼저 주식을 거래해보세요"}
+          </p>
+        </div>
+      ) : (
+        <button
+          onClick={analyze}
+          disabled={loading}
+          className={cn(
+            "w-full py-3 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2",
+            loading
+              ? "bg-muted text-muted-foreground cursor-not-allowed"
+              : "bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:opacity-90 active:scale-[0.98] shadow-md shadow-violet-200"
+          )}
+        >
+          {loading ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              AI가 분석 중이에요...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" />
+              {result ? "다시 분석하기" : "내 투자 성향 분석하기"}
+            </>
+          )}
+        </button>
+      )}
       <p className="text-[10px] text-muted-foreground text-center mt-2">
         보유 주식·거래 내역을 AI가 분석해 성향 캐릭터를 추천해드려요
       </p>

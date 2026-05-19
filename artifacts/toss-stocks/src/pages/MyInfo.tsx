@@ -462,6 +462,11 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         userId={userId}
         currentAvatar={user.avatar}
         gender={(user as any).gender ?? "남"}
+        firstTradeDate={
+          trades && trades.length > 0
+            ? [...trades].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0].createdAt
+            : undefined
+        }
       />
 
       {/* 자산 현황 */}
