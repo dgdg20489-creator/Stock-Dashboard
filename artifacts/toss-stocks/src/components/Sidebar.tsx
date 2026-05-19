@@ -48,27 +48,16 @@ export function Sidebar({ userId }: SidebarProps) {
         >
           {/* 카드 일러스트 상단 영역 */}
           <Link href="/my-info" className="block cursor-pointer group relative">
-            <div
-              className="relative w-full flex items-center justify-center overflow-hidden"
-              style={{
-                background: `linear-gradient(160deg, ${investType?.themeColor ?? "#4f46e5"}22, ${investType?.themeColor ?? "#4f46e5"}08)`,
-                minHeight: 180,
-              }}
-            >
+            <div className="relative w-full overflow-hidden" style={{ height: 220 }}>
               {activeCard?.image ? (
                 <>
-                  {/* 배경 블러 */}
-                  <div
-                    className="absolute inset-0 opacity-10 blur-xl scale-110"
-                    style={{ backgroundImage: `url(${activeCard.image})`, backgroundSize: "cover", backgroundPosition: "center" }}
-                  />
-                  {/* 카드 이미지 */}
                   <img
                     src={activeCard.image}
                     alt={activeCard.sublabel}
-                    className="relative z-10 object-contain drop-shadow-xl group-hover:scale-[1.02] transition-transform duration-300"
-                    style={{ height: 170, maxWidth: "75%" }}
+                    className="w-full h-full object-cover object-top group-hover:scale-[1.03] transition-transform duration-300"
                   />
+                  {/* 하단 그라데이션 */}
+                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-card/90 to-transparent" />
                   {/* 레어리티 뱃지 */}
                   {activeCard.rarity !== "기본" && (
                     <div className="absolute top-2.5 right-2.5 z-20 bg-yellow-400 text-yellow-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
@@ -77,11 +66,13 @@ export function Sidebar({ userId }: SidebarProps) {
                   )}
                 </>
               ) : (
-                <div className="py-6">
+                <div
+                  className="w-full h-full flex items-center justify-center"
+                  style={{ background: `linear-gradient(160deg, ${investType?.themeColor ?? "#4f46e5"}22, ${investType?.themeColor ?? "#4f46e5"}08)` }}
+                >
                   <GameAvatar avatarId={avatarId} size={80} rounded="rounded-2xl" />
                 </div>
               )}
-              {/* 호버 오버레이 */}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
             </div>
           </Link>
