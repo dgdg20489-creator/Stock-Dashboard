@@ -1343,16 +1343,64 @@ def fetch_naver_rankings(conn):
             log.debug(f"_parse_quant sosok={sosok}: {e}")
             return []
 
+    def _parse_rise(sosok: int, market: str) -> list:
+        """네이버 sise_rise.naver (상승률 상위) 스크래핑 — 2페이지까지 (100종목)"""
+        items = []
+        for page in range(1, 3):
+            url = f"https://finance.naver.com/sise/sise_rise.naver?sosok={sosok}&page={page}"
+            try:
+                r = requests.get(url, headers=NAVER_WEB_HEADERS, timeout=8)
+                r.encoding = "euc-kr"
+                soup = BeautifulSoup(r.text, "html.parser")
+                for row in soup.select("table.type_2 tr"):
+                    link = row.select_one('a[href*="code="]')
+                    if not link:
+                        continue
+                    code = link["href"].split("code=")[-1][:6]
+                    if not code.isdigit() or len(code) != 6:
+                        continue
+                    name = link.get_text(strip=True)
+                    tds = row.select("td")
+                    ct = [td.get_text(strip=True) for td in tds]
+                    n = len(ct)
+                    # sise_rise 컬럼: 현재가(2), 전일비(3), 등락률(4), 거래량(5), 거래대금(6)
+                    price  = _sint(ct[2]) if n > 2 else 0
+                    volume = _sint(ct[5]) if n > 5 else 0
+                    ta     = _sint(ct[6]) * 1_000_000 if n > 6 else price * volume
+                    chg = 0.0
+                    try:
+                        raw = ct[4].strip().replace(",", "").replace("+", "").replace("%", "") if n > 4 else ""
+                        sign = -1 if ct[4].strip().startswith("-") else 1
+                        chg = float(raw.lstrip("-")) * sign if raw else 0.0
+                    except Exception:
+                        pass
+                    if price <= 0 or chg <= 0:
+                        continue
+                    items.append({
+                        "ticker": code, "name": name, "price": price,
+                        "change_pct": chg, "volume": volume, "trade_amount": ta, "market": market,
+                    })
+            except Exception as e:
+                log.debug(f"_parse_rise sosok={sosok} page={page}: {e}")
+        return items
+
     try:
         now = datetime.now(KST)
 
-        # ── 거래대금 + 거래량: Naver sise_quant 스크래핑 (KOSPI + KOSDAQ 각 2페이지) ──
+        # ── 거래대금 + 거래량: Naver sise_quant 스크래핑 (KOSPI + KOSDAQ 각 1페이지) ──
         ta_k  = _parse_quant(0, "KOSPI")
         ta_kq = _parse_quant(1, "KOSDAQ")
         combined = ta_k + ta_kq  # 실제 Naver 거래대금/거래량 데이터
 
         all_ta  = sorted(combined, key=lambda x: x["trade_amount"], reverse=True)[:100]
         all_vol = sorted(combined, key=lambda x: x["volume"],       reverse=True)[:100]
+
+        # ── 상승률: Naver sise_rise.naver 스크래핑 (KOSPI + KOSDAQ 각 2페이지) ──
+        rise_k  = _parse_rise(0, "KOSPI")
+        rise_kq = _parse_rise(1, "KOSDAQ")
+        # KOSPI+KOSDAQ 합산 후 상승률 내림차순 정렬, 100위까지
+        all_rise = sorted(rise_k + rise_kq, key=lambda x: x["change_pct"], reverse=True)[:100]
+        log.info(f"상승률 스크래핑: KOSPI {len(rise_k)}개 + KOSDAQ {len(rise_kq)}개 = 상위 {len(all_rise)}개")
 
         # ── sise_quant에서 얻은 실제 거래량을 stocks_realtime에도 반영 ──
         if combined:
@@ -1390,8 +1438,18 @@ def fetch_naver_rankings(conn):
                         s["change_pct"], s["volume"], s["trade_amount"], s["market"], now)
                       for i, s in enumerate(all_vol)])
 
+            if all_rise:
+                cur.execute("DELETE FROM market_rankings WHERE type='top_gainers'")
+                execute_values(cur, """
+                    INSERT INTO market_rankings
+                        (type, rank, ticker, name, price, change_pct, volume, trade_amount, market, updated_at)
+                    VALUES %s
+                """, [("top_gainers", i+1, s["ticker"], s["name"], s["price"],
+                        s["change_pct"], s["volume"], s["trade_amount"], s["market"], now)
+                      for i, s in enumerate(all_rise)])
+
         conn.commit()
-        log.info(f"Rankings OK: 거래대금 {len(all_ta)}개 거래량 {len(all_vol)}개")
+        log.info(f"Rankings OK: 거래대금 {len(all_ta)}개 거래량 {len(all_vol)}개 상승률 {len(all_rise)}개")
     except Exception as e:
         log.warning(f"fetch_naver_rankings: {e}")
         conn.rollback()

@@ -507,9 +507,45 @@ router.get("/market/rankings", async (req, res) => {
       [type, limit]
     );
 
-    // 급상승: stocks_realtime에서 실시간 정렬 (change_pct 5초마다 업데이트)
+    // 급상승: 네이버 sise_rise 실제 랭킹 (market_rankings.top_gainers) 우선 사용
+    // market_rankings가 비어있으면 stocks_realtime에서 change_pct 정렬로 폴백
     if (type === "top_gainers") {
-      const result = await pool.query<{
+      // market_rankings에서 네이버 실제 상승률 순위 조회
+      const mrResult = await pool.query<{
+        rank: string; ticker: string; name: string; price: string;
+        change_pct: string; volume: string; trade_amount: string; market: string | null;
+        updated_at: string;
+      }>(
+        `SELECT mr.rank, mr.ticker, mr.name,
+                COALESCE(sr.current_price, mr.price)::text AS price,
+                COALESCE(sr.change_pct, mr.change_pct)::text AS change_pct,
+                mr.volume, mr.trade_amount, mr.market, mr.updated_at
+         FROM market_rankings mr
+         LEFT JOIN stocks_realtime sr ON mr.ticker = sr.ticker
+         WHERE mr.type = 'top_gainers'
+         ORDER BY mr.rank LIMIT $1`,
+        [limit]
+      );
+
+      if (mrResult.rows.length > 0) {
+        // 네이버 실제 상승률 데이터 사용
+        const rows = mrResult.rows.map(r => ({
+          rank: Number(r.rank),
+          ticker: r.ticker,
+          name: r.name,
+          price: Number(r.price),
+          changePercent: Number(r.change_pct),
+          changeValue: 0,
+          volume: Number(r.volume),
+          tradeAmount: Number(r.trade_amount),
+          market: r.market,
+          updatedAt: r.updated_at,
+        }));
+        return res.json(rows);
+      }
+
+      // 폴백: market_rankings 없으면 stocks_realtime에서 정렬
+      const fallResult = await pool.query<{
         ticker: string; name: string; current_price: string;
         change_pct: string; change_val: string; volume: string; market: string | null;
       }>(
@@ -520,7 +556,7 @@ router.get("/market/rankings", async (req, res) => {
          LIMIT $1`,
         [limit]
       );
-      const rows = result.rows.map((r, i) => ({
+      const rows = fallResult.rows.map((r, i) => ({
         rank: i + 1,
         ticker: r.ticker,
         name: r.name,
