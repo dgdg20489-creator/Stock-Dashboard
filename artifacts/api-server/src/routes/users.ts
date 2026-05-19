@@ -31,6 +31,7 @@ function buildUserResponse(user: typeof usersTable.$inferSelect, totalAssets: nu
     id: user.id,
     username: user.username,
     avatar: user.avatar,
+    gender: (user as any).gender ?? "남",
     difficulty: user.difficulty,
     seedMoney: Number(user.seedMoney),
     cashBalance: Number(user.cashBalance),
@@ -80,7 +81,7 @@ async function getStockRealtimeData(pool: pg.Pool, ticker: string): Promise<{ pr
 
 router.post("/users", async (req, res) => {
   try {
-    const { username, avatar, difficulty, phone, password } = req.body;
+    const { username, avatar, difficulty, phone, password, gender } = req.body;
     if (!username || !avatar || !difficulty || !phone || !password) {
       res.status(400).json({ message: "username, avatar, difficulty, phone, password are required" });
       return;
@@ -104,6 +105,7 @@ router.post("/users", async (req, res) => {
         phone,
         password,
         avatar,
+        gender: gender ?? "남",
         difficulty,
         seedMoney: String(seed),
         cashBalance: String(seed),
@@ -177,6 +179,30 @@ router.post("/users/reset-password", async (req, res) => {
     }
     await db.update(usersTable).set({ password: newPassword }).where(eq(usersTable.id, user.id));
     res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.patch("/users/:userId/avatar", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const { avatar } = req.body;
+    if (!avatar) {
+      res.status(400).json({ message: "avatar is required" });
+      return;
+    }
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, userId));
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+    await db.update(usersTable).set({ avatar }).where(eq(usersTable.id, userId));
+    res.json({ ok: true, avatar });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Internal server error" });

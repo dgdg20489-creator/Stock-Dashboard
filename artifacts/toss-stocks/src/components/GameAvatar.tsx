@@ -1,10 +1,12 @@
 // ── 투자 성향 기반 캐릭터 아바타 포트레이트 ────────────────────────
 
 export type AvatarId =
-  | "aggressive_m" | "balanced_m" | "defensive_m" | "analytical_m" | "growth_m"
-  | "aggressive_f" | "balanced_f" | "defensive_f" | "analytical_f" | "growth_f";
+  | "basic_m"      | "aggressive_m" | "defensive_m" | "neutral_m"
+  | "balanced_m"   | "analytical_m" | "growth_m"
+  | "basic_f"      | "aggressive_f" | "defensive_f" | "neutral_f"
+  | "balanced_f"   | "analytical_f" | "growth_f";
 
-export type InvestType = "aggressive" | "balanced" | "defensive" | "analytical" | "growth";
+export type InvestType = "basic" | "aggressive" | "defensive" | "neutral" | "balanced" | "analytical" | "growth";
 
 export interface AvatarDef {
   id: AvatarId;
@@ -21,6 +23,16 @@ export interface AvatarDef {
 
 export const INVEST_TYPES: { type: InvestType; label: string; emoji: string; tagline: string; desc: string; themeColor: string; bgFrom: string; bgTo: string }[] = [
   {
+    type: "basic",
+    label: "기본",
+    emoji: "👤",
+    tagline: "내 첫 번째 캐릭터",
+    desc: "모의투자를 시작하는 기본 캐릭터. 투자 성향 분석 후 전용 캐릭터를 잠금해제 할 수 있어요.",
+    themeColor: "#6B7280",
+    bgFrom: "#E5E7EB",
+    bgTo: "#F9FAFB",
+  },
+  {
     type: "aggressive",
     label: "공격형",
     emoji: "🔥",
@@ -31,16 +43,6 @@ export const INVEST_TYPES: { type: InvestType; label: string; emoji: string; tag
     bgTo: "#0A0505",
   },
   {
-    type: "balanced",
-    label: "균형형",
-    emoji: "⚖️",
-    tagline: "안정적 성장",
-    desc: "리스크와 수익의 균형을 추구. 대형주+ETF 혼합 포트폴리오 선호.",
-    themeColor: "#2060CC",
-    bgFrom: "#0A2050",
-    bgTo: "#050810",
-  },
-  {
     type: "defensive",
     label: "안정형",
     emoji: "🛡️",
@@ -49,6 +51,26 @@ export const INVEST_TYPES: { type: InvestType; label: string; emoji: string; tag
     themeColor: "#208050",
     bgFrom: "#083020",
     bgTo: "#030E08",
+  },
+  {
+    type: "neutral",
+    label: "중립형",
+    emoji: "⚖️",
+    tagline: "균형 잡힌 투자",
+    desc: "리스크와 수익의 균형을 추구. 대형주+ETF 혼합 포트폴리오 선호.",
+    themeColor: "#2060CC",
+    bgFrom: "#0A2050",
+    bgTo: "#050810",
+  },
+  {
+    type: "balanced",
+    label: "균형형",
+    emoji: "⚖️",
+    tagline: "안정적 성장",
+    desc: "리스크와 수익의 균형을 추구.",
+    themeColor: "#2060CC",
+    bgFrom: "#0A2050",
+    bgTo: "#050810",
   },
   {
     type: "analytical",
@@ -103,13 +125,13 @@ const LEGACY_MAP: Record<string, AvatarId> = {
   warrior_m: "aggressive_m",
   mage_m:    "analytical_m",
   hunter_m:  "growth_m",
-  knight_m:  "balanced_m",
+  knight_m:  "neutral_m",
   warrior_f: "aggressive_f",
   mage_f:    "analytical_f",
   hunter_f:  "growth_f",
-  knight_f:  "balanced_f",
-  male:      "balanced_m",
-  female:    "balanced_f",
+  knight_f:  "neutral_f",
+  male:      "basic_m",
+  female:    "basic_f",
 };
 
 export function getAvatarDef(id: string): AvatarDef {
@@ -739,10 +761,126 @@ function GrowthF() {
   );
 }
 
+// ── 기본 캐릭터 SVG ─────────────────────────────────────────────
+
+function BasicM() {
+  return (
+    <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bg_bsm" cx="50%" cy="70%" r="80%">
+          <stop offset="0%" stopColor="#E8EEF5"/>
+          <stop offset="100%" stopColor="#C8D4E0"/>
+        </radialGradient>
+        <radialGradient id="skin_bsm" cx="45%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="#FCDDC0"/>
+          <stop offset="100%" stopColor="#E8B898"/>
+        </radialGradient>
+        <radialGradient id="shirt_bsm" cx="50%" cy="0%" r="100%">
+          <stop offset="0%" stopColor="#5B9BD5"/>
+          <stop offset="100%" stopColor="#3A6FA0"/>
+        </radialGradient>
+      </defs>
+      <rect width="100" height="120" fill="url(#bg_bsm)" rx="0"/>
+      <ellipse cx="50" cy="115" rx="42" ry="18" fill="#B0BCC8" opacity="0.4"/>
+      {/* Shirt */}
+      <path d="M0 120 L0 80 C12 70, 27 67, 37 72 L50 70 L63 72 C73 67, 88 70, 100 80 L100 120Z" fill="url(#shirt_bsm)"/>
+      <path d="M37 72 Q50 68, 63 72" stroke="#7ABAE8" strokeWidth="1.2" fill="none"/>
+      <path d="M50 70 L50 120" stroke="#4A80B0" strokeWidth="0.6" opacity="0.4"/>
+      {/* Neat brown hair */}
+      <ellipse cx="50" cy="32" rx="27" ry="22" fill="#5C3A1E"/>
+      <ellipse cx="50" cy="25" rx="23" ry="14" fill="#6B4423"/>
+      <path d="M23 30 C18 22, 16 36, 18 48" stroke="#5C3A1E" strokeWidth="4" fill="none" strokeLinecap="round"/>
+      <path d="M77 30 C82 22, 84 36, 82 48" stroke="#5C3A1E" strokeWidth="4" fill="none" strokeLinecap="round"/>
+      <path d="M32 26 Q50 20, 68 26" stroke="#7A5030" strokeWidth="3" fill="none"/>
+      {/* Face */}
+      <ellipse cx="50" cy="57" rx="22" ry="26" fill="url(#skin_bsm)"/>
+      {/* Eyebrows - natural */}
+      <path d="M32 46 Q38 44, 44 46" stroke="#5C3A1E" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+      <path d="M56 46 Q62 44, 68 46" stroke="#5C3A1E" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+      {/* Warm brown eyes */}
+      <ellipse cx="37" cy="53" rx="6" ry="5.5" fill="#D4A870"/>
+      <ellipse cx="63" cy="53" rx="6" ry="5.5" fill="#D4A870"/>
+      <ellipse cx="37" cy="53" rx="4" ry="4" fill="#8B5A2B"/>
+      <ellipse cx="63" cy="53" rx="4" ry="4" fill="#8B5A2B"/>
+      <ellipse cx="37" cy="53" rx="2" ry="2" fill="#1A0A00"/>
+      <ellipse cx="63" cy="53" rx="2" ry="2" fill="#1A0A00"/>
+      <circle cx="38.5" cy="51.5" r="1.2" fill="white" opacity="0.85"/>
+      <circle cx="64.5" cy="51.5" r="1.2" fill="white" opacity="0.85"/>
+      {/* Nose */}
+      <path d="M48 62 Q50 65, 52 62" stroke="#C09060" strokeWidth="0.9" fill="none" opacity="0.5"/>
+      {/* Friendly smile */}
+      <path d="M40 71 Q50 78, 60 71" stroke="#B07850" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      <path d="M43 72 Q50 77, 57 72" stroke="#D09870" strokeWidth="0.8" fill="none" strokeLinecap="round" opacity="0.4"/>
+    </svg>
+  );
+}
+
+function BasicF() {
+  return (
+    <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bg_bsf" cx="50%" cy="70%" r="80%">
+          <stop offset="0%" stopColor="#EEE8F5"/>
+          <stop offset="100%" stopColor="#D8CCE8"/>
+        </radialGradient>
+        <radialGradient id="skin_bsf" cx="45%" cy="30%" r="65%">
+          <stop offset="0%" stopColor="#FDDCC8"/>
+          <stop offset="100%" stopColor="#EBBFA0"/>
+        </radialGradient>
+        <radialGradient id="top_bsf" cx="50%" cy="0%" r="100%">
+          <stop offset="0%" stopColor="#D090B8"/>
+          <stop offset="100%" stopColor="#A06090"/>
+        </radialGradient>
+      </defs>
+      <rect width="100" height="120" fill="url(#bg_bsf)" rx="0"/>
+      <ellipse cx="50" cy="115" rx="42" ry="18" fill="#C0B0CC" opacity="0.4"/>
+      {/* Top */}
+      <path d="M0 120 L0 80 C12 70, 27 67, 37 72 L50 70 L63 72 C73 67, 88 70, 100 80 L100 120Z" fill="url(#top_bsf)"/>
+      <path d="M37 72 Q50 68, 63 72" stroke="#E0A8CC" strokeWidth="1.2" fill="none"/>
+      {/* Dark brown hair - long, simple */}
+      <ellipse cx="50" cy="30" rx="28" ry="22" fill="#3A2010"/>
+      <path d="M22 34 C14 48, 12 68, 14 85" stroke="#3A2010" strokeWidth="8" fill="none" strokeLinecap="round"/>
+      <path d="M78 34 C86 48, 88 68, 86 85" stroke="#3A2010" strokeWidth="8" fill="none" strokeLinecap="round"/>
+      <path d="M22 36 C15 52, 13 70, 15 87" stroke="#5C3820" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.5"/>
+      <path d="M78 36 C85 52, 87 70, 85 87" stroke="#5C3820" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.5"/>
+      <path d="M30 20 L26 6 L36 18 L30 6 L42 18" fill="#3A2010"/>
+      <path d="M70 20 L74 6 L64 18 L70 6 L58 18" fill="#3A2010"/>
+      {/* Face */}
+      <ellipse cx="50" cy="54" rx="21" ry="25" fill="url(#skin_bsf)"/>
+      {/* Eyebrows - soft arched */}
+      <path d="M32 44 Q38 41, 43 44" stroke="#3A2010" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
+      <path d="M57 44 Q62 41, 68 44" stroke="#3A2010" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
+      {/* Warm brown eyes */}
+      <ellipse cx="37.5" cy="50" rx="6" ry="5.5" fill="#D4A878"/>
+      <ellipse cx="62.5" cy="50" rx="6" ry="5.5" fill="#D4A878"/>
+      <ellipse cx="37.5" cy="50" rx="4" ry="3.8" fill="#8B5A2B"/>
+      <ellipse cx="62.5" cy="50" rx="4" ry="3.8" fill="#8B5A2B"/>
+      <ellipse cx="37.5" cy="50" rx="2" ry="2" fill="#180800"/>
+      <ellipse cx="62.5" cy="50" rx="2" ry="2" fill="#180800"/>
+      <circle cx="39" cy="48.5" r="1.2" fill="white" opacity="0.85"/>
+      <circle cx="64" cy="48.5" r="1.2" fill="white" opacity="0.85"/>
+      {/* Lashes */}
+      <path d="M31 47 L29 45" stroke="#3A2010" strokeWidth="1.2" fill="none"/>
+      <path d="M34 46 L32 44" stroke="#3A2010" strokeWidth="1.2" fill="none"/>
+      <path d="M44 47 L46 45" stroke="#3A2010" strokeWidth="1.2" fill="none"/>
+      <path d="M56 47 L54 45" stroke="#3A2010" strokeWidth="1.2" fill="none"/>
+      <path d="M67 47 L69 45" stroke="#3A2010" strokeWidth="1.2" fill="none"/>
+      {/* Nose */}
+      <path d="M48 58 Q50 61, 52 58" stroke="#B07858" strokeWidth="0.8" fill="none" opacity="0.4"/>
+      {/* Warm smile */}
+      <path d="M40 68 Q50 75, 60 68" stroke="#B07858" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 // ── 컴포넌트 맵 ─────────────────────────────────────────────────
 const PORTRAIT_MAP: Record<AvatarId, React.FC> = {
+  basic_m:      BasicM,
+  basic_f:      BasicF,
   aggressive_m: AggressiveM,
   aggressive_f: AggressiveF,
+  neutral_m:    BalancedM,
+  neutral_f:    BalancedF,
   balanced_m:   BalancedM,
   balanced_f:   BalancedF,
   defensive_m:  DefensiveM,

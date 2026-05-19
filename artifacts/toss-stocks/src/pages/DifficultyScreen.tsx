@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCreateUser } from "@workspace/api-client-react";
-import { GameAvatar, INVEST_TYPES, type AvatarId, type InvestType } from "@/components/GameAvatar";
-import { Check, ChevronRight, Phone, Lock, User, LogIn, UserPlus } from "lucide-react";
+import { GameAvatar, type AvatarId } from "@/components/GameAvatar";
+import { Check, Phone, Lock, User, LogIn, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type DifficultyType = "beginner" | "intermediate" | "expert";
@@ -23,8 +22,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
-  const [selectedType, setSelectedType] = useState<InvestType>("balanced");
-  const [gender, setGender] = useState<"남" | "녀" | "기타">("남");
+  const [gender, setGender] = useState<"남" | "녀">("남");
   const [difficulty, setDifficulty] = useState<DifficultyType | null>(null);
 
   const [phoneStep, setPhoneStep] = useState<PhoneStep>("idle");
@@ -92,15 +90,13 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
     finally { setRecoveryLoading(false); }
   };
 
-  const avatar: AvatarId = `${selectedType}_${gender === "녀" ? "f" : "m"}` as AvatarId;
+  const avatar: AvatarId = `basic_${gender === "녀" ? "f" : "m"}` as AvatarId;
 
   const difficulties: { id: DifficultyType; title: string; sub: string; seed: string; color: string; dot: string }[] = [
     { id: "beginner",     title: "입문",  sub: "여유롭게 시작",       seed: "1,000만원", color: "text-emerald-600", dot: "bg-emerald-500" },
     { id: "intermediate", title: "중급",  sub: "긴장감 있는 트레이드",  seed: "500만원",   color: "text-blue-600",    dot: "bg-blue-500"    },
     { id: "expert",       title: "고수",  sub: "실력으로 승부",        seed: "100만원",   color: "text-red-600",     dot: "bg-red-500"     },
   ];
-
-  const selectedInvest = INVEST_TYPES.find((t) => t.type === selectedType)!;
 
   // 전화번호 형식 체크
   const isValidPhone = (p: string) => /^010\d{8}$/.test(p.replace(/-/g, ""));
@@ -149,6 +145,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
           phone: phone.replace(/-/g, ""),
           password,
           avatar,
+          gender,
           difficulty,
         }),
       });
@@ -381,8 +378,8 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
               {/* 성별 선택 */}
               <div className="px-6 py-4">
                 <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-3">성별</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["남", "녀", "기타"] as const).map((g) => (
+                <div className="grid grid-cols-2 gap-2">
+                  {(["남", "녀"] as const).map((g) => (
                     <button
                       key={g}
                       onClick={() => setGender(g)}
@@ -393,7 +390,7 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
                           : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground bg-muted/30"
                       )}
                     >
-                      {g === "남" ? "남성" : g === "녀" ? "여성" : "기타"}
+                      {g === "남" ? "남성" : "여성"}
                     </button>
                   ))}
                 </div>
@@ -401,55 +398,29 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
 
               <div className="h-px bg-border/50 mx-6" />
 
-              {/* 투자 성향 */}
+              {/* 내 캐릭터 미리보기 */}
               <div className="px-6 py-4">
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">투자 성향</label>
-                </div>
-                <div className="grid grid-cols-5 gap-1.5 mb-3">
-                  {INVEST_TYPES.map((inv) => {
-                    const isSelected = selectedType === inv.type;
-                    return (
-                      <button
-                        key={inv.type}
-                        onClick={() => setSelectedType(inv.type)}
-                        className={cn(
-                          "flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border transition-all duration-150",
-                          isSelected
-                            ? "border-transparent shadow-sm"
-                            : "border-border/50 hover:border-border bg-muted/30 hover:bg-muted/60"
-                        )}
-                        style={isSelected ? { background: `${inv.themeColor}12`, borderColor: `${inv.themeColor}60` } : {}}
-                      >
-                        <span className="text-base leading-none">{inv.emoji}</span>
-                        <span className="text-[9px] font-bold leading-none" style={isSelected ? { color: inv.themeColor } : {}}>
-                          {inv.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">내 캐릭터</label>
                 <AnimatePresence mode="wait">
                   <motion.div
-                    key={`${selectedType}_${gender}`}
+                    key={avatar}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
                     transition={{ duration: 0.15 }}
-                    className="flex items-center gap-3 p-3 rounded-xl border"
-                    style={{ background: `${selectedInvest.themeColor}08`, borderColor: `${selectedInvest.themeColor}30` }}
+                    className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-muted/30"
                   >
                     <div className="flex-shrink-0 rounded-xl overflow-hidden">
                       <GameAvatar avatarId={avatar} size={56} rounded="rounded-xl" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="font-bold text-sm text-foreground">{selectedInvest.label}</span>
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md text-white" style={{ background: selectedInvest.themeColor }}>
-                          {selectedInvest.tagline}
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="font-bold text-sm text-foreground">기본 캐릭터</span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md text-white bg-gray-500">
+                          {gender === "녀" ? "여성" : "남성"}
                         </span>
                       </div>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">{selectedInvest.desc}</p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">마이페이지에서 투자 성향 분석 후<br/>전용 캐릭터를 잠금해제할 수 있어요!</p>
                     </div>
                   </motion.div>
                 </AnimatePresence>

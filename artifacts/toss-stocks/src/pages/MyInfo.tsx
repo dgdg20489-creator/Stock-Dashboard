@@ -10,6 +10,7 @@ import { Link } from "wouter";
 import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, LogOut, AlertTriangle, Pencil, Trash2, X, Check, Star, Trophy, User } from "lucide-react";
 import { useMissions } from "@/hooks/use-missions";
 import { AiAdvisor } from "@/components/AiAdvisor";
+import { InvestmentStyleAnalyzer } from "@/components/InvestmentStyleAnalyzer";
 import { useQueryClient } from "@tanstack/react-query";
 import Watchlist from "@/pages/Watchlist";
 import Rankings from "@/pages/Rankings";
@@ -454,6 +455,12 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
       </motion.div>
 
       <AiAdvisor userId={userId} />
+
+      <InvestmentStyleAnalyzer
+        userId={userId}
+        currentAvatar={user.avatar}
+        gender={(user as any).gender ?? "남"}
+      />
 
       {/* 자산 현황 */}
       <motion.div
