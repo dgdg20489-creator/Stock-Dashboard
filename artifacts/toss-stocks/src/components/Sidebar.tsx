@@ -1,9 +1,8 @@
 import { useGetUser, useGetUserPortfolio } from "@workspace/api-client-react";
 import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { Link, useLocation } from "wouter";
-import { cn } from "@/lib/utils";
-import { BarChart2, TrendingUp, TrendingDown } from "lucide-react";
+import { Link } from "wouter";
+import { TrendingUp, TrendingDown } from "lucide-react";
 import { GameAvatar, getAvatarDef, INVEST_TYPES } from "@/components/GameAvatar";
 
 interface SidebarProps {
@@ -94,32 +93,6 @@ export function Sidebar({ userId }: SidebarProps) {
         </motion.div>
       )}
 
-      {/* 네비게이션 */}
-      <motion.nav
-        initial={{ opacity: 0, x: -12 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.04 }}
-        className="bg-card rounded-xl shadow-sm border border-border/60 p-2 flex flex-col gap-0.5"
-      >
-        {navItems.map((item) => {
-          const active = location === item.path || (item.path !== "/" && location.startsWith(item.path));
-          return (
-            <Link
-              key={item.path}
-              href={item.path}
-              className={cn(
-                "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150",
-                active
-                  ? "bg-foreground/5 text-foreground font-semibold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-              )}
-            >
-              <item.icon className={cn("w-3.5 h-3.5 flex-shrink-0", active ? "text-primary" : "")} />
-              {item.label}
-            </Link>
-          );
-        })}
-      </motion.nav>
     </aside>
   );
 }
