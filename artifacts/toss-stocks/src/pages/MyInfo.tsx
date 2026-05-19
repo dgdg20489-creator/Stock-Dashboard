@@ -7,13 +7,14 @@ import { GameAvatar } from "@/components/GameAvatar";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, Sparkles, LogOut, AlertTriangle, Pencil, Trash2, X, Check, Star, Trophy, User } from "lucide-react";
+import { Wallet, PieChart, ClipboardList, ChevronRight, Zap, Shirt, Sparkles, BookOpen, LogOut, AlertTriangle, Pencil, Trash2, X, Check, Star, Trophy, User } from "lucide-react";
 import { useMissions } from "@/hooks/use-missions";
 import { AiAdvisor } from "@/components/AiAdvisor";
 import { InvestmentStyleAnalyzer } from "@/components/InvestmentStyleAnalyzer";
 import { useQueryClient } from "@tanstack/react-query";
 import Watchlist from "@/pages/Watchlist";
 import Rankings from "@/pages/Rankings";
+import { loadProfileCard, getCollectedCards, ALL_CARDS } from "@/pages/Compendium";
 
 type MyInfoTab = "info" | "watchlist" | "rankings";
 
@@ -151,6 +152,9 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [profileCard, setProfileCard] = useState<string | null>(() =>
+    loadProfileCard(userId)
+  );
 
   const [editingNick, setEditingNick] = useState(false);
   const [nickValue, setNickValue] = useState("");
@@ -338,7 +342,29 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         className="bg-card rounded-3xl p-4 border border-border/50 shadow-sm"
       >
         <div className="flex items-center gap-4">
-          <GameAvatar avatarId={user.avatar} size={64} rounded="rounded-2xl" className="shadow-inner flex-shrink-0" />
+          {(() => {
+            const uid = String(userId);
+            const collected = getCollectedCards(uid, user.avatar);
+            const activeCard = profileCard ?? (collected.length > 0 ? collected[0] : null);
+            const cardDef = activeCard ? ALL_CARDS.find(c => c.id === activeCard) : null;
+            return cardDef?.image ? (
+              <div className="relative flex-shrink-0">
+                <img
+                  src={cardDef.image}
+                  alt={cardDef.sublabel}
+                  className="w-16 h-16 object-cover rounded-2xl shadow-md border border-border/30"
+                  style={{ objectPosition: "center top" }}
+                />
+                {cardDef.rarity === "SSR" && (
+                  <div className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-900 text-[8px] font-extrabold px-1 py-0.5 rounded-md leading-none">
+                    SSR
+                  </div>
+                )}
+              </div>
+            ) : (
+              <GameAvatar avatarId={user.avatar} size={64} rounded="rounded-2xl" className="shadow-inner flex-shrink-0" />
+            );
+          })()}
           <div className="flex-1 min-w-0">
             {editingNick ? (
               <div className="flex items-center gap-2 mb-1">
@@ -422,12 +448,12 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         </div>
       </motion.div>
 
-      {/* 일일 미션 & 옷장 바로가기 */}
+      {/* 일일 미션 & 뽑기 & 도감 바로가기 */}
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="grid grid-cols-2 gap-4"
+        className="grid grid-cols-3 gap-3"
       >
         <Link href="/missions">
           <div className="bg-gradient-to-br from-primary to-primary/80 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all">
@@ -444,14 +470,24 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
         </Link>
 
         <Link href="/gacha">
-          <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-purple-300/20 hover:-translate-y-0.5 transition-all">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-purple-300/20 hover:-translate-y-0.5 transition-all h-full">
+            <div className="flex items-center gap-1.5 mb-2">
               <Sparkles className="w-4 h-4 text-white/80" />
-              <span className="font-bold text-sm text-white/90">뽑기 상점</span>
+              <span className="font-bold text-xs text-white/90">뽑기 상점</span>
             </div>
-            <p className="text-2xl font-extrabold">🪙 {coins}</p>
-            <p className="text-xs text-white/70 font-semibold mt-2">보유 아바타 코인</p>
-            <p className="text-xs text-white/60 font-medium mt-0.5">10코인으로 10연차 뽑기!</p>
+            <p className="text-xl font-extrabold">🪙 {coins}</p>
+            <p className="text-[11px] text-white/60 font-medium mt-1.5">10연차 뽑기!</p>
+          </div>
+        </Link>
+
+        <Link href="/compendium">
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-4 text-white cursor-pointer hover:shadow-lg hover:shadow-emerald-300/20 hover:-translate-y-0.5 transition-all h-full">
+            <div className="flex items-center gap-1.5 mb-2">
+              <BookOpen className="w-4 h-4 text-white/80" />
+              <span className="font-bold text-xs text-white/90">카드 도감</span>
+            </div>
+            <p className="text-xl font-extrabold">🎴 {getCollectedCards(String(userId), user.avatar).length}<span className="text-sm text-white/60">/{ALL_CARDS.length}</span></p>
+            <p className="text-[11px] text-white/60 font-medium mt-1.5">카드 컬렉션</p>
           </div>
         </Link>
       </motion.div>
