@@ -1205,7 +1205,8 @@ export function StockChart({ ticker, isPositive, currentPrice, openPrice, highPr
     if (!dragStartRef.current) return;
     const dx = e.clientX - dragStartRef.current.x;
     const pxPerBar = Math.max(1, (containerWidth - 76) / viewSpan);
-    const shiftBars = Math.round(-dx / pxPerBar);
+    // 오른쪽 드래그 → 과거로, 왼쪽 드래그 → 현재로 (트레이딩뷰 방향)
+    const shiftBars = Math.round(dx / pxPerBar);
     const maxOff = Math.max(0, chartData.length - viewSpan);
     setViewOffset(Math.max(0, Math.min(maxOff, dragStartRef.current.offset + shiftBars)));
   }, [viewSpan, containerWidth, chartData.length]);
