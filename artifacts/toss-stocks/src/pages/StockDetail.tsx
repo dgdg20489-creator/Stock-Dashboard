@@ -113,6 +113,7 @@ export default function StockDetail({ userId }: StockDetailProps) {
         const missionAwarded = completeTrade();
         alert(missionAwarded ? "주문이 체결되었습니다. (+30P 미션 달성!)" : "주문이 체결되었습니다.");
         queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+        queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/trades`] });
       },
       onError: (err: any) => {
         alert(err.response?.data?.message || "거래 실패");

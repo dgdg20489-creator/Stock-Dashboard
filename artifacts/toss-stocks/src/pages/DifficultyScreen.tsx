@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameAvatar, type AvatarId } from "@/components/GameAvatar";
-import { Check, Phone, Lock, User, LogIn, UserPlus } from "lucide-react";
+import { Check, ChevronRight, Phone, Lock, User, LogIn, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type DifficultyType = "beginner" | "intermediate" | "expert";

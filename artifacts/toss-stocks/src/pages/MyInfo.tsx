@@ -144,7 +144,9 @@ export default function MyInfo({ userId, logout }: MyInfoProps) {
   const { data: portfolio, isLoading: portLoading } = useGetUserPortfolio(userId, {
     query: { refetchInterval: 2000, staleTime: 0 },
   });
-  const { data: trades, isLoading: tradesLoading } = useGetUserTrades(userId);
+  const { data: trades, isLoading: tradesLoading } = useGetUserTrades(userId, {
+    query: { refetchInterval: 5000, staleTime: 0 },
+  });
   const { missions, coins } = useMissions();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
