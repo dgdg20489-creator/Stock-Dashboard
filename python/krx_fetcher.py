@@ -147,15 +147,15 @@ def fetch_naver_stock_list(sosok: int, pages: int = 4) -> list:
                 except Exception:
                     per = 0.0
                 try:
-                    # ct[11]: 배당수익률(%) e.g. "10.85" or ""
-                    dividend_yield = float(ct[11]) if len(ct) > 11 and ct[11] and ct[11] not in ["-", ""] and ct[11].lstrip('-').replace('.','',1).isdigit() else 0.0
+                    # ct[11]: ROE(%) — 네이버 sise_market_sum 열 순서: PER(ct[10]), ROE(ct[11])
+                    roe = float(ct[11]) if len(ct) > 11 and ct[11] and ct[11] not in ["-", ""] and ct[11].lstrip('-').replace('.','',1).isdigit() else 0.0
                 except Exception:
-                    dividend_yield = 0.0
+                    roe = 0.0
                 stocks.append({
                     "ticker": code, "name": name, "market": market,
                     "market_cap": mcap, "price": price,
                     "change_val": change_val, "change_pct": change_pct,
-                    "volume": volume, "per": per, "dividend_yield": dividend_yield
+                    "volume": volume, "per": per, "roe": roe
                 })
                 found += 1
             if found == 0:
@@ -197,20 +197,20 @@ def seed_all_stocks_dynamic(conn):
             s["ticker"], s["name"], base, base,
             s.get("change_val", 0), s.get("change_pct", 0),
             max(s.get("volume", 1_000_000), 1), s["market_cap"],
-            s["market"], s["per"], s.get("dividend_yield", 0)
+            s["market"], s["per"], s.get("roe", 0)
         ))
 
     with conn.cursor() as cur:
         execute_values(cur, """
             INSERT INTO stocks_realtime
                 (ticker, name, current_price, base_price, change_val, change_pct,
-                 volume, market_cap, market, per, dividend_yield)
+                 volume, market_cap, market, per, roe)
             VALUES %s
             ON CONFLICT (ticker) DO UPDATE SET
-                name           = EXCLUDED.name,
-                market         = EXCLUDED.market,
-                market_cap     = EXCLUDED.market_cap,
-                dividend_yield = EXCLUDED.dividend_yield
+                name       = EXCLUDED.name,
+                market     = EXCLUDED.market,
+                market_cap = EXCLUDED.market_cap,
+                roe        = EXCLUDED.roe
         """, rows)
     conn.commit()
     log.info(f"=== {len(rows)}종목 DB 저장 완료 ===")
@@ -239,7 +239,7 @@ def update_all_prices_from_listing(conn):
                 max(s.get("volume", 0), 1),
                 s["market_cap"] or 0,
                 s.get("per", 0),
-                s.get("dividend_yield", 0),
+                s.get("roe", 0),
                 s["ticker"]
             ))
         if rows:
@@ -250,7 +250,7 @@ def update_all_prices_from_listing(conn):
                         cur.executemany("""
                             UPDATE stocks_realtime
                             SET current_price=%s, change_val=%s, change_pct=%s,
-                                volume=%s, market_cap=%s, per=%s, dividend_yield=%s,
+                                volume=%s, market_cap=%s, per=%s, roe=%s,
                                 updated_at=NOW()
                             WHERE ticker=%s
                         """, rows)
@@ -344,6 +344,11 @@ def create_tables(conn):
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS high_price NUMERIC DEFAULT 0")
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS low_price NUMERIC DEFAULT 0")
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS dividend_yield NUMERIC DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS high52w NUMERIC DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS low52w NUMERIC DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS eps NUMERIC DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS pbr NUMERIC DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS sector TEXT DEFAULT ''")
 
         # 실시간 시장 순위 테이블 (거래대금 / 거래량)
         cur.execute("""
@@ -457,6 +462,135 @@ def update_realtime_prices(conn):
             log.debug(f"Naver price update {ticker}: {e}")
     conn.commit()
     log.info(f"실시간 가격 업데이트 완료 — 네이버: {updated_naver}종목")
+
+
+# ─────────────────────────────────────────────────
+# 종목 상세 재무정보 fetch (sector, EPS, 52주 최고/최저)
+# ─────────────────────────────────────────────────
+
+NAVER_INDUSTRY_MAP = {
+    "261": "바이오/제약",  "263": "게임",          "270": "자동차부품",
+    "272": "화학",         "273": "자동차",         "276": "지주/복합",
+    "278": "반도체",       "279": "건설",           "280": "디스플레이",
+    "281": "IT서비스",     "282": "전자부품",       "283": "2차전지",
+    "284": "식음료",       "285": "유통",           "286": "의류/패션",
+    "287": "의료기기",     "288": "금속/광물",      "289": "섬유/종이",
+    "290": "운수장비",     "291": "기계/장비",      "292": "조선",
+    "293": "전기/전자",    "294": "정유/에너지",    "295": "미디어/엔터",
+    "296": "농업/어업",    "297": "금융지주",       "298": "부동산",
+    "299": "교육",         "300": "IT인터넷",       "301": "금융",
+    "302": "손해보험",     "303": "증권",           "304": "철강",
+    "305": "항공/운송",    "306": "물류",           "307": "전자/가전",
+    "308": "음식료",       "309": "호텔/레저",      "310": "헬스케어",
+    "311": "방산",         "312": "화장품",         "313": "에너지",
+    "314": "유틸리티",     "315": "소매/유통",      "316": "제약",
+    "317": "수산/해운",    "318": "자원",           "319": "생활용품",
+    "320": "소비재",       "321": "비금속",         "322": "금속/소재",
+    "323": "해운",         "324": "육상운송",       "325": "전문서비스",
+    "326": "환경",         "327": "복합소재",       "328": "로봇/자동화",
+    "329": "우주항공",     "330": "보험",           "331": "리츠",
+    "332": "SW/플랫폼",   "333": "통신",           "334": "방송",
+    "335": "출판/미디어",  "336": "통신",           "337": "반도체장비",
+    "338": "디지털헬스",   "339": "핀테크",         "340": "클라우드/AI",
+}
+
+def _parse_52w_from_totalinfos(total_infos: list) -> tuple:
+    """totalInfos 리스트에서 52주 최고/최저 파싱."""
+    high52w = low52w = 0
+    for item in total_infos:
+        code = item.get("code", "")
+        val_str = str(item.get("value", "0")).replace(",", "")
+        try:
+            val = float(val_str)
+        except Exception:
+            continue
+        if code == "highPriceOf52Weeks":
+            high52w = val
+        elif code == "lowPriceOf52Weeks":
+            low52w = val
+    return high52w, low52w
+
+
+def _fetch_naver_integration(ticker: str) -> dict:
+    """네이버 integration API에서 52주 최고/최저 + 섹터 가져오기."""
+    import requests
+    try:
+        url = f"https://m.stock.naver.com/api/stock/{ticker}/integration"
+        r = requests.get(url, headers=NAVER_HEADERS, timeout=6)
+        if r.status_code != 200:
+            return {}
+        d = r.json()
+        total_infos = d.get("totalInfos", [])
+        high52w, low52w = _parse_52w_from_totalinfos(total_infos)
+        industry_code = str(d.get("industryCode", ""))
+        sector = NAVER_INDUSTRY_MAP.get(industry_code, "")
+        return {"high52w": high52w, "low52w": low52w, "sector": sector}
+    except Exception:
+        return {}
+
+
+def _fetch_naver_eps(ticker: str) -> float:
+    """네이버 finance/summary API에서 최근 분기 EPS 가져오기."""
+    import requests
+    try:
+        url = f"https://m.stock.naver.com/api/stock/{ticker}/finance/summary"
+        r = requests.get(url, headers=NAVER_HEADERS, timeout=6)
+        if r.status_code != 200:
+            return 0.0
+        d = r.json()
+        chart_eps = d.get("chartEps", {})
+        cols = chart_eps.get("columns", [])
+        if len(cols) >= 2:
+            eps_row = cols[1]
+            if len(eps_row) >= 2:
+                try:
+                    return float(str(eps_row[-1]).replace(",", ""))
+                except Exception:
+                    pass
+        return 0.0
+    except Exception:
+        return 0.0
+
+
+def fetch_stock_details_batch(conn):
+    """상위 200종목의 sector, EPS, 52주 최고/최저를 네이버에서 가져와 DB 업데이트."""
+    log.info("=== 종목 상세 재무정보 수집 시작 (상위 200종목) ===")
+    tickers = get_all_tickers_from_db(conn)[:200]
+    updated = 0
+    for ticker in tickers:
+        try:
+            info = _fetch_naver_integration(ticker)
+            eps = _fetch_naver_eps(ticker)
+            high52w = info.get("high52w", 0)
+            low52w  = info.get("low52w",  0)
+            sector  = info.get("sector",  "")
+            if high52w > 0 or low52w > 0 or eps > 0 or sector:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE stocks_realtime
+                        SET
+                          high52w  = CASE WHEN %s > 0 THEN %s ELSE high52w END,
+                          low52w   = CASE WHEN %s > 0 THEN %s ELSE low52w  END,
+                          eps      = CASE WHEN %s > 0 THEN %s ELSE eps     END,
+                          sector   = CASE WHEN %s <> '' THEN %s ELSE sector END
+                        WHERE ticker = %s
+                    """, (
+                        high52w, high52w,
+                        low52w,  low52w,
+                        eps,     eps,
+                        sector,  sector,
+                        ticker,
+                    ))
+                conn.commit()
+                updated += 1
+            time.sleep(0.15)
+        except Exception as e:
+            log.debug(f"상세정보 fetch 실패 {ticker}: {e}")
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+    log.info(f"종목 상세 재무정보 업데이트 완료: {updated}/{len(tickers)}종목")
 
 
 def execute_limit_orders(conn):
@@ -1600,6 +1734,7 @@ def main():
     last_stock_list_refresh = time.time()
     last_batch_price_update = time.time()
     last_ipo_check          = time.time()
+    last_details_fetch      = 0  # 시작 직후 1회 실행되도록 0으로 설정
 
     while True:
         try:
@@ -1653,6 +1788,12 @@ def main():
                     promote_ipo_to_realtime(bg_conn)
                 _bg_run("ipo", _ipo_worker)
                 last_ipo_check = now
+
+            # 매 2시간: sector, EPS, 52주 최고/최저 상세정보 (백그라운드)
+            if now - last_details_fetch > 7200:
+                log.info("상세 재무정보 수집 시작 (sector/EPS/52주, 백그라운드)...")
+                _bg_run("details", fetch_stock_details_batch)
+                last_details_fetch = now
 
             # 매 50s: 수정주가 히스토리 배치 5종목 (백그라운드)
             if cycle % 50 == 0:
