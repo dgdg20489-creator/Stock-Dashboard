@@ -1,11 +1,25 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { usersTable, holdingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { GetRankingsResponse } from "@workspace/api-zod";
-import { getStockPrice } from "./stocksData.js";
 
 const router: IRouter = Router();
+
+/** stocks_realtime DB에서 현재가 조회, 없으면 avg_price 폴백 */
+async function getLivePrice(ticker: string, avgPrice: number): Promise<number> {
+  try {
+    const res = await pool.query<{ current_price: string }>(
+      "SELECT current_price FROM stocks_realtime WHERE ticker = $1 LIMIT 1",
+      [ticker]
+    );
+    if (res.rows.length > 0 && res.rows[0].current_price) {
+      const p = Number(res.rows[0].current_price);
+      if (p > 0) return p;
+    }
+  } catch (_) {}
+  return avgPrice;
+}
 
 router.get("/rankings", async (req, res) => {
   try {
@@ -22,8 +36,8 @@ router.get("/rankings", async (req, res) => {
 
         let stockValue = 0;
         for (const h of holdings) {
-          const { price } = getStockPrice(Number(h.avgPrice), h.ticker);
-          stockValue += price * Number(h.shares);
+          const livePrice = await getLivePrice(h.ticker, Number(h.avgPrice));
+          stockValue += livePrice * Number(h.shares);
         }
 
         const cashBalance = Number(user.cashBalance);

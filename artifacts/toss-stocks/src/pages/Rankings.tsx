@@ -5,34 +5,18 @@ import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameAvatar } from "@/components/GameAvatar";
 import { cn } from "@/lib/utils";
-
-function TrophyIcon({ rank, size = 48 }: { rank: 1 | 2 | 3; size?: number }) {
-  const configs = {
-    1: { cup: "#FFD700", shine: "#FFF9C4", shadow: "#B8860B", base: "#DAA520", label: "금" },
-    2: { cup: "#C0C0C0", shine: "#FFFFFF", shadow: "#808080", base: "#A9A9A9", label: "은" },
-    3: { cup: "#CD7F32", shine: "#E8A958", shadow: "#7B4A1E", base: "#A0522D", label: "동" },
-  };
-  const c = configs[rank];
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <path d="M14 6h20v18c0 6-4 10-10 10S14 30 14 24V6z" fill={c.cup} />
-      <path d="M18 8h4v12c0 2-1 3-2 3s-2-1-2-3V8z" fill={c.shine} opacity="0.6" />
-      <path d="M14 10H8a6 6 0 0 0 6 6V10z" fill={c.cup} />
-      <path d="M34 10h6a6 6 0 0 1-6 6V10z" fill={c.cup} />
-      <path d="M14 13H8" stroke={c.shadow} strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M34 13h6" stroke={c.shadow} strokeWidth="1.5" strokeLinecap="round" />
-      <rect x="21" y="34" width="6" height="5" fill={c.base} />
-      <rect x="15" y="39" width="18" height="4" rx="2" fill={c.base} />
-      <rect x="17" y="40" width="14" height="1.5" rx="0.75" fill={c.shine} opacity="0.4" />
-      <text x="24" y="22" textAnchor="middle" fontSize="10" fontWeight="900" fill={c.shadow} fontFamily="system-ui">{c.label}</text>
-    </svg>
-  );
-}
+import { Crown, TrendingUp, TrendingDown, Medal } from "lucide-react";
 
 const DIFF_CONFIG = {
-  beginner:     { label: "초보",  emoji: "🌱", color: "text-emerald-600", bg: "bg-emerald-50",  ring: "ring-emerald-300",  gradient: "from-emerald-400 to-green-500" },
-  intermediate: { label: "중수",  emoji: "⚡", color: "text-blue-600",    bg: "bg-blue-50",     ring: "ring-blue-300",     gradient: "from-blue-400 to-indigo-500"  },
-  expert:       { label: "고수",  emoji: "🔥", color: "text-red-600",     bg: "bg-red-50",      ring: "ring-red-300",      gradient: "from-red-400 to-rose-500"     },
+  beginner:     { label: "초보",  emoji: "🌱", accent: "#10b981", light: "#d1fae5", dark: "#065f46", tab: "from-emerald-500 to-green-600" },
+  intermediate: { label: "중수",  emoji: "⚡", accent: "#3b82f6", light: "#dbeafe", dark: "#1e3a8a", tab: "from-blue-500 to-indigo-600"  },
+  expert:       { label: "고수",  emoji: "🔥", accent: "#ef4444", light: "#fee2e2", dark: "#7f1d1d", tab: "from-red-500 to-rose-600"     },
+};
+
+const RANK_MEDAL: Record<number, { icon: React.ReactNode; color: string; bg: string }> = {
+  1: { icon: <Crown className="w-4 h-4" />, color: "#D4A017", bg: "#FEF9C3" },
+  2: { icon: <Medal className="w-4 h-4" />, color: "#9CA3AF", bg: "#F3F4F6" },
+  3: { icon: <Medal className="w-4 h-4" />, color: "#C2855A", bg: "#FEF3E2" },
 };
 
 export default function Rankings() {
@@ -41,8 +25,6 @@ export default function Rankings() {
   const prevRanksRef = useRef<Map<number, number>>(new Map());
   const [rankChanges, setRankChanges] = useState<Map<number, number>>(new Map());
   const currentUserId = parseInt(localStorage.getItem("toss_userId") || "0");
-
-  const goToProfile = (userId: number) => setLocation(`/profile/${userId}`);
   const conf = DIFF_CONFIG[difficulty as keyof typeof DIFF_CONFIG] ?? DIFF_CONFIG.beginner;
 
   const { data: rankings, isLoading } = useGetRankings(
@@ -65,6 +47,8 @@ export default function Rankings() {
   }, [rankings]);
 
   const myEntry = rankings?.find(e => e.userId === currentUserId);
+  const top3 = rankings?.slice(0, 3) ?? [];
+  const rest = rankings?.slice(3) ?? [];
 
   const tabs = [
     { id: GetRankingsDifficulty.beginner,     ...DIFF_CONFIG.beginner },
@@ -72,153 +56,152 @@ export default function Rankings() {
     { id: GetRankingsDifficulty.expert,       ...DIFF_CONFIG.expert },
   ];
 
-  const podiumOrder = rankings ? [rankings[1], rankings[0], rankings[2]] : [];
-  const podiumHeights = ["h-24", "h-32", "h-20"];
-  const podiumRanks: (1 | 2 | 3)[] = [2, 1, 3];
-
   return (
-    <div className="max-w-4xl mx-auto space-y-5 animate-in fade-in duration-500 pb-8">
+    <div className="max-w-lg mx-auto pb-10 space-y-4">
 
       {/* ── 헤더 ── */}
-      <div className={cn(
-        "rounded-3xl px-6 py-5 bg-gradient-to-br text-white shadow-lg",
-        `from-${conf.gradient.split(" ")[0].replace("from-", "")} to-${conf.gradient.split(" ")[1].replace("to-", "")}`,
-        "bg-gradient-to-br",
-      )}
-        style={{ background: `linear-gradient(135deg, var(--tw-gradient-stops))` }}
+      <div
+        className="rounded-3xl overflow-hidden shadow-lg"
+        style={{ background: `linear-gradient(135deg, ${conf.accent}, ${conf.dark})` }}
       >
-        <div className={cn(
-          "rounded-3xl px-6 py-5 -mx-6 -my-5 bg-gradient-to-br",
-          difficulty === "beginner" ? "from-emerald-500 to-green-600"
-          : difficulty === "intermediate" ? "from-blue-500 to-indigo-600"
-          : "from-red-500 to-rose-600"
-        )}>
+        <div className="px-6 py-5">
           <div className="flex items-center justify-between">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl">{conf.emoji}</span>
-                <h1 className="text-2xl font-black text-white tracking-tight">랭킹 {conf.label}</h1>
+              <p className="text-xs font-bold text-white/60 uppercase tracking-widest mb-1">LEADERBOARD</p>
+              <h1 className="text-2xl font-black text-white leading-none">
+                {conf.emoji} {conf.label} 랭킹
+              </h1>
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className="w-1.5 h-1.5 bg-white/70 rounded-full animate-pulse" />
+                <span className="text-xs text-white/60 font-medium">5초마다 업데이트</span>
               </div>
-              <p className="text-sm text-white/70 flex items-center gap-1.5 font-medium">
-                <span className="w-1.5 h-1.5 bg-white/80 rounded-full animate-pulse inline-block" />
-                5초마다 실시간 업데이트
-              </p>
             </div>
             {myEntry && (
-              <div className="text-right">
-                <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider mb-0.5">내 순위</p>
-                <p className="text-4xl font-black text-white leading-none">{myEntry.rank}<span className="text-lg font-bold text-white/70">위</span></p>
-                <p className={cn("text-sm font-bold", myEntry.totalReturn >= 0 ? "text-yellow-200" : "text-white/70")}>
+              <div
+                className="rounded-2xl px-4 py-3 text-center"
+                style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(4px)" }}
+              >
+                <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider">내 순위</p>
+                <p className="text-3xl font-black text-white leading-none mt-0.5">
+                  {myEntry.rank}<span className="text-base font-bold text-white/70">위</span>
+                </p>
+                <p className={cn(
+                  "text-xs font-bold mt-0.5",
+                  myEntry.totalReturn >= 0 ? "text-yellow-200" : "text-white/60"
+                )}>
                   {formatPercent(myEntry.totalReturnPercent)}
                 </p>
               </div>
             )}
           </div>
         </div>
-      </div>
 
-      {/* ── 난이도 탭 ── */}
-      <div className="flex gap-2">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setDifficulty(tab.id)}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl font-bold text-sm whitespace-nowrap transition-all duration-200 border-2",
-              difficulty === tab.id
-                ? cn("text-white border-transparent shadow-lg", `bg-gradient-to-r`, tab.id === "beginner" ? "from-emerald-500 to-green-600" : tab.id === "intermediate" ? "from-blue-500 to-indigo-600" : "from-red-500 to-rose-600")
-                : cn("bg-card text-muted-foreground border-border hover:border-border/80 hover:text-foreground")
-            )}
-          >
-            <span>{tab.emoji}</span>
-            {tab.label}
-          </button>
-        ))}
+        {/* 난이도 탭 — 헤더 하단에 붙음 */}
+        <div className="flex" style={{ background: "rgba(0,0,0,0.2)" }}>
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setDifficulty(tab.id)}
+              className={cn(
+                "flex-1 py-2.5 text-sm font-bold transition-colors",
+                difficulty === tab.id
+                  ? "text-white border-b-2 border-white"
+                  : "text-white/50 hover:text-white/80"
+              )}
+            >
+              {tab.emoji} {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── 본문 ── */}
       {isLoading ? (
-        <div className="bg-card rounded-3xl p-12 flex flex-col items-center gap-3 border border-border/50 shadow-sm">
-          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <div className="bg-card rounded-3xl p-14 flex flex-col items-center gap-3 border border-border/50">
+          <div className="w-9 h-9 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
           <span className="text-sm text-muted-foreground font-medium">랭킹 불러오는 중...</span>
         </div>
       ) : !rankings || rankings.length === 0 ? (
-        <div className="bg-card rounded-3xl p-12 text-center border border-border/50 shadow-sm">
-          <TrophyIcon rank={1} size={64} />
-          <p className="text-muted-foreground font-bold mt-4 text-base">아직 순위 데이터가 없습니다</p>
+        <div className="bg-card rounded-3xl p-14 text-center border border-border/50">
+          <div className="text-5xl mb-4">🏆</div>
+          <p className="font-bold text-foreground">아직 순위 데이터가 없습니다</p>
           <p className="text-xs text-muted-foreground mt-1">투자를 시작하면 랭킹에 등록됩니다!</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
 
-          {/* ── 포디엄 TOP 3 ── */}
-          {rankings.length >= 1 && (
-            <div className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden">
-              <div className={cn(
-                "px-4 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-center",
-                difficulty === "beginner" ? "text-emerald-600 bg-emerald-50/60"
-                : difficulty === "intermediate" ? "text-blue-600 bg-blue-50/60"
-                : "text-red-600 bg-red-50/60"
-              )}>
-                🏆 TOP 3
+          {/* ── TOP 3 포디엄 ── */}
+          {top3.length > 0 && (
+            <div className="bg-card border border-border/50 rounded-3xl overflow-hidden shadow-sm">
+              <div className="px-5 pt-5 pb-2 text-center">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">TOP 3</span>
               </div>
 
-              {/* 포디엄 시각화 */}
-              <div className="flex items-end justify-center gap-3 px-4 pt-6 pb-4">
-                {podiumOrder.map((entry, idx) => {
-                  if (!entry) return <div key={idx} className="flex-1" />;
-                  const rank = podiumRanks[idx];
-                  const isSelf = entry.userId === currentUserId;
-                  const podiumColor = rank === 1
-                    ? "from-amber-400 to-yellow-500"
-                    : rank === 2 ? "from-slate-400 to-slate-500"
-                    : "from-amber-600 to-amber-700";
-                  const platformH = podiumHeights[idx];
+              {/* 포디엄: 2위 왼쪽, 1위 가운데, 3위 오른쪽 */}
+              <div className="flex items-end justify-center gap-2 px-4 pb-0 pt-2">
+                {[top3[1], top3[0], top3[2]].map((entry, podIdx) => {
+                  const ranks = [2, 1, 3] as const;
+                  const rank = ranks[podIdx];
+                  const isFirst = rank === 1;
+                  const isSelf = entry?.userId === currentUserId;
+                  const heights = ["h-16", "h-24", "h-12"];
+                  const medalColors = ["#9CA3AF", "#D4A017", "#C2855A"];
+                  const podBg = ["bg-slate-100 dark:bg-slate-800", "bg-amber-50 dark:bg-amber-900/30", "bg-orange-50 dark:bg-orange-900/20"];
+
+                  if (!entry) return <div key={podIdx} className="flex-1" />;
 
                   return (
                     <motion.div
                       key={entry.userId}
-                      initial={{ opacity: 0, y: 30 }}
+                      initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.12, type: "spring", stiffness: 280, damping: 26 }}
-                      className="flex-1 flex flex-col items-center cursor-pointer"
-                      onClick={() => goToProfile(entry.userId)}
+                      transition={{ delay: podIdx * 0.1, type: "spring", stiffness: 300, damping: 28 }}
+                      className="flex-1 flex flex-col items-center cursor-pointer group"
+                      onClick={() => setLocation(`/profile/${entry.userId}`)}
                     >
-                      {/* 왕관 for 1위 */}
-                      {rank === 1 && (
-                        <motion.div
-                          animate={{ y: [0, -4, 0] }}
-                          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                          className="text-2xl mb-0.5"
-                        >👑</motion.div>
+                      {isFirst && (
+                        <motion.span
+                          animate={{ y: [0, -5, 0] }}
+                          transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                          className="text-xl mb-1"
+                        >👑</motion.span>
                       )}
-                      <TrophyIcon rank={rank} size={rank === 1 ? 52 : 36} />
-                      <div className="mt-2 mb-3 text-center">
-                        <GameAvatar
-                          avatarId={entry.avatar}
-                          size={rank === 1 ? 52 : 44}
-                          rounded="rounded-xl"
-                          className={cn("shadow-md mx-auto", isSelf && "ring-2 ring-primary")}
-                        />
-                        <p className={cn(
-                          "font-black text-sm mt-1.5 truncate max-w-[80px]",
-                          isSelf ? "text-primary" : "text-foreground"
-                        )}>
-                          {entry.username}{isSelf ? " 👤" : ""}
-                        </p>
-                        <p className={cn("text-xs font-bold", getColorClass(entry.totalReturn))}>
-                          {formatPercent(entry.totalReturnPercent)}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground font-semibold mt-0.5">
-                          {formatCurrency(entry.totalAssets)}
-                        </p>
-                      </div>
+
+                      <GameAvatar
+                        avatarId={entry.avatar}
+                        size={isFirst ? 56 : 44}
+                        rounded="rounded-xl"
+                        className={cn(
+                          "shadow-md group-hover:scale-105 transition-transform",
+                          isSelf ? "ring-2 ring-primary ring-offset-1" : ""
+                        )}
+                      />
+
+                      <p className={cn(
+                        "font-black mt-1.5 truncate max-w-[76px] text-center",
+                        isFirst ? "text-sm" : "text-xs",
+                        isSelf ? "text-primary" : "text-foreground"
+                      )}>
+                        {entry.username}
+                      </p>
+                      <p className={cn(
+                        "text-xs font-black",
+                        getColorClass(entry.totalReturn)
+                      )}>
+                        {formatPercent(entry.totalReturnPercent)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-2">
+                        {formatCurrency(entry.totalAssets)}
+                      </p>
+
                       {/* 포디엄 받침 */}
                       <div className={cn(
-                        `w-full ${platformH} rounded-t-xl bg-gradient-to-b flex items-start justify-center pt-2`,
-                        podiumColor
+                        "w-full flex items-center justify-center rounded-t-xl",
+                        heights[podIdx], podBg[podIdx]
                       )}>
-                        <span className="text-white font-black text-lg">{rank}</span>
+                        <span className="font-black text-lg" style={{ color: medalColors[podIdx] }}>
+                          {rank}
+                        </span>
                       </div>
                     </motion.div>
                   );
@@ -228,112 +211,120 @@ export default function Rankings() {
           )}
 
           {/* ── 4위 이하 ── */}
-          {rankings.length > 3 && (
-            <div className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-border/40 bg-muted/30">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  4위 이하 전체 순위
-                </span>
-              </div>
-              <div className="divide-y divide-border/40">
-                <AnimatePresence>
-                  {rankings.slice(3).map((entry) => {
-                    const change = rankChanges.get(entry.userId) ?? 0;
-                    const isSelf = entry.userId === currentUserId;
-                    return (
-                      <motion.div
-                        layout
-                        key={entry.userId}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.25 }}
-                        className={cn(
-                          "flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors cursor-pointer",
-                          isSelf && "bg-primary/5 hover:bg-primary/8"
-                        )}
-                        onClick={() => goToProfile(entry.userId)}
-                      >
-                        {/* 순위 */}
-                        <div className="w-10 flex-shrink-0 flex flex-col items-center gap-0.5">
+          {rest.length > 0 && (
+            <div className="bg-card border border-border/50 rounded-3xl overflow-hidden shadow-sm">
+              <AnimatePresence>
+                {rest.map((entry, i) => {
+                  const change = rankChanges.get(entry.userId) ?? 0;
+                  const isSelf = entry.userId === currentUserId;
+                  const medal = RANK_MEDAL[entry.rank];
+                  const isPositive = entry.totalReturn >= 0;
+
+                  return (
+                    <motion.div
+                      layout
+                      key={entry.userId}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.03, duration: 0.2 }}
+                      className={cn(
+                        "flex items-center gap-3 px-4 py-3.5 border-b border-border/30 last:border-0 cursor-pointer transition-colors",
+                        isSelf
+                          ? "bg-primary/[0.04] hover:bg-primary/[0.07]"
+                          : "hover:bg-muted/40"
+                      )}
+                      onClick={() => setLocation(`/profile/${entry.userId}`)}
+                    >
+                      {/* 순위 번호 */}
+                      <div className="w-8 flex-shrink-0 text-center">
+                        {medal ? (
+                          <span style={{ color: medal.color }}>{medal.icon}</span>
+                        ) : (
                           <span className={cn(
-                            "inline-flex items-center justify-center w-8 h-8 rounded-full font-black text-sm",
-                            isSelf ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                            "text-sm font-black",
+                            isSelf ? "text-primary" : "text-muted-foreground"
+                          )}>{entry.rank}</span>
+                        )}
+                        {change !== 0 && (
+                          <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className={cn(
+                              "text-[9px] font-black leading-none mt-0.5",
+                              change > 0 ? "text-red-500" : "text-blue-500"
+                            )}
+                          >
+                            {change > 0 ? `▲${change}` : `▼${Math.abs(change)}`}
+                          </motion.p>
+                        )}
+                      </div>
+
+                      <GameAvatar avatarId={entry.avatar} size={40} rounded="rounded-xl" className="shadow-sm flex-shrink-0" />
+
+                      {/* 이름 + 난이도 */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn(
+                            "font-bold text-sm truncate",
+                            isSelf ? "text-primary" : "text-foreground"
                           )}>
-                            {entry.rank}
+                            {entry.username}
                           </span>
-                          {change !== 0 && (
-                            <motion.span
-                              initial={{ opacity: 0, scale: 0.6 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0 }}
-                              className={cn("text-[9px] font-black", change > 0 ? "text-up" : "text-down")}
-                            >
-                              {change > 0 ? `▲${change}` : `▼${Math.abs(change)}`}
-                            </motion.span>
+                          {isSelf && (
+                            <span className="text-[9px] bg-primary text-white px-1.5 py-0.5 rounded-full font-black flex-shrink-0">나</span>
                           )}
                         </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                          {formatCurrency(entry.totalAssets)}
+                        </p>
+                      </div>
 
-                        <GameAvatar avatarId={entry.avatar} size={44} rounded="rounded-xl" className="shadow-sm flex-shrink-0" />
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={cn("font-bold text-sm truncate", isSelf ? "text-primary" : "text-foreground")}>
-                              {entry.username}
-                            </span>
-                            {isSelf && (
-                              <span className="text-[9px] bg-primary text-white px-1.5 py-0.5 rounded-full font-black flex-shrink-0">나</span>
-                            )}
-                            <span className={cn(
-                              "text-[9px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0",
-                              entry.difficulty === "beginner" ? "bg-emerald-100 text-emerald-700"
-                              : entry.difficulty === "intermediate" ? "bg-blue-100 text-blue-700"
-                              : "bg-red-100 text-red-700"
-                            )}>
-                              {entry.difficulty === "beginner" ? "초보" : entry.difficulty === "intermediate" ? "중수" : "고수"}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground font-semibold mt-0.5">
-                            {formatCurrency(entry.totalAssets)}
-                          </p>
-                        </div>
-
-                        <div className={cn("text-right font-black text-base flex-shrink-0", getColorClass(entry.totalReturn))}>
+                      {/* 수익률 */}
+                      <div className="text-right flex-shrink-0">
+                        <div className={cn(
+                          "flex items-center gap-0.5 justify-end font-black text-sm",
+                          getColorClass(entry.totalReturn)
+                        )}>
+                          {isPositive
+                            ? <TrendingUp className="w-3.5 h-3.5" />
+                            : <TrendingDown className="w-3.5 h-3.5" />}
                           {formatPercent(entry.totalReturnPercent)}
                         </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
+                        <p className={cn(
+                          "text-[10px] font-semibold mt-0.5",
+                          isPositive ? "text-red-400" : "text-blue-400"
+                        )}>
+                          {isPositive ? "+" : ""}{formatCurrency(entry.totalReturn)}
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
           )}
 
-          {/* ── 내 순위 고정 카드 (4위 이하인 경우) ── */}
+          {/* ── 내 순위 고정 카드 (TOP3 밖인 경우) ── */}
           {myEntry && myEntry.rank > 3 && (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className={cn(
-                "rounded-2xl border-2 p-4 flex items-center gap-3",
-                difficulty === "beginner" ? "border-emerald-300 bg-emerald-50"
-                : difficulty === "intermediate" ? "border-blue-300 bg-blue-50"
-                : "border-red-300 bg-red-50"
-              )}
+              className="rounded-2xl border-2 p-4 flex items-center gap-3"
+              style={{ borderColor: conf.accent, background: conf.light }}
             >
-              <div className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center font-black text-sm text-white flex-shrink-0",
-                difficulty === "beginner" ? "bg-emerald-500"
-                : difficulty === "intermediate" ? "bg-blue-500"
-                : "bg-red-500"
-              )}>
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center font-black text-sm text-white flex-shrink-0"
+                style={{ background: conf.accent }}
+              >
                 {myEntry.rank}
               </div>
-              <GameAvatar avatarId={myEntry.avatar} size={40} rounded="rounded-xl" className="flex-shrink-0" />
+              <GameAvatar avatarId={myEntry.avatar} size={38} rounded="rounded-xl" className="flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="font-black text-sm text-foreground">나의 순위</p>
+                <p className="font-black text-sm text-foreground truncate">{myEntry.username} <span className="text-[10px] text-muted-foreground font-medium">· 내 순위</span></p>
                 <p className="text-xs text-muted-foreground font-semibold">{formatCurrency(myEntry.totalAssets)}</p>
               </div>
-              <div className={cn("font-black text-lg", getColorClass(myEntry.totalReturn))}>
+              <div className={cn("font-black text-base flex-shrink-0", getColorClass(myEntry.totalReturn))}>
                 {formatPercent(myEntry.totalReturnPercent)}
               </div>
             </motion.div>
