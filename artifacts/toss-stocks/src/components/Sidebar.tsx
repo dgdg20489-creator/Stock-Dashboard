@@ -1,8 +1,9 @@
 import { useGetUser, useGetUserPortfolio } from "@workspace/api-client-react";
 import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { Link } from "wouter";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { cn } from "@/lib/utils";
+import { BarChart2, TrendingUp, TrendingDown } from "lucide-react";
 import { GameAvatar, getAvatarDef, INVEST_TYPES } from "@/components/GameAvatar";
 
 interface SidebarProps {
