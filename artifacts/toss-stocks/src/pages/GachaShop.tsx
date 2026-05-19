@@ -67,7 +67,18 @@ function saveCollected(items: string[]) { localStorage.setItem(collectedKey(), J
 
 type HistoryEntry = { timestamp: number; ssrCards: string[] };
 function loadHistory(): HistoryEntry[] {
-  try { return JSON.parse(localStorage.getItem(historyKey()) ?? "[]"); } catch { return []; }
+  try {
+    const raw = localStorage.getItem(historyKey());
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    // migrate old format { hasSsr, ssrName } → new format { ssrCards }
+    return (parsed as any[]).map(entry => ({
+      timestamp: entry.timestamp ?? Date.now(),
+      ssrCards: Array.isArray(entry.ssrCards)
+        ? entry.ssrCards
+        : entry.hasSsr ? ["legacy_ssr"] : [],
+    }));
+  } catch { return []; }
 }
 function saveHistory(h: HistoryEntry[]) { localStorage.setItem(historyKey(), JSON.stringify(h.slice(-50))); }
 
