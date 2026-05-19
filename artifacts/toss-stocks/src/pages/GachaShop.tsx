@@ -3,20 +3,60 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Coins, Sparkles, Star, FlaskConical, History } from "lucide-react";
 import { useMissions } from "@/hooks/use-missions";
 import { cn } from "@/lib/utils";
-import cardSsrUrl from "/card_defensive_ssr.png";
 
 const PULL_COST = 10;
 const PULL_COUNT = 10;
+const SSR_RATE = 0.05; // 5%
 
-const SSR_QUOTES = [
-  { line1: "파도가 높을수록,", line2: "더 높이 날아오른다.", name: "서퍼 Analyst" },
-  { line1: "시장을 지배하는 자,", line2: "이제 그 카드를 쥐어라.", name: "서퍼 Analyst" },
-  { line1: "냉정한 판단이", line2: "최고의 무기다.", name: "서퍼 Analyst" },
-  { line1: "기회는 준비된 자에게만", line2: "찾아온다.", name: "서퍼 Analyst" },
-  { line1: "숫자 뒤에 숨겨진 진실,", line2: "내가 꿰뚫어 본다.", name: "서퍼 Analyst" },
-  { line1: "폭풍 속에서도", line2: "나침반은 흔들리지 않는다.", name: "서퍼 Analyst" },
-];
+// ─── SSR 카드 풀 ───────────────────────────────────────────────
+const SSR_POOL = [
+  {
+    id: "defensive_ssr_chibi",
+    name: "Analyst · 치비",
+    image: "/card_ssr_chibi.png",
+    line1: "분석은 재미있어!",
+    line2: "세상을 이해하는 방법이거든!",
+  },
+  {
+    id: "defensive_ssr_concert",
+    name: "Analyst · 콘서트",
+    image: "/card_ssr_concert.png",
+    line1: "우리의 데이터는 반짝이는 가능성이야.",
+    line2: "지금, 함께 성장하자!",
+  },
+  {
+    id: "defensive_ssr_surfer",
+    name: "Analyst · 서퍼",
+    image: "/card_ssr_surfer.png",
+    line1: "끝없이 펼쳐진 수평선처럼,",
+    line2: "우리의 가능성도 무한해!",
+  },
+  {
+    id: "defensive_ssr_magical",
+    name: "Analyst · 매지컬",
+    image: "/card_ssr_magical.png",
+    line1: "데이터도, 미래도, 내 손안에 있어!",
+    line2: "함께라면 뭐든지 가능해!",
+  },
+  {
+    id: "defensive_ssr_gamer",
+    name: "Analyst · 게이머",
+    image: "/card_ssr_gamer.png",
+    line1: "게임은 전략이야.",
+    line2: "승리도, 성장도 계획이 필요하지!",
+  },
+  {
+    id: "defensive_ssr_mystic",
+    name: "Analyst · 미스틱",
+    image: "/card_ssr_mystic.png",
+    line1: "진실은 언제나 데이터 속에 숨어 있어.",
+    line2: "내가 찾아낼 뿐이지.",
+  },
+] as const;
 
+type SsrCard = typeof SSR_POOL[number];
+
+// ─── 로컬스토리지 헬퍼 ────────────────────────────────────────
 function getUid() { return localStorage.getItem("toss_userId") ?? "guest"; }
 function collectedKey() { return `wonkwang_gacha_collected_${getUid()}`; }
 function historyKey() { return `wonkwang_gacha_history_${getUid()}`; }
@@ -24,19 +64,25 @@ function loadCollected(): string[] {
   try { return JSON.parse(localStorage.getItem(collectedKey()) ?? "[]"); } catch { return []; }
 }
 function saveCollected(items: string[]) { localStorage.setItem(collectedKey(), JSON.stringify(items)); }
-type HistoryEntry = { timestamp: number; hasSsr: boolean; ssrName?: string };
+
+type HistoryEntry = { timestamp: number; ssrCards: string[] };
 function loadHistory(): HistoryEntry[] {
   try { return JSON.parse(localStorage.getItem(historyKey()) ?? "[]"); } catch { return []; }
 }
 function saveHistory(h: HistoryEntry[]) { localStorage.setItem(historyKey(), JSON.stringify(h.slice(-50))); }
 
-type PullResult = { idx: number; type: "ssr" | "miss" };
+// ─── 뽑기 생성 (5% SSR) ──────────────────────────────────────
+type PullResult = { idx: number; type: "ssr" | "miss"; card?: SsrCard };
 function generatePull(): PullResult[] {
-  const results: PullResult[] = Array.from({ length: PULL_COUNT }, (_, i) => ({ idx: i, type: "miss" as const }));
-  const ssrPos = Math.floor(Math.random() * PULL_COUNT);
-  results[ssrPos] = { idx: ssrPos, type: "ssr" };
-  return results;
+  return Array.from({ length: PULL_COUNT }, (_, i) => {
+    if (Math.random() < SSR_RATE) {
+      const card = SSR_POOL[Math.floor(Math.random() * SSR_POOL.length)];
+      return { idx: i, type: "ssr" as const, card };
+    }
+    return { idx: i, type: "miss" as const };
+  });
 }
+
 function formatAgo(ts: number) {
   const diff = Math.floor((Date.now() - ts) / 1000);
   if (diff < 60) return `${diff}초 전`;
@@ -52,18 +98,16 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
   const [collected, setCollected] = useState<string[]>(loadCollected);
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
 
-  // 뽑기 모달
   const [results, setResults] = useState<PullResult[] | null>(null);
   const [revealed, setRevealed] = useState<boolean[]>([]);
   const [pulling, setPulling] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
-  // SSR 시네마틱
-  const [ssrCinematic, setSsrCinematic] = useState(false);
-  const [currentQuote, setCurrentQuote] = useState(SSR_QUOTES[0]);
+  // 시네마틱
+  const [cinematicCard, setCinematicCard] = useState<SsrCard | null>(null);
 
   const totalPulls = history.length * PULL_COUNT;
-  const totalSsr = history.filter(h => h.hasSsr).length;
+  const totalSsr = history.reduce((acc, h) => acc + h.ssrCards.length, 0);
 
   const handlePull = () => {
     if (coins < PULL_COST || pulling) return;
@@ -71,47 +115,38 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
     const pull = generatePull();
     setResults(pull);
     setRevealed(new Array(PULL_COUNT).fill(false));
-    setSsrCinematic(false);
+    setCinematicCard(null);
     setShowModal(true);
     setPulling(true);
 
-    // 카드 순차 오픈
     pull.forEach((_, i) => {
       setTimeout(() => {
         setRevealed(prev => { const n = [...prev]; n[i] = true; return n; });
         if (i === PULL_COUNT - 1) {
           setPulling(false);
-          const gotSsr = pull.some(r => r.type === "ssr");
-          const entry: HistoryEntry = { timestamp: Date.now(), hasSsr: gotSsr, ssrName: gotSsr ? "서퍼 Analyst" : undefined };
+          const ssrCards = pull.filter(r => r.type === "ssr" && r.card).map(r => r.card!.id);
+          const entry: HistoryEntry = { timestamp: Date.now(), ssrCards };
           const next = [entry, ...history];
           setHistory(next);
           saveHistory(next);
-          if (gotSsr && !collected.includes("defensive_ssr")) {
-            const c = [...collected, "defensive_ssr"];
-            setCollected(c);
-            saveCollected(c);
+          // 새로 획득한 카드 저장
+          const newCollected = [...collected];
+          ssrCards.forEach(id => { if (!newCollected.includes(id)) newCollected.push(id); });
+          if (newCollected.length !== collected.length) {
+            setCollected(newCollected);
+            saveCollected(newCollected);
           }
         }
       }, i * 220 + 200);
     });
   };
 
-  const handleSsrClick = () => {
-    const q = SSR_QUOTES[Math.floor(Math.random() * SSR_QUOTES.length)];
-    setCurrentQuote(q);
-    setSsrCinematic(true);
-  };
-
-  const closeCinematic = () => setSsrCinematic(false);
-
-  const closeModal = () => {
-    setShowModal(false);
-    setResults(null);
-    setRevealed([]);
+  const handleSsrCardClick = (card: SsrCard) => {
+    setCinematicCard(card);
   };
 
   const allRevealed = revealed.length > 0 && revealed.every(Boolean);
-  const hasSsrInResults = results?.some(r => r.type === "ssr") ?? false;
+  const hasSsr = results?.some(r => r.type === "ssr") ?? false;
 
   return (
     <div className="max-w-md mx-auto px-4 py-6 space-y-4">
@@ -156,20 +191,28 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
       )}
 
       <div className="bg-muted/40 rounded-2xl p-3 border border-border/40">
-        <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="flex items-center gap-1.5 mb-2">
           <Star className="w-4 h-4 text-yellow-500" />
           <span className="text-sm font-bold">뽑기 확률</span>
-          <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-yellow-100 text-yellow-700">테스트 모드</span>
+          <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-yellow-100 text-yellow-700">안정형 SSR 6종</span>
         </div>
         <div className="space-y-1">
           <div className="flex justify-between text-xs">
-            <span className="font-semibold text-yellow-600">🌟 SSR — 안정형 서퍼 Analyst</span>
-            <span className="font-bold text-yellow-700">10연차 1회 보장</span>
+            <span className="font-semibold text-yellow-600">🌟 SSR — 안정형 Analyst 6종 중 랜덤</span>
+            <span className="font-bold text-yellow-700">5%</span>
           </div>
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>꽝 (일반)</span>
-            <span>나머지 9회</span>
+            <span>95%</span>
           </div>
+        </div>
+        {/* 카드 미리보기 */}
+        <div className="flex gap-1.5 mt-2.5 overflow-x-auto pb-1">
+          {SSR_POOL.map(card => (
+            <div key={card.id} className="flex-shrink-0 w-9 h-[54px] rounded-lg overflow-hidden border border-yellow-400/40">
+              <img src={card.image} alt={card.name} className="w-full h-full object-cover object-top" />
+            </div>
+          ))}
         </div>
       </div>
 
@@ -202,25 +245,25 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
           <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
             {history.slice(0, 20).map((entry, i) => (
               <div key={i} className="flex items-center gap-3 px-3 py-2.5 bg-muted/30 rounded-xl">
-                <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-sm", entry.hasSsr ? "bg-yellow-100" : "bg-muted")}>
-                  {entry.hasSsr ? "✨" : "🎴"}
+                <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-sm", entry.ssrCards.length > 0 ? "bg-yellow-100" : "bg-muted")}>
+                  {entry.ssrCards.length > 0 ? "✨" : "🎴"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={cn("text-xs font-bold leading-tight", entry.hasSsr ? "text-amber-700" : "text-foreground")}>
-                    {entry.hasSsr ? `SSR 획득 · ${entry.ssrName}` : "10연차 (꽝)"}
+                  <p className={cn("text-xs font-bold leading-tight", entry.ssrCards.length > 0 ? "text-amber-700" : "text-foreground")}>
+                    {entry.ssrCards.length > 0
+                      ? `SSR ${entry.ssrCards.length}장 · ${entry.ssrCards.map(id => SSR_POOL.find(c => c.id === id)?.name ?? id).join(", ")}`
+                      : "10연차 (꽝)"}
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">10소환 · {formatAgo(entry.timestamp)}</p>
                 </div>
-                {entry.hasSsr && <span className="text-[10px] font-extrabold px-1.5 py-0.5 bg-yellow-400 text-yellow-900 rounded-md flex-shrink-0">SSR</span>}
+                {entry.ssrCards.length > 0 && <span className="text-[10px] font-extrabold px-1.5 py-0.5 bg-yellow-400 text-yellow-900 rounded-md flex-shrink-0">SSR</span>}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* ══════════════════════════
-          뽑기 결과 모달
-      ══════════════════════════ */}
+      {/* ═══ 뽑기 결과 모달 ═══ */}
       <AnimatePresence>
         {showModal && results && (
           <motion.div
@@ -237,12 +280,10 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
             >
               <h2 className="text-white font-extrabold text-xl text-center mb-4">🎰 10연차 결과</h2>
 
-              {/* 카드 그리드 */}
               <div className="grid grid-cols-5 gap-2 mb-5">
                 {results.map((result, i) => (
                   <div key={result.idx} className="relative aspect-[2/3]">
                     <AnimatePresence mode="wait">
-                      {/* 뒷면 */}
                       {!revealed[i] ? (
                         <motion.div
                           key="back"
@@ -252,59 +293,41 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
                         >
                           <span className="text-white/50 text-base font-bold">?</span>
                         </motion.div>
-                      ) : result.type === "ssr" ? (
-                        /* ─── SSR 황금 카드 ─── */
+                      ) : result.type === "ssr" && result.card ? (
+                        /* ── 황금 SSR 카드 ── */
                         <motion.div
                           key="ssr"
-                          initial={{ rotateY: -90, scale: 0.8 }}
+                          initial={{ rotateY: -90, scale: 0.7 }}
                           animate={{ rotateY: 0, scale: 1 }}
                           transition={{ type: "spring", bounce: 0.45, duration: 0.5 }}
-                          onClick={handleSsrClick}
+                          onClick={() => handleSsrCardClick(result.card!)}
                           className="absolute inset-0 rounded-xl overflow-hidden cursor-pointer"
                           style={{
-                            background: "linear-gradient(135deg, #7c5c00, #FFD700, #c8960c, #FFD700, #7c5c00)",
-                            backgroundSize: "200% 200%",
+                            background: "linear-gradient(135deg, #6b4c00, #FFD700, #b8830a, #FFD700, #6b4c00)",
                             boxShadow: "0 0 18px 5px #FFD70088, 0 0 6px 2px #FFD700",
                           }}
                         >
-                          {/* 내부 빛 애니메이션 */}
                           <motion.div
                             className="absolute inset-0"
-                            style={{
-                              background: "linear-gradient(110deg, transparent 30%, rgba(255,255,220,0.55) 50%, transparent 70%)",
-                            }}
+                            style={{ background: "linear-gradient(110deg, transparent 30%, rgba(255,255,200,0.55) 50%, transparent 70%)" }}
                             animate={{ x: ["-100%", "200%"] }}
-                            transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 0.8, ease: "easeInOut" }}
+                            transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 0.7 }}
                           />
-                          {/* 황금 패턴 */}
                           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-                            <motion.div
-                              animate={{ scale: [1, 1.15, 1], opacity: [0.8, 1, 0.8] }}
-                              transition={{ duration: 1.6, repeat: Infinity }}
-                              className="text-xl"
-                            >
-                              ✦
-                            </motion.div>
-                            <p className="text-[9px] font-extrabold text-yellow-900/80 tracking-widest">SSR</p>
-                            <motion.div
-                              animate={{ scale: [1, 1.15, 1], opacity: [0.8, 1, 0.8] }}
-                              transition={{ duration: 1.6, repeat: Infinity, delay: 0.4 }}
-                              className="text-xl"
-                            >
-                              ✦
-                            </motion.div>
+                            <motion.span animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }} transition={{ duration: 1.5, repeat: Infinity }} className="text-lg">✦</motion.span>
+                            <p className="text-[8px] font-extrabold text-yellow-900/80 tracking-widest">SSR</p>
+                            <motion.span animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }} transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }} className="text-lg">✦</motion.span>
                           </div>
-                          {/* 탭 힌트 */}
                           <motion.div
-                            animate={{ opacity: [0, 1, 0] }}
-                            transition={{ duration: 1.2, repeat: Infinity, delay: 0.8 }}
+                            animate={{ opacity: [0, 0.7, 0] }}
+                            transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 0.4 }}
                             className="absolute bottom-1 left-0 right-0 text-center"
                           >
-                            <span className="text-[8px] font-bold text-yellow-900/60">TAP</span>
+                            <span className="text-[7px] font-bold text-yellow-900/60">TAP</span>
                           </motion.div>
                         </motion.div>
                       ) : (
-                        /* ─── 꽝 ─── */
+                        /* ── 꽝 ── */
                         <motion.div
                           key="miss"
                           initial={{ rotateY: -90, scale: 0.8 }}
@@ -320,13 +343,8 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
                 ))}
               </div>
 
-              {/* 안내 텍스트 */}
-              {allRevealed && hasSsrInResults && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-center text-yellow-400 text-xs font-bold mb-3"
-                >
+              {allRevealed && hasSsr && (
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-yellow-400 text-xs font-bold mb-3">
                   ✨ 황금 카드를 탭해서 확인하세요!
                 </motion.p>
               )}
@@ -336,7 +354,7 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  onClick={closeModal}
+                  onClick={() => { setShowModal(false); setResults(null); setRevealed([]); }}
                   className="w-full bg-white/10 hover:bg-white/20 text-white font-extrabold py-3 rounded-2xl transition-colors border border-white/20"
                 >
                   닫기
@@ -347,11 +365,9 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
         )}
       </AnimatePresence>
 
-      {/* ══════════════════════════
-          SSR 시네마틱 (황금 카드 탭 시)
-      ══════════════════════════ */}
+      {/* ═══ SSR 시네마틱 ═══ */}
       <AnimatePresence>
-        {ssrCinematic && (
+        {cinematicCard && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -359,23 +375,13 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
             transition={{ duration: 0.35 }}
             className="fixed inset-0 z-[60] flex items-center justify-center cursor-pointer overflow-hidden"
             style={{ background: "#000" }}
-            onClick={closeCinematic}
+            onClick={() => setCinematicCard(null)}
           >
-            {/* 황금 빛줄기 */}
+            {/* 빛줄기 */}
             <div className="absolute inset-0 pointer-events-none">
               {Array.from({ length: 14 }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute"
-                  style={{
-                    left: "50%", top: "50%",
-                    width: 2, height: "70vh",
-                    background: "linear-gradient(to bottom, #FFD70077, transparent)",
-                    transformOrigin: "top center",
-                    rotate: `${i * (360 / 14)}deg`,
-                    translateX: "-50%",
-                    translateY: "-5%",
-                  }}
+                <motion.div key={i} className="absolute"
+                  style={{ left: "50%", top: "50%", width: 2, height: "70vh", background: "linear-gradient(to bottom, #FFD70077, transparent)", transformOrigin: "top center", rotate: `${i * (360 / 14)}deg`, translateX: "-50%", translateY: "-5%" }}
                   initial={{ opacity: 0, scaleY: 0 }}
                   animate={{ opacity: [0, 0.7, 0.35], scaleY: 1 }}
                   transition={{ delay: 0.15 + i * 0.03, duration: 0.7 }}
@@ -385,146 +391,75 @@ export default function GachaShop({ userId: _userId }: GachaShopProps) {
 
             {/* 파티클 */}
             {Array.from({ length: 22 }).map((_, i) => (
-              <motion.div
-                key={`p${i}`}
-                className="absolute rounded-full pointer-events-none"
-                style={{
-                  width: Math.random() * 5 + 3,
-                  height: Math.random() * 5 + 3,
-                  background: i % 3 === 0 ? "#FFD700" : i % 3 === 1 ? "#FFF8B0" : "#FFAA00",
-                  left: `${15 + Math.random() * 70}%`,
-                  top: `${10 + Math.random() * 80}%`,
-                }}
+              <motion.div key={`p${i}`} className="absolute rounded-full pointer-events-none"
+                style={{ width: Math.random() * 5 + 3, height: Math.random() * 5 + 3, background: i % 3 === 0 ? "#FFD700" : i % 3 === 1 ? "#FFF8B0" : "#FFAA00", left: `${15 + Math.random() * 70}%`, top: `${10 + Math.random() * 80}%` }}
                 initial={{ opacity: 0, scale: 0 }}
                 animate={{ opacity: [0, 1, 0], scale: [0, 1.4, 0], y: [0, -(40 + Math.random() * 60)] }}
-                transition={{
-                  delay: 0.2 + Math.random() * 0.8,
-                  duration: 1 + Math.random() * 0.8,
-                  repeat: Infinity,
-                  repeatDelay: Math.random() * 1.2,
-                }}
+                transition={{ delay: 0.2 + Math.random() * 0.8, duration: 1 + Math.random() * 0.8, repeat: Infinity, repeatDelay: Math.random() * 1.2 }}
               />
             ))}
 
-            {/* 레이아웃 */}
+            {/* 레이아웃: 왼쪽 대사 / 오른쪽 카드 */}
             <div className="relative z-10 flex items-center justify-center gap-5 px-6 w-full max-w-sm">
-              {/* 왼쪽: 대사 */}
+              {/* 왼쪽 대사 */}
               <div className="flex-1 min-w-0">
-                <motion.p
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3, duration: 0.5 }}
-                  className="text-yellow-400/60 text-[10px] font-bold tracking-widest uppercase mb-3"
-                >
-                  SSR CARD
+                <motion.p initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
+                  className="text-yellow-400/60 text-[10px] font-bold tracking-widest uppercase mb-3">SSR CARD</motion.p>
+
+                <motion.p initial={{ opacity: 0, x: -22 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}
+                  style={{ fontSize: "1.05rem", fontWeight: 900, color: "#FFD700", textShadow: "0 0 18px #FFD700, 0 0 36px #FFD70066", lineHeight: 1.5 }}>
+                  {cinematicCard.line1}
+                </motion.p>
+
+                <motion.p initial={{ opacity: 0, x: -22 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.75 }}
+                  style={{ fontSize: "1.05rem", fontWeight: 900, color: "#FFD700", textShadow: "0 0 18px #FFD700, 0 0 36px #FFD70066", lineHeight: 1.5 }}>
+                  {cinematicCard.line2}
+                </motion.p>
+
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.3 }}
+                  className="text-yellow-200/45 text-[11px] font-semibold mt-3">
+                  — {cinematicCard.name}
                 </motion.p>
 
                 <motion.p
-                  initial={{ opacity: 0, x: -22 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5, duration: 0.45 }}
-                  style={{
-                    fontSize: "1.1rem",
-                    fontWeight: 900,
-                    color: "#FFD700",
-                    textShadow: "0 0 18px #FFD700, 0 0 36px #FFD70066",
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {currentQuote.line1}
-                </motion.p>
-
-                <motion.p
-                  initial={{ opacity: 0, x: -22 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.78, duration: 0.45 }}
-                  style={{
-                    fontSize: "1.1rem",
-                    fontWeight: 900,
-                    color: "#FFD700",
-                    textShadow: "0 0 18px #FFD700, 0 0 36px #FFD70066",
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {currentQuote.line2}
-                </motion.p>
-
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 1.3 }}
-                  className="text-yellow-200/45 text-[11px] font-semibold mt-3"
-                >
-                  — {currentQuote.name}
-                </motion.p>
-
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: [0, 0.55, 0.2, 0.55] }}
-                  transition={{ delay: 2.2, duration: 1.2, repeat: Infinity, repeatType: "reverse" }}
-                  className="text-white/25 text-[10px] font-medium mt-7"
-                >
+                  animate={{ opacity: [0, 0.5, 0.15, 0.5] }}
+                  transition={{ delay: 2.2, duration: 1.3, repeat: Infinity, repeatType: "reverse" }}
+                  className="text-white/25 text-[10px] font-medium mt-7">
                   탭하여 닫기
                 </motion.p>
               </div>
 
-              {/* 오른쪽: 카드 풀 일러스트 */}
+              {/* 오른쪽 카드 */}
               <div className="flex-shrink-0 relative" style={{ width: 136 }}>
-                {/* 후광 */}
-                <motion.div
-                  className="absolute -inset-4 rounded-2xl"
-                  animate={{
-                    boxShadow: [
-                      "0 0 24px 10px #FFD70044",
-                      "0 0 48px 20px #FFD70099",
-                      "0 0 24px 10px #FFD70044",
-                    ],
-                  }}
-                  transition={{ duration: 1.6, repeat: Infinity }}
-                />
+                <motion.div className="absolute -inset-4 rounded-2xl"
+                  animate={{ boxShadow: ["0 0 24px 10px #FFD70044", "0 0 48px 20px #FFD70099", "0 0 24px 10px #FFD70044"] }}
+                  transition={{ duration: 1.6, repeat: Infinity }} />
 
                 <motion.div
-                  initial={{ scale: 0.35, opacity: 0, y: 28, rotate: 6 }}
+                  initial={{ scale: 0.3, opacity: 0, y: 30, rotate: 8 }}
                   animate={{ scale: 1, opacity: 1, y: 0, rotate: 0 }}
                   transition={{ delay: 0.25, duration: 0.65, type: "spring", bounce: 0.38 }}
                   className="relative"
                 >
-                  {/* 카드 */}
-                  <img
-                    src={cardSsrUrl}
-                    alt="SSR 카드"
-                    className="w-full rounded-xl"
-                    style={{ boxShadow: "0 6px 28px rgba(255,215,0,0.45)" }}
-                  />
+                  <img src={cinematicCard.image} alt={cinematicCard.name} className="w-full rounded-xl"
+                    style={{ boxShadow: "0 6px 28px rgba(255,215,0,0.45)" }} />
 
-                  {/* shimmer 스캔라인 */}
+                  {/* shimmer */}
                   <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
-                    <motion.div
-                      className="absolute inset-0"
-                      style={{
-                        background: "linear-gradient(108deg, transparent 30%, rgba(255,245,150,0.5) 50%, transparent 70%)",
-                      }}
+                    <motion.div className="absolute inset-0"
+                      style={{ background: "linear-gradient(108deg, transparent 30%, rgba(255,245,150,0.5) 50%, transparent 70%)" }}
                       animate={{ x: ["-110%", "210%"] }}
-                      transition={{ delay: 0.7, duration: 1, repeat: Infinity, repeatDelay: 1.3 }}
-                    />
+                      transition={{ delay: 0.7, duration: 1, repeat: Infinity, repeatDelay: 1.3 }} />
                   </div>
 
                   {/* 등장 플래시 */}
-                  <motion.div
-                    initial={{ opacity: 1 }}
-                    animate={{ opacity: 0 }}
-                    transition={{ delay: 0.25, duration: 0.4 }}
-                    className="absolute inset-0 bg-white rounded-xl pointer-events-none"
-                  />
+                  <motion.div initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ delay: 0.25, duration: 0.4 }}
+                    className="absolute inset-0 bg-white rounded-xl pointer-events-none" />
 
                   {/* SSR 뱃지 */}
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.8, type: "spring", bounce: 0.6 }}
+                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.85, type: "spring", bounce: 0.6 }}
                     className="absolute -top-2 -right-2 z-20 bg-yellow-400 text-yellow-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full"
-                    style={{ boxShadow: "0 0 10px #FFD700" }}
-                  >
+                    style={{ boxShadow: "0 0 10px #FFD700" }}>
                     SSR
                   </motion.div>
                 </motion.div>
