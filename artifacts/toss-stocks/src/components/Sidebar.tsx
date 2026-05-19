@@ -5,6 +5,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { BarChart2, TrendingUp, TrendingDown } from "lucide-react";
 import { GameAvatar, getAvatarDef, INVEST_TYPES } from "@/components/GameAvatar";
+import { loadProfileCard, getCollectedCards, ALL_CARDS } from "@/pages/Compendium";
 
 interface SidebarProps {
   userId: number;
@@ -28,6 +29,14 @@ export function Sidebar({ userId }: SidebarProps) {
   const avatarDef = getAvatarDef(avatarId);
   const investType = INVEST_TYPES.find((t) => t.type === avatarDef.type);
 
+  const uid = String(userId);
+  const profileCardId = loadProfileCard(uid);
+  const collectedCards = getCollectedCards(uid, avatarId);
+  const activeCardId = profileCardId && collectedCards.includes(profileCardId)
+    ? profileCardId
+    : collectedCards[0] ?? null;
+  const activeCard = activeCardId ? ALL_CARDS.find(c => c.id === activeCardId) ?? null : null;
+
   const returnPositive = portfolio && portfolio.totalReturnPercent > 0;
   const returnNegative = portfolio && portfolio.totalReturnPercent < 0;
 
@@ -47,8 +56,17 @@ export function Sidebar({ userId }: SidebarProps) {
           />
           <div className="p-4">
             <Link href="/my-info" className="flex items-center gap-3 mb-4 cursor-pointer group">
-              <div className="flex-shrink-0 rounded-xl overflow-hidden ring-1 ring-border group-hover:ring-primary/40 transition-all">
-                <GameAvatar avatarId={avatarId} size={44} rounded="rounded-xl" />
+              <div className="flex-shrink-0 rounded-xl overflow-hidden ring-1 ring-border group-hover:ring-primary/40 transition-all"
+                style={{ width: 44, height: 66 }}>
+                {activeCard?.image ? (
+                  <img
+                    src={activeCard.image}
+                    alt={activeCard.sublabel}
+                    className="w-full h-full object-cover object-top"
+                  />
+                ) : (
+                  <GameAvatar avatarId={avatarId} size={44} rounded="rounded-xl" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-foreground text-sm truncate group-hover:text-primary transition-colors leading-tight">
