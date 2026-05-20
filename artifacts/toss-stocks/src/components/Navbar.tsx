@@ -26,9 +26,8 @@ export function Navbar() {
               <div className="w-8 h-8 rounded-lg overflow-hidden bg-emerald-100 flex items-center justify-center shadow-sm group-hover:bg-emerald-200 transition-colors">
                 <img src="/seed-logo.png" alt="seed 로고" className="w-full h-full object-contain p-0.5" />
               </div>
-              <div className="hidden sm:flex flex-col leading-none gap-0.5">
-                <span className="font-extrabold text-[15px] tracking-tight text-white">seed</span>
-                <span className="text-[9px] font-semibold text-white/50 tracking-widest uppercase">Mock Trading</span>
+              <div className="hidden sm:flex items-center leading-none">
+                <span className="font-extrabold text-[22px] tracking-tight text-white">Seed</span>
               </div>
             </Link>
 
