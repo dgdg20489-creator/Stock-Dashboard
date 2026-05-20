@@ -378,21 +378,60 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
               {/* 성별 선택 */}
               <div className="px-6 py-4">
                 <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-3">성별</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["남", "녀"] as const).map((g) => (
-                    <button
-                      key={g}
-                      onClick={() => setGender(g)}
-                      className={cn(
-                        "py-2 rounded-xl text-sm font-semibold border transition-all duration-150",
-                        gender === g
-                          ? "bg-foreground text-background border-transparent"
-                          : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground bg-muted/30"
-                      )}
-                    >
-                      {g === "남" ? "남성" : "여성"}
-                    </button>
-                  ))}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* 남성 */}
+                  <button
+                    onClick={() => setGender("남")}
+                    className={cn(
+                      "relative rounded-2xl overflow-hidden border-2 transition-all duration-200 text-left",
+                      gender === "남"
+                        ? "border-green-600 shadow-lg shadow-green-100"
+                        : "border-border/40 hover:border-border/80 opacity-70 hover:opacity-90"
+                    )}
+                  >
+                    <img
+                      src="/seedling-male.png"
+                      alt="남성 캐릭터"
+                      className="w-full aspect-[2/3] object-cover"
+                      style={{ objectPosition: "center top" }}
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
+                      <p className="text-white font-extrabold text-sm">남성</p>
+                      <p className="text-white/70 text-[10px]">Seedling</p>
+                    </div>
+                    {gender === "남" && (
+                      <div className="absolute top-2 right-2 w-5 h-5 bg-green-600 rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                  </button>
+
+                  {/* 여성 (미구현) */}
+                  <button
+                    onClick={() => setGender("녀")}
+                    className={cn(
+                      "relative rounded-2xl overflow-hidden border-2 transition-all duration-200",
+                      gender === "녀"
+                        ? "border-pink-400 shadow-lg shadow-pink-100"
+                        : "border-border/40 hover:border-border/80 opacity-70 hover:opacity-90"
+                    )}
+                  >
+                    <div className="w-full aspect-[2/3] bg-gradient-to-b from-pink-50 to-pink-100 flex flex-col items-center justify-center gap-2">
+                      <div className="w-14 h-14 rounded-2xl bg-pink-200/60 flex items-center justify-center">
+                        <span className="text-3xl">🌸</span>
+                      </div>
+                      <p className="text-xs text-pink-400 font-semibold px-2 text-center">준비 중...</p>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2">
+                      <p className="text-white font-extrabold text-sm">여성</p>
+                      <p className="text-white/70 text-[10px]">Coming Soon</p>
+                    </div>
+                    {gender === "녀" && (
+                      <div className="absolute top-2 right-2 w-5 h-5 bg-pink-400 rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                  </button>
                 </div>
               </div>
 
