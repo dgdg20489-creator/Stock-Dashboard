@@ -437,36 +437,6 @@ export default function DifficultyScreen({ onComplete }: DifficultyScreenProps) 
 
               <div className="h-px bg-border/50 mx-6" />
 
-              {/* 내 캐릭터 미리보기 */}
-              <div className="px-6 py-4">
-                <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">내 캐릭터</label>
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={avatar}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.15 }}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-muted/30"
-                  >
-                    <div className="flex-shrink-0 rounded-xl overflow-hidden">
-                      <GameAvatar avatarId={avatar} size={56} rounded="rounded-xl" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="font-bold text-sm text-foreground">기본 캐릭터</span>
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md text-white bg-gray-500">
-                          {gender === "녀" ? "여성" : "남성"}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">마이페이지에서 투자 성향 분석 후<br/>전용 캐릭터를 잠금해제할 수 있어요!</p>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-
-              <div className="h-px bg-border/50 mx-6" />
-
               {/* 난이도 */}
               <div className="px-6 py-4">
                 <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">난이도 · 초기 자산</label>
