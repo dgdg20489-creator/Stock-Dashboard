@@ -474,15 +474,7 @@ export default function Rankings() {
                 </div>
               )}
               <div className="px-4 py-3">
-                {modal.cardSublabel && (
-                  <p className="font-extrabold text-sm text-foreground">{modal.cardSublabel}</p>
-                )}
-                <p className={cn(
-                  "font-bold truncate",
-                  modal.cardSublabel ? "text-xs text-muted-foreground mt-0.5" : "text-sm text-foreground"
-                )}>
-                  {modal.username}
-                </p>
+                <p className="font-bold text-sm text-foreground truncate">{modal.username}</p>
               </div>
               <button
                 className="absolute top-3 right-3 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"

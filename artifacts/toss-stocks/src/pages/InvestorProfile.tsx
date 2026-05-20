@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { GameAvatar } from "@/components/GameAvatar";
 import { getColorClass, formatPercent } from "@/lib/utils";
+import { loadProfileCard, getCollectedCards, ALL_CARDS } from "@/pages/Compendium";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -58,6 +59,7 @@ export default function InvestorProfile() {
   const [, params] = useRoute("/profile/:userId");
   const [, setLocation] = useLocation();
   const userId = params?.userId ? parseInt(params.userId) : null;
+  const currentUserId = parseInt(localStorage.getItem("toss_userId") || "0");
 
   const { data: profile, isLoading, isError } = useQuery<PublicProfile>({
     queryKey: [`/api/users/${userId}/public-profile`],
@@ -72,6 +74,17 @@ export default function InvestorProfile() {
   if (!userId) return null;
 
   const diffInfo = profile ? (DIFF_LABEL[profile.difficulty] ?? { label: profile.difficulty, color: "bg-muted text-muted-foreground" }) : null;
+
+  const isSelf = userId === currentUserId;
+  const myProfileCardId = isSelf ? loadProfileCard(String(currentUserId)) : null;
+  const myCollected = isSelf && profile ? getCollectedCards(String(currentUserId), profile.avatar) : [];
+  const isValidCard = (id: string | null) => !!id && ALL_CARDS.some(c => c.id === id);
+  const myActiveCardId = isSelf
+    ? (isValidCard(myProfileCardId) && myCollected.includes(myProfileCardId!))
+      ? myProfileCardId!
+      : myCollected.find(id => isValidCard(id)) ?? null
+    : null;
+  const myCardDef = myActiveCardId ? ALL_CARDS.find(c => c.id === myActiveCardId) ?? null : null;
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-400">
@@ -107,20 +120,43 @@ export default function InvestorProfile() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden"
           >
-            <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-6 pt-6 pb-4">
-              <div className="flex items-center gap-4">
-                <GameAvatar avatarId={profile.avatar} size={64} rounded="rounded-2xl" className="shadow-md ring-2 ring-primary/20" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-xl font-black text-foreground truncate">{profile.username}</h1>
-                    {diffInfo && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${diffInfo.color}`}>
-                        {diffInfo.label}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">투자 프로필</p>
+            {/* 카드 배너 영역 */}
+            <div className="relative w-full overflow-hidden" style={{ height: 160 }}>
+              {myCardDef?.image ? (
+                <>
+                  <img
+                    src={myCardDef.image}
+                    alt={myCardDef.sublabel}
+                    className="w-full h-full object-cover"
+                    style={{ objectPosition: "center top" }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-black/50" />
+                </>
+              ) : (
+                <div className="w-full h-full bg-gradient-to-r from-primary/10 via-primary/5 to-transparent flex items-center justify-center">
+                  <GameAvatar avatarId={profile.avatar} size={80} rounded="rounded-2xl" className="shadow-md opacity-60" />
                 </div>
+              )}
+            </div>
+
+            <div className="px-6 pt-3 pb-4 flex items-center gap-3">
+              <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-card shadow-md flex-shrink-0 -mt-8 relative z-10 bg-card">
+                {myCardDef?.image ? (
+                  <img src={myCardDef.image} alt="" className="w-full h-full object-cover" style={{ objectPosition: "center top" }} />
+                ) : (
+                  <GameAvatar avatarId={profile.avatar} size={56} rounded="rounded-xl" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl font-black text-foreground truncate">{profile.username}</h1>
+                  {diffInfo && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${diffInfo.color}`}>
+                      {diffInfo.label}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">투자 프로필</p>
               </div>
             </div>
 
