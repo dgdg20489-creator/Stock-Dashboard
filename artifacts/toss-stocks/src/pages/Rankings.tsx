@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
-import { useGetRankings, GetRankingsDifficulty } from "@workspace/api-client-react";
+import { useGetRankings, useGetUser, GetRankingsDifficulty } from "@workspace/api-client-react";
 import { formatCurrency, formatPercent, getColorClass } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameAvatar } from "@/components/GameAvatar";
 import { cn } from "@/lib/utils";
-import { Crown, TrendingUp, TrendingDown, Medal } from "lucide-react";
+import { Crown, TrendingUp, TrendingDown, Medal, X } from "lucide-react";
+import { loadProfileCard, getCollectedCards, ALL_CARDS } from "@/pages/Compendium";
 
 const DIFF_CONFIG = {
   beginner:     { label: "초보",  emoji: "🌱", accent: "#10b981", light: "#d1fae5", dark: "#065f46", tab: "from-emerald-500 to-green-600" },
@@ -19,32 +20,60 @@ const RANK_MEDAL: Record<number, { icon: React.ReactNode; color: string; bg: str
   3: { icon: <Medal className="w-4 h-4" />, color: "#C2855A", bg: "#FEF3E2" },
 };
 
+interface ModalEntry {
+  userId: number;
+  username: string;
+  avatar: string;
+  cardImage: string | null;
+  cardLabel: string | null;
+  cardSublabel: string | null;
+}
+
 export default function Rankings() {
   const [, setLocation] = useLocation();
   const [difficulty, setDifficulty] = useState<GetRankingsDifficulty>(GetRankingsDifficulty.beginner);
-  const prevRanksRef = useRef<Map<number, number>>(new Map());
-  const [rankChanges, setRankChanges] = useState<Map<number, number>>(new Map());
+  const [rankChanges] = useState<Map<number, number>>(new Map());
+  const [modal, setModal] = useState<ModalEntry | null>(null);
+
   const currentUserId = parseInt(localStorage.getItem("toss_userId") || "0");
   const conf = DIFF_CONFIG[difficulty as keyof typeof DIFF_CONFIG] ?? DIFF_CONFIG.beginner;
 
+  const { data: currentUser } = useGetUser(currentUserId, { query: { enabled: currentUserId > 0 } });
   const { data: rankings, isLoading } = useGetRankings(
     { difficulty },
     { query: { refetchInterval: 5_000 } }
   );
 
-  useEffect(() => {
-    if (!rankings) return;
-    const newChanges = new Map<number, number>();
-    rankings.forEach(entry => {
-      const prev = prevRanksRef.current.get(entry.userId);
-      if (prev !== undefined && prev !== entry.rank) newChanges.set(entry.userId, prev - entry.rank);
-    });
-    setRankChanges(newChanges);
-    const newPrev = new Map<number, number>();
-    rankings.forEach(e => newPrev.set(e.userId, e.rank));
-    prevRanksRef.current = newPrev;
-    if (newChanges.size > 0) setTimeout(() => setRankChanges(new Map()), 3000);
-  }, [rankings]);
+  const myAvatarId = currentUser?.avatar ?? "";
+  const myProfileCardId = loadProfileCard(String(currentUserId));
+  const myCollected = getCollectedCards(String(currentUserId), myAvatarId);
+  const isValidCard = (id: string | null) => !!id && ALL_CARDS.some(c => c.id === id);
+  const myActiveCardId = (isValidCard(myProfileCardId) && myCollected.includes(myProfileCardId!))
+    ? myProfileCardId!
+    : myCollected.find(id => isValidCard(id)) ?? null;
+  const myCardDef = myActiveCardId ? ALL_CARDS.find(c => c.id === myActiveCardId) ?? null : null;
+
+  function getEntryModal(entry: { userId: number; username: string; avatar: string }): ModalEntry {
+    const isSelf = entry.userId === currentUserId;
+    if (isSelf && myCardDef?.image) {
+      return {
+        userId: entry.userId,
+        username: entry.username,
+        avatar: entry.avatar,
+        cardImage: myCardDef.image,
+        cardLabel: myCardDef.label,
+        cardSublabel: myCardDef.sublabel,
+      };
+    }
+    return {
+      userId: entry.userId,
+      username: entry.username,
+      avatar: entry.avatar,
+      cardImage: null,
+      cardLabel: null,
+      cardSublabel: null,
+    };
+  }
 
   const myEntry = rankings?.find(e => e.userId === currentUserId);
   const top3 = rankings?.slice(0, 3) ?? [];
@@ -55,6 +84,47 @@ export default function Rankings() {
     { id: GetRankingsDifficulty.intermediate, ...DIFF_CONFIG.intermediate },
     { id: GetRankingsDifficulty.expert,       ...DIFF_CONFIG.expert },
   ];
+
+  function AvatarOrCard({
+    entry,
+    size,
+    cardW,
+    cardH,
+    rounded = "rounded-xl",
+    className = "",
+  }: {
+    entry: { userId: number; avatar: string };
+    size: number;
+    cardW: number;
+    cardH: number;
+    rounded?: string;
+    className?: string;
+  }) {
+    const isSelf = entry.userId === currentUserId;
+    if (isSelf && myCardDef?.image) {
+      return (
+        <div
+          className={cn("overflow-hidden flex-shrink-0", rounded, className)}
+          style={{ width: cardW, height: cardH }}
+        >
+          <img
+            src={myCardDef.image}
+            alt={myCardDef.sublabel}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: "center top" }}
+          />
+        </div>
+      );
+    }
+    return (
+      <GameAvatar
+        avatarId={entry.avatar}
+        size={size}
+        rounded={rounded}
+        className={className}
+      />
+    );
+  }
 
   return (
     <div className="max-w-lg mx-auto pb-10 space-y-4">
@@ -96,7 +166,7 @@ export default function Rankings() {
           </div>
         </div>
 
-        {/* 난이도 탭 — 헤더 하단에 붙음 */}
+        {/* 난이도 탭 */}
         <div className="flex" style={{ background: "rgba(0,0,0,0.2)" }}>
           {tabs.map(tab => (
             <button
@@ -137,7 +207,6 @@ export default function Rankings() {
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">TOP 3</span>
               </div>
 
-              {/* 포디엄: 2위 왼쪽, 1위 가운데, 3위 오른쪽 */}
               <div className="flex items-end justify-center gap-2 px-4 pb-0 pt-2">
                 {[top3[1], top3[0], top3[2]].map((entry, podIdx) => {
                   const ranks = [2, 1, 3] as const;
@@ -147,6 +216,9 @@ export default function Rankings() {
                   const heights = ["h-16", "h-24", "h-12"];
                   const medalColors = ["#9CA3AF", "#D4A017", "#C2855A"];
                   const podBg = ["bg-slate-100 dark:bg-slate-800", "bg-amber-50 dark:bg-amber-900/30", "bg-orange-50 dark:bg-orange-900/20"];
+                  const avatarSize = isFirst ? 56 : 44;
+                  const cardW = isFirst ? 48 : 38;
+                  const cardH = isFirst ? 64 : 52;
 
                   if (!entry) return <div key={podIdx} className="flex-1" />;
 
@@ -156,8 +228,7 @@ export default function Rankings() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: podIdx * 0.1, type: "spring", stiffness: 300, damping: 28 }}
-                      className="flex-1 flex flex-col items-center cursor-pointer group"
-                      onClick={() => setLocation(`/profile/${entry.userId}`)}
+                      className="flex-1 flex flex-col items-center"
                     >
                       {isFirst && (
                         <motion.span
@@ -167,21 +238,33 @@ export default function Rankings() {
                         >👑</motion.span>
                       )}
 
-                      <GameAvatar
-                        avatarId={entry.avatar}
-                        size={isFirst ? 56 : 44}
-                        rounded="rounded-xl"
+                      {/* 아바타/카드 — 클릭 시 확대 */}
+                      <div
                         className={cn(
-                          "shadow-md group-hover:scale-105 transition-transform",
-                          isSelf ? "ring-2 ring-primary ring-offset-1" : ""
+                          "cursor-pointer hover:scale-105 transition-transform",
+                          isSelf ? "ring-2 ring-primary ring-offset-1 rounded-xl" : ""
                         )}
-                      />
+                        onClick={() => setModal(getEntryModal(entry))}
+                      >
+                        <AvatarOrCard
+                          entry={entry}
+                          size={avatarSize}
+                          cardW={cardW}
+                          cardH={cardH}
+                          rounded="rounded-xl"
+                          className="shadow-md"
+                        />
+                      </div>
 
-                      <p className={cn(
-                        "font-black mt-1.5 truncate max-w-[76px] text-center",
-                        isFirst ? "text-sm" : "text-xs",
-                        isSelf ? "text-primary" : "text-foreground"
-                      )}>
+                      {/* 닉네임 — 클릭 시 프로필 이동 */}
+                      <p
+                        className={cn(
+                          "font-black mt-1.5 truncate max-w-[76px] text-center cursor-pointer hover:underline",
+                          isFirst ? "text-sm" : "text-xs",
+                          isSelf ? "text-primary" : "text-foreground"
+                        )}
+                        onClick={() => setLocation(`/profile/${entry.userId}`)}
+                      >
                         {entry.username}
                       </p>
                       <p className={cn(
@@ -228,12 +311,9 @@ export default function Rankings() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.03, duration: 0.2 }}
                       className={cn(
-                        "flex items-center gap-3 px-4 py-3.5 border-b border-border/30 last:border-0 cursor-pointer transition-colors",
-                        isSelf
-                          ? "bg-primary/[0.04] hover:bg-primary/[0.07]"
-                          : "hover:bg-muted/40"
+                        "flex items-center gap-3 px-4 py-3 border-b border-border/30 last:border-0",
+                        isSelf ? "bg-primary/[0.04]" : ""
                       )}
-                      onClick={() => setLocation(`/profile/${entry.userId}`)}
                     >
                       {/* 순위 번호 */}
                       <div className="w-8 flex-shrink-0 text-center">
@@ -260,10 +340,29 @@ export default function Rankings() {
                         )}
                       </div>
 
-                      <GameAvatar avatarId={entry.avatar} size={40} rounded="rounded-xl" className="shadow-sm flex-shrink-0" />
+                      {/* 아바타/카드 — 클릭 시 확대 */}
+                      <div
+                        className={cn(
+                          "cursor-pointer hover:scale-105 transition-transform flex-shrink-0",
+                          isSelf ? "ring-2 ring-primary ring-offset-1 rounded-xl" : ""
+                        )}
+                        onClick={() => setModal(getEntryModal(entry))}
+                      >
+                        <AvatarOrCard
+                          entry={entry}
+                          size={40}
+                          cardW={32}
+                          cardH={46}
+                          rounded="rounded-xl"
+                          className="shadow-sm"
+                        />
+                      </div>
 
-                      {/* 이름 + 난이도 */}
-                      <div className="flex-1 min-w-0">
+                      {/* 닉네임 + 자산 — 클릭 시 프로필 이동 */}
+                      <div
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => setLocation(`/profile/${entry.userId}`)}
+                      >
                         <div className="flex items-center gap-1.5">
                           <span className={cn(
                             "font-bold text-sm truncate",
@@ -319,7 +418,18 @@ export default function Rankings() {
               >
                 {myEntry.rank}
               </div>
-              <GameAvatar avatarId={myEntry.avatar} size={38} rounded="rounded-xl" className="flex-shrink-0" />
+              <div
+                className="cursor-pointer hover:scale-105 transition-transform flex-shrink-0"
+                onClick={() => setModal(getEntryModal(myEntry))}
+              >
+                <AvatarOrCard
+                  entry={myEntry}
+                  size={38}
+                  cardW={30}
+                  cardH={44}
+                  rounded="rounded-xl"
+                />
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="font-black text-sm text-foreground truncate">{myEntry.username} <span className="text-[10px] text-muted-foreground font-medium">· 내 순위</span></p>
                 <p className="text-xs text-muted-foreground font-semibold">{formatCurrency(myEntry.totalAssets)}</p>
@@ -332,6 +442,59 @@ export default function Rankings() {
 
         </div>
       )}
+
+      {/* ── 카드 확대 모달 ── */}
+      <AnimatePresence>
+        {modal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center p-6"
+            onClick={() => setModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 320, damping: 26 }}
+              className="w-52 rounded-3xl overflow-hidden shadow-2xl bg-card"
+              onClick={e => e.stopPropagation()}
+            >
+              {modal.cardImage ? (
+                <img
+                  src={modal.cardImage}
+                  alt={modal.cardSublabel ?? ""}
+                  className="w-full aspect-[2/3] object-cover"
+                  style={{ objectPosition: "center top" }}
+                />
+              ) : (
+                <div className="w-full aspect-[2/3] bg-muted flex items-center justify-center">
+                  <GameAvatar avatarId={modal.avatar} size={100} rounded="rounded-2xl" />
+                </div>
+              )}
+              <div className="px-4 py-3">
+                {modal.cardSublabel && (
+                  <p className="font-extrabold text-sm text-foreground">{modal.cardSublabel}</p>
+                )}
+                <p className={cn(
+                  "font-bold truncate",
+                  modal.cardSublabel ? "text-xs text-muted-foreground mt-0.5" : "text-sm text-foreground"
+                )}>
+                  {modal.username}
+                </p>
+              </div>
+              <button
+                className="absolute top-3 right-3 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
+                onClick={() => setModal(null)}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
