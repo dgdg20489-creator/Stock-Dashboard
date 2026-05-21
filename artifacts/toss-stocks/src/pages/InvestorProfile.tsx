@@ -121,7 +121,7 @@ export default function InvestorProfile() {
             className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden"
           >
             {/* 카드 배너 영역 */}
-            <div className="relative w-full overflow-hidden" style={{ height: 160 }}>
+            <div className="relative w-full overflow-hidden" style={{ height: 260 }}>
               {myCardDef?.image ? (
                 <>
                   <img

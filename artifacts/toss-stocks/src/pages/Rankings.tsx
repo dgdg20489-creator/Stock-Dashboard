@@ -473,9 +473,6 @@ export default function Rankings() {
                   <GameAvatar avatarId={modal.avatar} size={100} rounded="rounded-2xl" />
                 </div>
               )}
-              <div className="px-4 py-3">
-                <p className="font-bold text-sm text-foreground truncate">{modal.username}</p>
-              </div>
               <button
                 className="absolute top-3 right-3 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
                 onClick={() => setModal(null)}
