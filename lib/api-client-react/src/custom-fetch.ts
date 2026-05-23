@@ -271,11 +271,24 @@ async function parseSuccessBody(
   }
 }
 
+const API_BASE = typeof import.meta !== "undefined"
+  ? (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ?? ""
+  : "";
+
+function resolveApiUrl(input: RequestInfo | URL): RequestInfo | URL {
+  if (API_BASE && typeof input === "string" && input.startsWith("/api")) {
+    return `${API_BASE}${input}`;
+  }
+  return input;
+}
+
 export async function customFetch<T = unknown>(
   input: RequestInfo | URL,
   options: CustomFetchOptions = {},
 ): Promise<T> {
   const { responseType = "auto", headers: headersInit, ...init } = options;
+
+  input = resolveApiUrl(input);
 
   const method = resolveMethod(input, init.method);
 

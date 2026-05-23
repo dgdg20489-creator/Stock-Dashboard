@@ -1,0 +1,20 @@
+FROM node:20-alpine
+
+RUN npm install -g pnpm@9
+
+WORKDIR /app
+
+COPY . .
+
+RUN pnpm install --no-frozen-lockfile
+
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+RUN pnpm --filter @workspace/toss-stocks run build
+
+RUN npm install -g serve
+
+EXPOSE 3000
+
+CMD ["serve", "-s", "artifacts/toss-stocks/dist/public", "-l", "3000"]
