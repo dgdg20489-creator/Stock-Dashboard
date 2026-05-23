@@ -1,0 +1,102 @@
+  at app.<computed> [as get] (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:478:22)
+    at file:///app/artifacts/toss-stocks/server.js:48:5 {
+  originalPath: '*'
+}
+Node.js v20.20.2
+/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96
+            throw new PathError(`Missing parameter name at index ${index}`, str);
+                  ^
+PathError [TypeError]: Missing parameter name at index 1: *; visit https://git.new/pathToRegexpError for info
+    at name (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96:19)
+    at parse (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:113:68)
+    at pathToRegexp (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:267:58)
+    at Object.match (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:237:30)
+    at matcher (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:86:23)
+    at new Layer (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:93:62)
+    at Function.route (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:428:17)
+    at Function.route (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:257:22)
+    at app.<computed> [as get] (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:478:22)
+    at file:///app/artifacts/toss-stocks/server.js:48:5 {
+Node.js v20.20.2
+/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96
+            throw new PathError(`Missing parameter name at index ${index}`, str);
+                  ^
+  originalPath: '*'
+}
+PathError [TypeError]: Missing parameter name at index 1: *; visit https://git.new/pathToRegexpError for info
+    at name (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96:19)
+    at parse (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:113:68)
+    at pathToRegexp (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:267:58)
+    at Object.match (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:237:30)
+    at matcher (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:86:23)
+    at new Layer (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:93:62)
+    at Function.route (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:428:17)
+    at Function.route (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:257:22)
+    at app.<computed> [as get] (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:478:22)
+    at file:///app/artifacts/toss-stocks/server.js:48:5 {
+  originalPath: '*'
+}
+Node.js v20.20.2
+/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96
+            throw new PathError(`Missing parameter name at index ${index}`, str);
+                  ^
+PathError [TypeError]: Missing parameter name at index 1: *; visit https://git.new/pathToRegexpError for info
+    at name (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96:19)
+    at parse (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:113:68)
+    at pathToRegexp (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:267:58)
+    at Object.match (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:237:30)
+    at matcher (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:86:23)
+    at new Layer (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:93:62)
+    at Function.route (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:428:17)
+    at Function.route (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:257:22)
+Starting Container
+/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96
+            throw new PathError(`Missing parameter name at index ${index}`, str);
+                  ^
+PathError [TypeError]: Missing parameter name at index 1: *; visit https://git.new/pathToRegexpError for info
+    at name (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96:19)
+    at parse (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:113:68)
+    at pathToRegexp (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:267:58)
+    at Object.match (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:237:30)
+    at matcher (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:86:23)
+    at new Layer (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:93:62)
+    at Function.route (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:428:17)
+    at Function.route (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:257:22)
+    at app.<computed> [as get] (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:478:22)
+    at file:///app/artifacts/toss-stocks/server.js:48:5 {
+  originalPath: '*'
+}
+Node.js v20.20.2
+Node.js v20.20.2
+/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96
+            throw new PathError(`Missing parameter name at index ${index}`, str);
+                  ^
+PathError [TypeError]: Missing parameter name at index 1: *; visit https://git.new/pathToRegexpError for info
+    at name (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96:19)
+    at parse (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:113:68)
+    at pathToRegexp (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:267:58)
+    at Object.match (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:237:30)
+    at matcher (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:86:23)
+    at new Layer (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:93:62)
+    at Function.route (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:428:17)
+    at Function.route (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:257:22)
+    at app.<computed> [as get] (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:478:22)
+    at file:///app/artifacts/toss-stocks/server.js:48:5 {
+  originalPath: '*'
+}
+/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96
+            throw new PathError(`Missing parameter name at index ${index}`, str);
+                  ^
+PathError [TypeError]: Missing parameter name at index 1: *; visit https://git.new/pathToRegexpError for info
+    at name (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:96:19)
+    at parse (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:113:68)
+    at pathToRegexp (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:267:58)
+    at Object.match (/app/node_modules/.pnpm/path-to-regexp@8.3.0/node_modules/path-to-regexp/dist/index.js:237:30)
+    at matcher (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:86:23)
+    at new Layer (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:93:62)
+    at Function.route (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:428:17)
+    at Function.route (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:257:22)
+    at app.<computed> [as get] (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:478:22)
+    at file:///app/artifacts/toss-stocks/server.js:48:5 {
+  originalPath: '*'
+}

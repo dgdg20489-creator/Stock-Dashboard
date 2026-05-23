@@ -45,7 +45,7 @@ if (API_URL) {
 // Serve static files
 const distPath = join(__dirname, "dist/public");
 app.use(express.static(distPath));
-app.get("*", (_req, res) => {
+app.get("/{*path}", (_req, res) => {
   res.sendFile(join(distPath, "index.html"));
 });
 
