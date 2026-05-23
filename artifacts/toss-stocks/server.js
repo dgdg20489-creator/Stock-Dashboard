@@ -1,29 +1,55 @@
 import express from "express";
-import { createProxyMiddleware } from "http-proxy-middleware";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { createServer } from "node:http";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
-const PORT = process.env.PORT || 3000;
-const API_URL = process.env.API_URL;
+const PORT = parseInt(process.env.PORT || "3000", 10);
+const API_URL = process.env.API_URL || "";
 
+// Proxy /api/* to API server
 if (API_URL) {
-  app.use(
-    "/api",
-    createProxyMiddleware({
-      target: API_URL,
-      changeOrigin: true,
-    })
-  );
+  const apiUrl = new URL(API_URL);
+  const isHttps = apiUrl.protocol === "https:";
+  const requester = isHttps ? httpsRequest : httpRequest;
+
+  app.use("/api", (req, res) => {
+    const options = {
+      hostname: apiUrl.hostname,
+      port: apiUrl.port || (isHttps ? 443 : 80),
+      path: "/api" + req.url,
+      method: req.method,
+      headers: {
+        ...req.headers,
+        host: apiUrl.hostname,
+      },
+    };
+
+    const proxy = requester(options, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+      proxyRes.pipe(res, { end: true });
+    });
+
+    proxy.on("error", (err) => {
+      console.error("Proxy error:", err);
+      if (!res.headersSent) res.status(502).json({ error: "API unreachable" });
+    });
+
+    req.pipe(proxy, { end: true });
+  });
 }
 
-app.use(express.static(join(__dirname, "dist/public")));
-
+// Serve static files
+const distPath = join(__dirname, "dist/public");
+app.use(express.static(distPath));
 app.get("*", (_req, res) => {
-  res.sendFile(join(__dirname, "dist/public", "index.html"));
+  res.sendFile(join(distPath, "index.html"));
 });
 
-app.listen(PORT, () => {
-  console.log(`Frontend server on port ${PORT}, proxying API to ${API_URL}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Frontend server running on port ${PORT}`);
+  console.log(`API proxy target: ${API_URL || "(none)"}`);
 });
