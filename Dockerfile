@@ -10,6 +10,8 @@ RUN pnpm install --no-frozen-lockfile
 
 RUN pnpm --filter @workspace/api-server run build
 
+RUN chmod +x start-api.sh
+
 EXPOSE 8080
 
-CMD ["node", "artifacts/api-server/dist/index.cjs"]
+CMD ["sh", "start-api.sh"]
