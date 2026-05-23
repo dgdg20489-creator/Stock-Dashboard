@@ -1,0 +1,40 @@
+=== DB schema push 시작 ===
+> @workspace/db@0.0.0 push-force /app/lib/db
+> drizzle-kit push --force --config ./drizzle.config.ts
+Starting Container
+Reading config file '/app/lib/db/drizzle.config.ts'
+Using 'pg' driver for database querying
+[⣷] Pulling schema from database...
+Error: getaddrinfo ENOTFOUND base
+    at /app/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.query (/app/node_modules/.pnpm/drizzle-kit@0.31.9/node_modules/drizzle-kit/bin.cjs:80623:26)
+    at async fromDatabase2 (/app/node_modules/.pnpm/drizzle-kit@0.31.9/node_modules/drizzle-kit/bin.cjs:19276:25) {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: 'base'
+}
+=== API 서버 시작 ===
+Server listening on port 8080
+      at async Ww.queryWithCache (/app/artifacts/api-server/dist/index.cjs:121:32428)
+      at async /app/artifacts/api-server/dist/index.cjs:121:35695
+      at async /app/artifacts/api-server/dist/index.cjs:211:6940 {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+t [Error]: Failed query: select "id", "username", "phone", "password", "avatar", "gender", "difficulty", "seed_money", "cash_balance", "accessories", "equipped_items", "created_at" from "users" where "users"."phone" = $1
+params: 01077223976
+    at Ww.queryWithCache (/app/artifacts/api-server/dist/index.cjs:121:32453)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /app/artifacts/api-server/dist/index.cjs:121:35695
+    at async /app/artifacts/api-server/dist/index.cjs:211:6940 {
+  query: 'select "id", "username", "phone", "password", "avatar", "gender", "difficulty", "seed_money", "cash_balance", "accessories", "equipped_items", "created_at" from "users" where "users"."phone" = $1',
+  params: [ '01077223976' ],
+  cause: Error: getaddrinfo ENOTFOUND base
+      at /app/artifacts/api-server/dist/index.cjs:59:15265
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async /app/artifacts/api-server/dist/index.cjs:121:35904
+    hostname: 'base'
+  }
+}
