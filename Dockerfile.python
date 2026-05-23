@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY python/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY python/krx_fetcher.py ./krx_fetcher.py
+
+CMD ["python", "-u", "krx_fetcher.py"]
