@@ -1,0 +1,66 @@
+Starting Container
+=== API 서버 시작 ===
+Server listening on port 8080
+=== DB schema push 시작 ===
+  severity: 'FATAL',
+> @workspace/db@0.0.0 push-force /app/lib/db
+> drizzle-kit push --force --config ./drizzle.config.ts
+  code: '3D000',
+  detail: undefined,
+Reading config file '/app/lib/db/drizzle.config.ts'
+  hint: undefined,
+Using 'pg' driver for database querying
+[⣷] Pulling schema from database...
+  position: undefined,
+error: database "railway 입력 (Reference Variable 직접 입력)" does not exist
+  internalPosition: undefined,
+    at /app/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+  internalQuery: undefined,
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+  where: undefined,
+    at async Object.query (/app/node_modules/.pnpm/drizzle-kit@0.31.9/node_modules/drizzle-kit/bin.cjs:80623:26)
+  schema: undefined,
+    at async fromDatabase2 (/app/node_modules/.pnpm/drizzle-kit@0.31.9/node_modules/drizzle-kit/bin.cjs:19276:25) {
+  length: 135,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'postinit.c',
+  line: '1014',
+  routine: 'InitPostgres'
+}
+t [Error]: Failed query: select "id", "username", "phone", "password", "avatar", "gender", "difficulty", "seed_money", "cash_balance", "accessories", "equipped_items", "created_at" from "users" where "users"."phone" = $1
+params: 01077223976
+    at Ww.queryWithCache (/app/artifacts/api-server/dist/index.cjs:121:32453)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /app/artifacts/api-server/dist/index.cjs:121:35695
+    at async /app/artifacts/api-server/dist/index.cjs:211:6940 {
+  query: 'select "id", "username", "phone", "password", "avatar", "gender", "difficulty", "seed_money", "cash_balance", "accessories", "equipped_items", "created_at" from "users" where "users"."phone" = $1',
+  params: [ '01077223976' ],
+  cause: error: database "railway 입력 (Reference Variable 직접 입력)" does not exist
+      at /app/artifacts/api-server/dist/index.cjs:59:15265
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async /app/artifacts/api-server/dist/index.cjs:121:35904
+      at async Ww.queryWithCache (/app/artifacts/api-server/dist/index.cjs:121:32428)
+      at async /app/artifacts/api-server/dist/index.cjs:121:35695
+      at async /app/artifacts/api-server/dist/index.cjs:211:6940 {
+    length: 135,
+    severity: 'FATAL',
+    code: '3D000',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'postinit.c',
+    line: '1014',
+    routine: 'InitPostgres'
+  }
+}
