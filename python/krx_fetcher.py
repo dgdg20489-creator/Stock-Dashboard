@@ -339,6 +339,8 @@ def create_tables(conn):
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS base_price NUMERIC NOT NULL DEFAULT 0")
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS change_val NUMERIC NOT NULL DEFAULT 0")
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS change_pct NUMERIC NOT NULL DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS roe NUMERIC DEFAULT 0")
+        cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS bps NUMERIC DEFAULT 0")
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS market TEXT DEFAULT 'KOSPI'")
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS per NUMERIC DEFAULT 0")
         cur.execute("ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS naver_change_pct NUMERIC DEFAULT 0")
