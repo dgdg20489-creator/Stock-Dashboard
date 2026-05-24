@@ -1,0 +1,112 @@
+2026-05-23 08:51:31,173 INFO   KOSDAQ p9: 48종목 (누적 442)
+2026-05-23 08:51:32,656 INFO   KOSDAQ p10: 50종목 (누적 492)
+2026-05-23 08:51:34,125 INFO   KOSDAQ p11: 49종목 (누적 541)
+2026-05-23 08:51:35,580 INFO   KOSDAQ p12: 50종목 (누적 591)
+2026-05-23 08:51:37,057 INFO   KOSDAQ p13: 49종목 (누적 640)
+2026-05-23 08:51:38,613 INFO   KOSDAQ p14: 50종목 (누적 690)
+2026-05-23 08:51:40,085 INFO   KOSDAQ p15: 49종목 (누적 739)
+2026-05-23 08:51:41,565 INFO   KOSDAQ p16: 49종목 (누적 788)
+2026-05-23 08:51:43,013 INFO   KOSDAQ p17: 50종목 (누적 838)
+2026-05-23 08:51:44,479 INFO   KOSDAQ p18: 49종목 (누적 887)
+2026-05-23 08:51:45,908 INFO   KOSDAQ p19: 50종목 (누적 937)
+2026-05-23 08:51:47,401 INFO   KOSDAQ p20: 50종목 (누적 987)
+2026-05-23 08:51:48,843 INFO   KOSDAQ p21: 50종목 (누적 1037)
+2026-05-23 08:51:50,405 INFO   KOSDAQ p22: 50종목 (누적 1087)
+2026-05-23 08:51:51,886 INFO   KOSDAQ p23: 49종목 (누적 1136)
+2026-05-23 08:51:53,375 INFO   KOSDAQ p24: 50종목 (누적 1186)
+2026-05-23 08:51:54,957 INFO   KOSDAQ p25: 50종목 (누적 1236)
+2026-05-23 08:51:56,417 INFO   KOSDAQ p26: 49종목 (누적 1285)
+2026-05-23 08:51:57,868 INFO   KOSDAQ p27: 49종목 (누적 1334)
+2026-05-23 08:51:59,337 INFO   KOSDAQ p28: 50종목 (누적 1384)
+2026-05-23 08:52:00,867 INFO   KOSDAQ p29: 50종목 (누적 1434)
+2026-05-23 08:52:02,339 INFO   KOSDAQ p30: 50종목 (누적 1484)
+2026-05-23 08:52:03,821 INFO   KOSDAQ p31: 50종목 (누적 1534)
+Traceback (most recent call last):
+  File "/app/krx_fetcher.py", line 1905, in <module>
+    cur.execute(b''.join(parts))
+    main()
+  File "/app/krx_fetcher.py", line 1735, in main
+    n = seed_all_stocks_dynamic(conn)
+psycopg2.errors.UndefinedColumn: column "base_price" of relation "stocks_realtime" does not exist
+    seed_realtime(conn)    # 전체 종목 목록 로딩 (KOSPI+KOSDAQ 전체) — 필수 동기
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+LINE 3:                 (ticker, name, current_price, base_price, ch...
+    ^^^^^^^^^^^^^^^^^^^
+  File "/app/krx_fetcher.py", line 204, in seed_all_stocks_dynamic
+                                                      ^
+  File "/app/krx_fetcher.py", line 425, in seed_realtime
+    execute_values(cur, """
+  File "/usr/local/lib/python3.11/site-packages/psycopg2/extras.py", line 1299, in execute_values
+2026-05-23 08:52:05,248 INFO   KOSDAQ p32: 50종목 (누적 1584)
+2026-05-23 08:52:05,550 INFO KOSDAQ: 1584종목
+2026-05-23 08:52:06,457 INFO === 원광증권 KRX Fetcher 시작 (네이버 금융 기반) ===
+2026-05-23 08:52:06,563 INFO DB tables OK
+2026-05-23 08:52:06,568 INFO === 네이버 금융 전체 종목 목록 로딩 시작 ===
+2026-05-23 08:52:07,925 INFO   KOSPI p1: 50종목 (누적 50)
+2026-05-23 08:52:09,413 INFO   KOSPI p2: 49종목 (누적 99)
+2026-05-23 08:52:10,907 INFO   KOSPI p3: 50종목 (누적 149)
+2026-05-23 08:52:12,352 INFO   KOSPI p4: 47종목 (누적 196)
+2026-05-23 08:52:13,824 INFO   KOSPI p5: 49종목 (누적 245)
+2026-05-23 08:52:15,340 INFO   KOSPI p6: 46종목 (누적 291)
+2026-05-23 08:52:16,800 INFO   KOSPI p7: 49종목 (누적 340)
+2026-05-23 08:52:18,278 INFO   KOSPI p8: 46종목 (누적 386)
+2026-05-23 08:52:19,729 INFO   KOSPI p9: 44종목 (누적 430)
+2026-05-23 08:52:21,263 INFO   KOSPI p10: 43종목 (누적 473)
+2026-05-23 08:52:22,739 INFO   KOSPI p11: 46종목 (누적 519)
+2026-05-23 08:52:24,224 INFO   KOSPI p12: 45종목 (누적 564)
+2026-05-23 08:52:25,731 INFO   KOSPI p13: 45종목 (누적 609)
+2026-05-23 08:52:27,214 INFO   KOSPI p14: 45종목 (누적 654)
+2026-05-23 08:52:28,657 INFO   KOSPI p15: 43종목 (누적 697)
+2026-05-23 08:52:30,110 INFO   KOSPI p16: 45종목 (누적 742)
+2026-05-23 08:52:31,660 INFO   KOSPI p17: 39종목 (누적 781)
+2026-05-23 08:52:33,132 INFO   KOSPI p18: 44종목 (누적 825)
+2026-05-23 08:52:33,435 INFO KOSPI: 825종목
+2026-05-23 08:52:34,638 INFO   KOSDAQ p1: 50종목 (누적 50)
+2026-05-23 08:52:36,094 INFO   KOSDAQ p2: 49종목 (누적 99)
+2026-05-23 08:52:37,588 INFO   KOSDAQ p3: 50종목 (누적 149)
+2026-05-23 08:52:39,098 INFO   KOSDAQ p4: 49종목 (누적 198)
+2026-05-23 08:52:40,560 INFO   KOSDAQ p5: 50종목 (누적 248)
+2026-05-23 08:52:42,006 INFO   KOSDAQ p6: 49종목 (누적 297)
+2026-05-23 08:52:43,539 INFO   KOSDAQ p7: 48종목 (누적 345)
+2026-05-23 08:52:45,075 INFO   KOSDAQ p8: 49종목 (누적 394)
+2026-05-23 08:52:46,527 INFO   KOSDAQ p9: 48종목 (누적 442)
+2026-05-23 08:52:48,120 INFO   KOSDAQ p10: 50종목 (누적 492)
+2026-05-23 08:52:49,581 INFO   KOSDAQ p11: 49종목 (누적 541)
+2026-05-23 08:52:51,049 INFO   KOSDAQ p12: 50종목 (누적 591)
+2026-05-23 08:52:52,577 INFO   KOSDAQ p13: 49종목 (누적 640)
+2026-05-23 08:52:54,077 INFO   KOSDAQ p14: 50종목 (누적 690)
+2026-05-23 08:52:55,519 INFO   KOSDAQ p15: 49종목 (누적 739)
+2026-05-23 08:52:56,928 INFO   KOSDAQ p16: 49종목 (누적 788)
+2026-05-23 08:52:58,424 INFO   KOSDAQ p17: 50종목 (누적 838)
+2026-05-23 08:52:59,917 INFO   KOSDAQ p18: 49종목 (누적 887)
+2026-05-23 08:53:01,453 INFO   KOSDAQ p19: 50종목 (누적 937)
+2026-05-23 08:53:02,880 INFO   KOSDAQ p20: 50종목 (누적 987)
+2026-05-23 08:53:04,376 INFO   KOSDAQ p21: 50종목 (누적 1037)
+2026-05-23 08:53:05,904 INFO   KOSDAQ p22: 50종목 (누적 1087)
+2026-05-23 08:53:07,431 INFO   KOSDAQ p23: 49종목 (누적 1136)
+2026-05-23 08:53:08,920 INFO   KOSDAQ p24: 50종목 (누적 1186)
+2026-05-23 08:53:10,409 INFO   KOSDAQ p25: 50종목 (누적 1236)
+2026-05-23 08:53:11,895 INFO   KOSDAQ p26: 49종목 (누적 1285)
+2026-05-23 08:53:13,385 INFO   KOSDAQ p27: 49종목 (누적 1334)
+2026-05-23 08:53:14,874 INFO   KOSDAQ p28: 50종목 (누적 1384)
+2026-05-23 08:53:16,351 INFO   KOSDAQ p29: 50종목 (누적 1434)
+2026-05-23 08:53:17,831 INFO   KOSDAQ p30: 50종목 (누적 1484)
+2026-05-23 08:53:19,283 INFO   KOSDAQ p31: 50종목 (누적 1534)
+LINE 3:                 (ticker, name, current_price, base_price, ch...
+                                                      ^
+2026-05-23 08:53:20,776 INFO   KOSDAQ p32: 50종목 (누적 1584)
+2026-05-23 08:53:21,078 INFO KOSDAQ: 1584종목
+Traceback (most recent call last):
+  File "/app/krx_fetcher.py", line 1905, in <module>
+    main()
+  File "/app/krx_fetcher.py", line 1735, in main
+    seed_realtime(conn)    # 전체 종목 목록 로딩 (KOSPI+KOSDAQ 전체) — 필수 동기
+    ^^^^^^^^^^^^^^^^^^^
+  File "/app/krx_fetcher.py", line 425, in seed_realtime
+    n = seed_all_stocks_dynamic(conn)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/krx_fetcher.py", line 204, in seed_all_stocks_dynamic
+    execute_values(cur, """
+  File "/usr/local/lib/python3.11/site-packages/psycopg2/extras.py", line 1299, in execute_values
+    cur.execute(b''.join(parts))
+psycopg2.errors.UndefinedColumn: column "base_price" of relation "stocks_realtime" does not exist

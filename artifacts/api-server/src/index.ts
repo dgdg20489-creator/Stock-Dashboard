@@ -56,28 +56,28 @@ async function initDb() {
       );
 
       CREATE TABLE IF NOT EXISTS stocks_realtime (
-        id SERIAL PRIMARY KEY,
-        ticker TEXT UNIQUE NOT NULL,
+        ticker TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        current_price NUMERIC(18,2),
-        change_price NUMERIC(18,2) DEFAULT 0,
-        change_percent NUMERIC(8,4) DEFAULT 0,
-        volume BIGINT DEFAULT 0,
-        market_cap BIGINT DEFAULT 0,
-        sector TEXT DEFAULT '',
+        current_price NUMERIC NOT NULL DEFAULT 0,
+        base_price NUMERIC NOT NULL DEFAULT 0,
+        change_val NUMERIC NOT NULL DEFAULT 0,
+        change_pct NUMERIC NOT NULL DEFAULT 0,
+        volume BIGINT NOT NULL DEFAULT 0,
+        market_cap BIGINT NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
         market TEXT DEFAULT 'KOSPI',
-        high52w NUMERIC(18,2),
-        low52w NUMERIC(18,2),
-        per NUMERIC(10,2),
-        pbr NUMERIC(10,2),
-        eps NUMERIC(18,2),
-        dividend_yield NUMERIC(8,4),
-        open_price NUMERIC(18,2),
-        high_price NUMERIC(18,2),
-        low_price NUMERIC(18,2),
+        per NUMERIC DEFAULT 0,
+        naver_change_pct NUMERIC DEFAULT 0,
         logo_url TEXT DEFAULT '',
-        trade_value BIGINT DEFAULT 0,
-        updated_at TIMESTAMP DEFAULT NOW()
+        open_price NUMERIC DEFAULT 0,
+        high_price NUMERIC DEFAULT 0,
+        low_price NUMERIC DEFAULT 0,
+        dividend_yield NUMERIC DEFAULT 0,
+        high52w NUMERIC DEFAULT 0,
+        low52w NUMERIC DEFAULT 0,
+        eps NUMERIC DEFAULT 0,
+        pbr NUMERIC DEFAULT 0,
+        sector TEXT DEFAULT ''
       );
 
       CREATE TABLE IF NOT EXISTS stocks_history (
@@ -121,6 +121,31 @@ async function initDb() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
+
+    // 기존 테이블에 누락 컬럼 추가 (Railway 호환)
+    const alterStatements = [
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS base_price NUMERIC NOT NULL DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS change_val NUMERIC NOT NULL DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS change_pct NUMERIC NOT NULL DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS naver_change_pct NUMERIC DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS market TEXT DEFAULT 'KOSPI'`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS per NUMERIC DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS pbr NUMERIC DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS eps NUMERIC DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS sector TEXT DEFAULT ''`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT ''`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS open_price NUMERIC DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS high_price NUMERIC DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS low_price NUMERIC DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS high52w NUMERIC DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS low52w NUMERIC DEFAULT 0`,
+      `ALTER TABLE stocks_realtime ADD COLUMN IF NOT EXISTS dividend_yield NUMERIC DEFAULT 0`,
+      `ALTER TABLE market_news ADD COLUMN IF NOT EXISTS sentiment TEXT DEFAULT 'neutral'`,
+    ];
+    for (const sql of alterStatements) {
+      await pool.query(sql);
+    }
+
     console.log("=== DB 초기화 완료 ===");
   } catch (e) {
     console.error("DB 초기화 실패:", e);
