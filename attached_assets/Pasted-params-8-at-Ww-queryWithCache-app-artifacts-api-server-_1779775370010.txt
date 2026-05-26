@@ -1,0 +1,114 @@
+params: 8
+    at Ww.queryWithCache (/app/artifacts/api-server/dist/index.cjs:121:32453)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /app/artifacts/api-server/dist/index.cjs:121:35695
+    at async /app/artifacts/api-server/dist/index.cjs:211:8697 {
+  query: 'select "id", "username", "phone", "password", "avatar", "gender", "difficulty", "seed_money", "cash_balance", "accessories", "equipped_items", "created_at" from "users" where "users"."id" = $1',
+  params: [ 8 ],
+  cause: error: the database system is in recovery mode
+      at /app/artifacts/api-server/dist/index.cjs:59:15265
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async /app/artifacts/api-server/dist/index.cjs:121:35904
+      at async Ww.queryWithCache (/app/artifacts/api-server/dist/index.cjs:121:32428)
+      at async /app/artifacts/api-server/dist/index.cjs:121:35695
+      at async /app/artifacts/api-server/dist/index.cjs:211:8697 {
+    length: 110,
+    severity: 'FATAL',
+    code: '57P03',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'backend_startup.c',
+    line: '336',
+    routine: 'BackendInitialize'
+  }
+}
+t [Error]: Failed query: select "id", "username", "phone", "password", "avatar", "gender", "difficulty", "seed_money", "cash_balance", "accessories", "equipped_items", "created_at" from "users" where "users"."id" = $1
+params: 8
+    at Ww.queryWithCache (/app/artifacts/api-server/dist/index.cjs:121:32453)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /app/artifacts/api-server/dist/index.cjs:121:35695
+    at async /app/artifacts/api-server/dist/index.cjs:211:9226 {
+  query: 'select "id", "username", "phone", "password", "avatar", "gender", "difficulty", "seed_money", "cash_balance", "accessories", "equipped_items", "created_at" from "users" where "users"."id" = $1',
+  params: [ 8 ],
+  cause: error: the database system is in recovery mode
+      at /app/artifacts/api-server/dist/index.cjs:59:15265
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async /app/artifacts/api-server/dist/index.cjs:121:35904
+      at async Ww.queryWithCache (/app/artifacts/api-server/dist/index.cjs:121:32428)
+      at async /app/artifacts/api-server/dist/index.cjs:121:35695
+      at async /app/artifacts/api-server/dist/index.cjs:211:9226 {
+    length: 110,
+    where: undefined,
+    severity: 'FATAL',
+    code: '57P03',
+    schema: undefined,
+    dataType: undefined,
+    table: undefined,
+    line: '336',
+    detail: undefined,
+    constraint: undefined,
+    routine: 'BackendInitialize'
+    column: undefined,
+    hint: undefined,
+    file: 'backend_startup.c',
+    position: undefined,
+  }
+    internalPosition: undefined,
+    internalQuery: undefined,
+}
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+error: the database system is in recovery mode
+    at async /app/artifacts/api-server/dist/index.cjs:189:1982 {
+    at /app/artifacts/api-server/dist/index.cjs:59:15265
+  length: 110,
+  severity: 'FATAL',
+  code: '57P03',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+      at async /app/artifacts/api-server/dist/index.cjs:121:35904
+      at async Ww.queryWithCache (/app/artifacts/api-server/dist/index.cjs:121:32428)
+  internalQuery: undefined,
+    hint: undefined,
+  where: undefined,
+    length: 110,
+    position: undefined,
+  schema: undefined,
+    severity: 'FATAL',
+    internalPosition: undefined,
+    schema: undefined,
+  table: undefined,
+      at async /app/artifacts/api-server/dist/index.cjs:121:35695
+    code: '57P03',
+  column: undefined,
+    table: undefined,
+    line: '336',
+      at async /app/artifacts/api-server/dist/index.cjs:211:8697 {
+    detail: undefined,
+  dataType: undefined,
+    routine: 'BackendInitialize'
+    internalQuery: undefined,
+    constraint: undefined,
+  constraint: undefined,
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    where: undefined,
+  code: '57P03',
+    file: 'backend_startup.c',
+    at async /app/artifacts/api-server/dist/index.cjs:189:1982 {
+  file: 'backend_startup.c',
+  file: 'backend_startup.c',
+  detail: undefined,
+  schema: undefined,
+  column: undefined,
+  line: '336',
+  }
