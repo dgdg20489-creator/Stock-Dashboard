@@ -273,8 +273,21 @@ def get_all_tickers_from_db(conn) -> list:
         return [r[0] for r in cur.fetchall()]
 
 
-def get_conn():
-    return psycopg2.connect(DATABASE_URL)
+def get_conn(retries: int = 12, delay: float = 5.0):
+    """DB 연결 — recovery mode 등 일시적 오류 시 재시도."""
+    import time as _t
+    last_exc = None
+    for attempt in range(retries):
+        try:
+            return psycopg2.connect(DATABASE_URL, connect_timeout=10)
+        except psycopg2.OperationalError as e:
+            last_exc = e
+            if attempt < retries - 1:
+                log.warning(f"DB 연결 실패 (시도 {attempt+1}/{retries}), {delay:.0f}초 후 재시도: {e}")
+                _t.sleep(delay)
+            else:
+                raise
+    raise last_exc
 
 
 def create_tables(conn):
