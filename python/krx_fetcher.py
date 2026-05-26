@@ -273,8 +273,8 @@ def get_all_tickers_from_db(conn) -> list:
         return [r[0] for r in cur.fetchall()]
 
 
-def get_conn(retries: int = 12, delay: float = 5.0):
-    """DB 연결 — recovery mode 등 일시적 오류 시 재시도."""
+def get_conn(retries: int = 72, delay: float = 5.0):
+    """DB 연결 — recovery mode 등 일시적 오류 시 재시도 (최대 6분)."""
     import time as _t
     last_exc = None
     for attempt in range(retries):
@@ -283,7 +283,8 @@ def get_conn(retries: int = 12, delay: float = 5.0):
         except psycopg2.OperationalError as e:
             last_exc = e
             if attempt < retries - 1:
-                log.warning(f"DB 연결 실패 (시도 {attempt+1}/{retries}), {delay:.0f}초 후 재시도: {e}")
+                if attempt % 6 == 0:  # 30초마다 한 번만 로그
+                    log.warning(f"DB 연결 대기 중 ({attempt*5}초 경과, 최대 {retries*delay:.0f}초): {e}")
                 _t.sleep(delay)
             else:
                 raise

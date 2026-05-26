@@ -1,0 +1,78 @@
+You reached the start of the range
+May 26, 2026, 12:12 PM
+Starting Container
+2026-05-26 03:13:24,715 INFO === 원광증권 KRX Fetcher 시작 (네이버 금융 기반) ===
+2026-05-26 03:13:24,823 WARNING DB 연결 실패 (시도 1/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:13:29,867 WARNING DB 연결 실패 (시도 2/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:13:34,911 WARNING DB 연결 실패 (시도 3/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:13:39,954 WARNING DB 연결 실패 (시도 4/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:13:44,996 WARNING DB 연결 실패 (시도 5/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:13:50,040 WARNING DB 연결 실패 (시도 6/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:13:55,082 WARNING DB 연결 실패 (시도 7/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:14:00,142 WARNING DB 연결 실패 (시도 8/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:14:05,188 WARNING DB 연결 실패 (시도 9/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:14:10,229 WARNING DB 연결 실패 (시도 10/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:14:15,271 WARNING DB 연결 실패 (시도 11/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+psycopg2.OperationalError: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+Traceback (most recent call last):
+  File "/app/krx_fetcher.py", line 1923, in <module>
+    main()
+  File "/app/krx_fetcher.py", line 1751, in main
+    conn = get_conn()
+           ^^^^^^^^^^
+  File "/app/krx_fetcher.py", line 282, in get_conn
+    return psycopg2.connect(DATABASE_URL, connect_timeout=10)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-05-26 03:14:20,775 INFO === 원광증권 KRX Fetcher 시작 (네이버 금융 기반) ===
+2026-05-26 03:14:20,795 WARNING DB 연결 실패 (시도 1/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:14:25,837 WARNING DB 연결 실패 (시도 2/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:14:30,885 WARNING DB 연결 실패 (시도 3/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:14:35,930 WARNING DB 연결 실패 (시도 4/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:14:40,971 WARNING DB 연결 실패 (시도 5/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:14:46,013 WARNING DB 연결 실패 (시도 6/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:14:51,054 WARNING DB 연결 실패 (시도 7/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:14:56,096 WARNING DB 연결 실패 (시도 8/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:01,137 WARNING DB 연결 실패 (시도 9/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:06,177 WARNING DB 연결 실패 (시도 10/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:11,221 WARNING DB 연결 실패 (시도 11/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+Traceback (most recent call last):
+  File "/app/krx_fetcher.py", line 1923, in <module>
+    main()
+  File "/app/krx_fetcher.py", line 1751, in main
+    conn = get_conn()
+           ^^^^^^^^^^
+  File "/app/krx_fetcher.py", line 282, in get_conn
+    return psycopg2.connect(DATABASE_URL, connect_timeout=10)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.OperationalError: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:16,704 INFO === 원광증권 KRX Fetcher 시작 (네이버 금융 기반) ===
+2026-05-26 03:15:16,720 WARNING DB 연결 실패 (시도 1/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:21,797 WARNING DB 연결 실패 (시도 2/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:26,838 WARNING DB 연결 실패 (시도 3/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:31,878 WARNING DB 연결 실패 (시도 4/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:36,921 WARNING DB 연결 실패 (시도 5/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:41,963 WARNING DB 연결 실패 (시도 6/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:47,013 WARNING DB 연결 실패 (시도 7/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:52,055 WARNING DB 연결 실패 (시도 8/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:15:57,099 WARNING DB 연결 실패 (시도 9/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:16:02,140 WARNING DB 연결 실패 (시도 10/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+2026-05-26 03:16:07,182 WARNING DB 연결 실패 (시도 11/12), 5초 후 재시도: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
+Traceback (most recent call last):
+  File "/app/krx_fetcher.py", line 1923, in <module>
+    main()
+  File "/app/krx_fetcher.py", line 1751, in main
+    conn = get_conn()
+           ^^^^^^^^^^
+  File "/app/krx_fetcher.py", line 282, in get_conn
+    return psycopg2.connect(DATABASE_URL, connect_timeout=10)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.OperationalError: connection to server at "postgres.railway.internal" (fd12:82ba:3142:1:5000:d6:8f49:6e8d), port 5432 failed: FATAL:  the database system is in recovery mode
