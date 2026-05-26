@@ -1,0 +1,120 @@
+
+Postgres-ikB9
+/
+adc03ac2
+Active
+
+May 23, 2026, 1:13 PM GMT+9
+Details
+Build Logs
+Deploy Logs
+Network Flow Logs
+Filter and search logs
+
+You reached the start of the range
+May 23, 2026, 1:13 PM
+Mounting volume on: /var/lib/containers/railwayapp/bind-mounts/37c0d50f-19c2-45c5-a604-360d077dc33b/vol_tusdu1m7kue0686y
+Starting Container
+pgbackrest: volume 433 MiB; sized wal-drop=64 MiB queue-max=216 MiB
+pgbackrest: restore-gate WAL_RECOVER_FROM_BUCKET= POSTGRES_RECOVERY_TARGET_TIME= PG_VERSION=missing RESTORED_MARKER=missing PGDATA=/var/lib/postgresql/data/pgdata
+selecting dynamic shared memory implementation ... posix
+The files belonging to this database system will be owned by user "postgres".
+This user must also own the server process.
+selecting default "max_connections" ... 100
+The database cluster will be initialized with locale "en_US.utf8".
+selecting default "shared_buffers" ... 128MB
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+selecting default time zone ... Etc/UTC
+Data page checksums are enabled.
+creating configuration files ... ok
+running bootstrap script ... ok
+fixing permissions on existing directory /var/lib/postgresql/data/pgdata ... ok
+performing post-bootstrap initialization ... ok
+creating subdirectories ... ok
+syncing data to disk ... ok
+Success. You can now start the database server using:
+    pg_ctl -D /var/lib/postgresql/data/pgdata -l logfile start
+initdb: warning: enabling "trust" authentication for local connections
+initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+waiting for server to start....2026-05-23 04:13:31.452 UTC [53] LOG:  starting PostgreSQL 18.4 (Debian 18.4-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-05-23 04:13:31.453 UTC [53] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-05-23 04:13:31.460 UTC [59] LOG:  database system was shut down at 2026-05-23 04:13:30 UTC
+2026-05-23 04:13:31.463 UTC [53] LOG:  database system is ready to accept connections
+ done
+server started
+..+...+....+...+...
+CREATE DATABASE
++............+
+.........+...
+.....++++++
+......+........+......................+.....+....+........+.........
+......+.......+...+.....+......+.......+..+.+..+
+/usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/99-pgbackrest-init.sh
+.........+...+.....................+......+.+++
+++++++++++
+/usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/init-ssl.sh
+.....++++++++++++
+++++++++++
+++++++++++
+++++++++++
+++++++*......+...+...+...............
+++++++++++
++...+..+...+.........+................+.....+
++++++++*..++++
+++++++++++
+++++++++++
+++++++++++
++++++*......+.....
+...+......+....
+......+...+................+......+........++++
+++++++++++
+++++++++++
+....+......+.......
+..+...+.........
+++++++++++
++.+.....+.+..+.+.....+......+......++
+.+...+......+++
++++++*..+..+...
++...+.........
++++
+++++++++++
+....+.......
+-----
+++++++++++
+............
+...+..+.........
+..............+.......+.....+...+...+............+....+.....+...+
+.......+.....+...+....+
+..+..+...+.......
+++++++++++
+++++++++++
+.+.........+..+....
++++++++*....
+++++++++++
+.++++++++++
+...+...+......+...
+..........+...
+...+...........
+++++++++++
+++++++++++
+...+.......
+......+......+
+++++++++*.+++
+..+.+........
+++++++++++
+.+.....+.+...
+++++++++++
++++++++++*..+...........
+.+...........+.
+...++++++
+++++++++++++
++..+.......+..
++.....+....++
+++++++++++
+++++
+...+......+......
+++++*.......
+-----
++.........+.
+..+..+...........
