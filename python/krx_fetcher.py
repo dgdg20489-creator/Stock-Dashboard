@@ -273,8 +273,8 @@ def get_all_tickers_from_db(conn) -> list:
         return [r[0] for r in cur.fetchall()]
 
 
-def get_conn(retries: int = 72, delay: float = 5.0):
-    """DB 연결 — recovery mode 등 일시적 오류 시 재시도 (최대 6분)."""
+def get_conn(retries: int = 36, delay: float = 5.0):
+    """DB 연결 — recovery mode 등 일시적 오류 시 재시도 (최대 3분)."""
     import time as _t
     last_exc = None
     for attempt in range(retries):
@@ -284,11 +284,28 @@ def get_conn(retries: int = 72, delay: float = 5.0):
             last_exc = e
             if attempt < retries - 1:
                 if attempt % 6 == 0:  # 30초마다 한 번만 로그
-                    log.warning(f"DB 연결 대기 중 ({attempt*5}초 경과, 최대 {retries*delay:.0f}초): {e}")
+                    log.warning(f"DB 연결 대기 중 ({attempt*5}초 경과): {e}")
                 _t.sleep(delay)
             else:
                 raise
     raise last_exc
+
+
+def get_conn_forever(delay: float = 5.0):
+    """DB 복구될 때까지 무한 대기 — 초기 시작 시 사용."""
+    import time as _t
+    attempt = 0
+    while True:
+        try:
+            conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
+            if attempt > 0:
+                log.info(f"DB 연결 성공 ({attempt*delay:.0f}초 대기 후)")
+            return conn
+        except psycopg2.OperationalError as e:
+            if attempt % 6 == 0:  # 30초마다 로그
+                log.warning(f"DB 복구 대기 중 ({attempt*delay:.0f}초 경과): {e}")
+            attempt += 1
+            _t.sleep(delay)
 
 
 def create_tables(conn):
@@ -1749,7 +1766,7 @@ def promote_ipo_to_realtime(conn):
 def main():
     log.info("=== 원광증권 KRX Fetcher 시작 (네이버 금융 기반) ===")
 
-    conn = get_conn()
+    conn = get_conn_forever()  # DB 복구될 때까지 무한 대기
     create_tables(conn)
     seed_realtime(conn)    # 전체 종목 목록 로딩 (KOSPI+KOSDAQ 전체) — 필수 동기
 
