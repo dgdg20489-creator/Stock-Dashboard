@@ -1,0 +1,104 @@
+Starting Container
+2026-05-26 06:13:19,773 INFO DB tables OK
+2026-05-26 06:13:19,775 INFO stocks_realtime 이미 2407종목 존재 — 목록 업데이트만 수행
+2026-05-26 06:13:19,775 INFO === 네이버 금융 전체 종목 목록 로딩 시작 ===
+2026-05-26 06:13:21,118 INFO   KOSPI p1: 50종목 (누적 50)
+2026-05-26 06:13:22,048 INFO   KOSPI p2: 49종목 (누적 99)
+2026-05-26 06:13:23,536 INFO   KOSPI p3: 50종목 (누적 149)
+2026-05-26 06:13:25,038 INFO   KOSPI p4: 47종목 (누적 196)
+2026-05-26 06:13:26,514 INFO   KOSPI p5: 49종목 (누적 245)
+2026-05-26 06:13:27,447 INFO   KOSPI p6: 46종목 (누적 291)
+2026-05-26 06:13:28,881 INFO   KOSPI p7: 49종목 (누적 340)
+2026-05-26 06:13:30,323 INFO   KOSPI p8: 46종목 (누적 386)
+2026-05-26 06:13:31,754 INFO   KOSPI p9: 42종목 (누적 428)
+2026-05-26 06:13:33,318 INFO   KOSPI p10: 42종목 (누적 470)
+2026-05-26 06:13:34,230 INFO   KOSPI p11: 48종목 (누적 518)
+2026-05-26 06:13:35,691 INFO   KOSPI p12: 46종목 (누적 564)
+2026-05-26 06:13:37,175 INFO   KOSPI p13: 45종목 (누적 609)
+2026-05-26 06:13:38,645 INFO   KOSPI p14: 46종목 (누적 655)
+2026-05-26 06:13:40,124 INFO   KOSPI p15: 43종목 (누적 698)
+2026-05-26 06:13:41,575 INFO   KOSPI p16: 43종목 (누적 741)
+2026-05-26 06:13:43,052 INFO   KOSPI p17: 41종목 (누적 782)
+2026-05-26 06:13:44,520 INFO   KOSPI p18: 41종목 (누적 823)
+2026-05-26 06:13:44,821 INFO KOSPI: 823종목
+2026-05-26 06:13:45,947 INFO   KOSDAQ p1: 49종목 (누적 49)
+2026-05-26 06:13:47,395 INFO   KOSDAQ p2: 50종목 (누적 99)
+2026-05-26 06:13:48,807 INFO   KOSDAQ p3: 50종목 (누적 149)
+2026-05-26 06:13:50,268 INFO   KOSDAQ p4: 49종목 (누적 198)
+2026-05-26 06:13:51,236 INFO   KOSDAQ p5: 50종목 (누적 248)
+2026-05-26 06:13:52,160 INFO   KOSDAQ p6: 50종목 (누적 298)
+2026-05-26 06:13:53,686 INFO   KOSDAQ p7: 47종목 (누적 345)
+2026-05-26 06:13:55,202 INFO   KOSDAQ p8: 49종목 (누적 394)
+2026-05-26 06:13:56,619 INFO   KOSDAQ p9: 49종목 (누적 443)
+2026-05-26 06:13:57,587 INFO   KOSDAQ p10: 49종목 (누적 492)
+2026-05-26 06:13:58,537 INFO   KOSDAQ p11: 49종목 (누적 541)
+2026-05-26 06:13:59,932 INFO   KOSDAQ p12: 49종목 (누적 590)
+2026-05-26 06:14:01,419 INFO   KOSDAQ p13: 50종목 (누적 640)
+2026-05-26 06:14:02,886 INFO   KOSDAQ p14: 50종목 (누적 690)
+2026-05-26 06:14:04,335 INFO   KOSDAQ p15: 50종목 (누적 740)
+2026-05-26 06:14:05,790 INFO   KOSDAQ p16: 48종목 (누적 788)
+2026-05-26 06:14:06,708 INFO   KOSDAQ p17: 50종목 (누적 838)
+2026-05-26 06:14:08,123 INFO   KOSDAQ p18: 50종목 (누적 888)
+2026-05-26 06:14:09,079 INFO   KOSDAQ p19: 49종목 (누적 937)
+2026-05-26 06:14:10,529 INFO   KOSDAQ p20: 50종목 (누적 987)
+2026-05-26 06:14:12,079 INFO   KOSDAQ p21: 50종목 (누적 1037)
+2026-05-26 06:14:13,590 INFO   KOSDAQ p22: 50종목 (누적 1087)
+2026-05-26 06:14:15,038 INFO   KOSDAQ p23: 49종목 (누적 1136)
+2026-05-26 06:14:15,998 INFO   KOSDAQ p24: 50종목 (누적 1186)
+2026-05-26 06:14:17,458 INFO   KOSDAQ p25: 50종목 (누적 1236)
+2026-05-26 06:14:18,872 INFO   KOSDAQ p26: 49종목 (누적 1285)
+2026-05-26 06:14:19,825 INFO   KOSDAQ p27: 49종목 (누적 1334)
+2026-05-26 06:14:21,235 INFO   KOSDAQ p28: 50종목 (누적 1384)
+2026-05-26 06:14:22,716 INFO   KOSDAQ p29: 50종목 (누적 1434)
+2026-05-26 06:14:24,218 INFO   KOSDAQ p30: 50종목 (누적 1484)
+2026-05-26 06:14:25,689 INFO   KOSDAQ p31: 50종목 (누적 1534)
+2026-05-26 06:14:27,087 INFO   KOSDAQ p32: 50종목 (누적 1584)
+2026-05-26 06:14:27,388 INFO KOSDAQ: 1584종목
+2026-05-26 06:14:27,442 INFO === 2407종목 DB 저장 완료 ===
+2026-05-26 06:14:27,443 INFO 초기화 백그라운드 시작 — 메인 루프 즉시 진입
+2026-05-26 06:14:27,451 ERROR DB error: relation "stocks_realtime" does not exist
+LINE 4:             FROM stocks_realtime
+                         ^
+2026-05-26 06:14:27,480 ERROR [INIT_BG] relation "stocks_realtime" does not exist
+LINE 3:             FROM stocks_realtime r
+                         ^
+Traceback (most recent call last):
+  File "/app/krx_fetcher.py", line 1777, in _init_bg
+    seed_history(bg)
+  File "/app/krx_fetcher.py", line 991, in seed_history
+    cur.execute("""
+psycopg2.errors.UndefinedTable: relation "stocks_realtime" does not exist
+LINE 3:             FROM stocks_realtime r
+                         ^
+2026-05-26 06:14:28,453 INFO 상세 재무정보 수집 시작 (sector/EPS/52주, 백그라운드)...
+2026-05-26 06:14:28,460 INFO === 종목 상세 재무정보 수집 시작 (상위 300종목) ===
+2026-05-26 06:14:28,461 INFO 종목 상세 재무정보 업데이트 완료: 0/0종목
+2026-05-26 06:14:31,496 WARNING execute_limit_orders 오류: relation "limit_orders" does not exist
+LINE 5:                 FROM limit_orders lo
+                             ^
+2026-05-26 06:14:36,504 WARNING execute_limit_orders 오류: relation "limit_orders" does not exist
+LINE 5:                 FROM limit_orders lo
+                             ^
+2026-05-26 06:14:41,511 WARNING execute_limit_orders 오류: relation "limit_orders" does not exist
+LINE 5:                 FROM limit_orders lo
+                             ^
+2026-05-26 06:14:46,519 WARNING execute_limit_orders 오류: relation "limit_orders" does not exist
+LINE 5:                 FROM limit_orders lo
+                             ^
+2026-05-26 06:14:51,534 WARNING execute_limit_orders 오류: relation "limit_orders" does not exist
+LINE 5:                 FROM limit_orders lo
+                             ^
+2026-05-26 06:14:56,513 INFO Cycle 30 OK (BG threads alive: 2)
+2026-05-26 06:14:56,548 WARNING execute_limit_orders 오류: relation "limit_orders" does not exist
+LINE 5:                 FROM limit_orders lo
+                             ^
+2026-05-26 06:15:01,560 WARNING execute_limit_orders 오류: relation "limit_orders" does not exist
+LINE 5:                 FROM limit_orders lo
+                             ^
+2026-05-26 06:15:06,568 WARNING execute_limit_orders 오류: relation "limit_orders" does not exist
+LINE 5:                 FROM limit_orders lo
+                             ^
+2026-05-26 06:15:11,576 WARNING execute_limit_orders 오류: relation "limit_orders" does not exist
+LINE 5:                 FROM limit_orders lo
+                             ^
+2026-05-26 06:15:16,591 WARNING execute_limit_orders 오류: relation "limit_orders" does not exist

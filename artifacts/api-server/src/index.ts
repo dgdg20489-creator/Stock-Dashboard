@@ -120,6 +120,20 @@ async function initDb() {
         offer_price NUMERIC(18,2),
         created_at TIMESTAMP DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS limit_orders (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        ticker TEXT NOT NULL,
+        stock_name TEXT NOT NULL DEFAULT '',
+        order_type TEXT NOT NULL,
+        price_type TEXT NOT NULL DEFAULT 'limit',
+        limit_price NUMERIC NOT NULL,
+        shares INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        executed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
     `);
 
     // 기존 테이블에 누락 컬럼 추가 (Railway 호환)

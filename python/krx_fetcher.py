@@ -417,6 +417,24 @@ def create_tables(conn):
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ipo_listing_date_idx ON ipo_stocks(listing_date)")
+
+        # 지정가/예약 주문 테이블
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS limit_orders (
+                id          SERIAL PRIMARY KEY,
+                user_id     INTEGER NOT NULL,
+                ticker      TEXT    NOT NULL,
+                stock_name  TEXT    NOT NULL DEFAULT '',
+                order_type  TEXT    NOT NULL,
+                price_type  TEXT    NOT NULL DEFAULT 'limit',
+                limit_price NUMERIC NOT NULL,
+                shares      INTEGER NOT NULL,
+                status      TEXT    NOT NULL DEFAULT 'pending',
+                executed_at TIMESTAMPTZ,
+                created_at  TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS limit_orders_user_idx ON limit_orders(user_id, status)")
     conn.commit()
     log.info("DB tables OK")
 
